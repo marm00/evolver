@@ -3,13 +3,13 @@ name: CI
 on:
   push:
     branches:
-      - '**'
+      - main
 
 jobs:
   install-lint:
     runs-on: ubuntu-latest
+    environment: production
     env:
-      POSTGRES_URL: 'postgresql://postgres:password@localhost:5432/evolver'
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
@@ -19,8 +19,10 @@ jobs:
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
       - name: Pull Vercel Environment Information
-        run: vercel pull --yes --environment=production --token=testtoken
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
         
+
+      # POSTGRES_URL: 'postgresql://postgres:password@localhost:5432/evolver'
 
       # - name: Setup Node
       #   uses: actions/setup-node@v4
