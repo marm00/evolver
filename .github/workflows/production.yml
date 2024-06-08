@@ -12,36 +12,26 @@ jobs:
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      # POSTGRES_URL: 'postgresql://postgres:password@localhost:5432/evolver'
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-
       - uses: pnpm/action-setup@v3.0.0
         name: Install pnpm
         id: pnpm-install
         with:
           version: 8
           run_install: true
-
       - name: Install dependencies
         run: pnpm install
-
       - name: Install Vercel CLI
-        run: npm install --global vercel@latest
-        
+        run: pnpm install --global vercel@latest
       - name: Pull Vercel Environment Information
         run: vercel env pull --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-
       - name: Type check
         run: pnpm typecheck
-
       - name: Lint code
         run: pnpm lint
