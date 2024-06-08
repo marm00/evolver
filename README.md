@@ -12,6 +12,6 @@ A Reverse Bullet Hell game set in a time-progressive reality-based 2D environmen
 
 ## TODO
 
-- [] next-auth styling
-- [] Custom email signin template
-- [] Prevent email signin spam identification
+- [ ] next-auth styling
+- [ ] Custom email signin template
+- [ ] Prevent email signin spam identification
