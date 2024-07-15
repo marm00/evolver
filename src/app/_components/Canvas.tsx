@@ -26,10 +26,10 @@ export function Canvas() {
             const deltaAvg = deltas.reduce((a, b) => a + b, 0) / deltas.length;
             const fps = Math.floor(1/deltaAvg);
             console.log(`${fps} fps`);
-            
+
             renderGrass(ctx).then().catch(console.error);
 
-            window.requestAnimationFrame(frame);
+            // window.requestAnimationFrame(frame);
         };
 
         window.requestAnimationFrame((timestamp) => {
