@@ -185,6 +185,7 @@ export class Vector2 {
     negate() {
         this.x = -this.x;
         this.y = -this.y;
+        return this;
     }
 
     /** Polar coordinates of the vector. */
