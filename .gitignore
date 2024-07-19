@@ -1,5 +1,8 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+# TODO: ignoring public for now until assets are finalized
+/public/
+
 # dependencies
 /node_modules
 /.pnp
