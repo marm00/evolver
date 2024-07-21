@@ -15,7 +15,8 @@ const WEST_BIT = 4;
 const EAST_BIT = 8;
 
 // TODO: could map this to a vector and/or sprite, or change the enum to vector type
-enum PlayerDirection {
+/** 8-directional movement direction (e.g. NorthEast), plus 'idle' state. */  
+enum Direction {
     Idle,
     N,       // Up 
     NE,   // UpRight
@@ -27,16 +28,17 @@ enum PlayerDirection {
     NW    // UpLeft
 }
 
-const directionVectorMap: Record<PlayerDirection, Vector2> = {
-    [PlayerDirection.Idle]: new Vector2(0, 0),
-    [PlayerDirection.N]: new Vector2(0, 1),
-    [PlayerDirection.NE]: new Vector2(Math.SQRT1_2, Math.SQRT1_2),
-    [PlayerDirection.E]: new Vector2(1, 0),
-    [PlayerDirection.SE]: new Vector2(Math.SQRT1_2, -Math.SQRT1_2),
-    [PlayerDirection.S]: new Vector2(0, -1),
-    [PlayerDirection.SW]: new Vector2(-Math.SQRT1_2, -Math.SQRT1_2),
-    [PlayerDirection.W]: new Vector2(-1, 0),
-    [PlayerDirection.NW]: new Vector2(-Math.SQRT1_2, Math.SQRT1_2)
+/** Maps a {@link Direction} to a unit vector. */
+const directionVectorMap: Record<Direction, Vector2> = {
+    [Direction.Idle]: new Vector2(0, 0),
+    [Direction.N]: new Vector2(0, 1),
+    [Direction.NE]: new Vector2(Math.SQRT1_2, Math.SQRT1_2),
+    [Direction.E]: new Vector2(1, 0),
+    [Direction.SE]: new Vector2(Math.SQRT1_2, -Math.SQRT1_2),
+    [Direction.S]: new Vector2(0, -1),
+    [Direction.SW]: new Vector2(-Math.SQRT1_2, -Math.SQRT1_2),
+    [Direction.W]: new Vector2(-1, 0),
+    [Direction.NW]: new Vector2(-Math.SQRT1_2, Math.SQRT1_2)
 };
 
 async function loadImage(src: string) {
@@ -104,36 +106,36 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     // We probably dont want to update the player direction directly here, maybe use a separate vector or scalar
     gameState.player.playerDirection = updatePlayerDirection(gameState.player);
     const prev = gameState.player.position.clone();
-    if (gameState.player.playerDirection !== PlayerDirection.Idle) {
-        if (gameState.player.playerDirection === PlayerDirection.N) {
+    if (gameState.player.playerDirection !== Direction.Idle) {
+        if (gameState.player.playerDirection === Direction.N) {
             gameState.player.position.add(new Vector2(0, 1).scale(1.1));
             imageOffset = [3, 2];
         }
-        if (gameState.player.playerDirection === PlayerDirection.S) {
+        if (gameState.player.playerDirection === Direction.S) {
             gameState.player.position.add(new Vector2(0, -1).scale(1.1));
             imageOffset = [2, 3];
         }
-        if (gameState.player.playerDirection === PlayerDirection.W) {
+        if (gameState.player.playerDirection === Direction.W) {
             gameState.player.position.add(new Vector2(-1, 0).scale(1.1));
             imageOffset = [3, 3];
         }
-        if (gameState.player.playerDirection === PlayerDirection.E) {
+        if (gameState.player.playerDirection === Direction.E) {
             gameState.player.position.add(new Vector2(1, 0).scale(1.1));
             imageOffset = [0, 2];
         }
-        if (gameState.player.playerDirection === PlayerDirection.NW) {
+        if (gameState.player.playerDirection === Direction.NW) {
             gameState.player.position.add(new Vector2(-1, 1).scale(1.1));
             imageOffset = [2, 2];
         }
-        if (gameState.player.playerDirection === PlayerDirection.NE) {
+        if (gameState.player.playerDirection === Direction.NE) {
             gameState.player.position.add(new Vector2(1, 1).scale(1.1));
             imageOffset = [1, 2];
         }
-        if (gameState.player.playerDirection === PlayerDirection.SW) {
+        if (gameState.player.playerDirection === Direction.SW) {
             gameState.player.position.add(new Vector2(-1, - 1).scale(1.1));
             imageOffset = [1, 3];
         }
-        if (gameState.player.playerDirection === PlayerDirection.SE) {
+        if (gameState.player.playerDirection === Direction.SE) {
             gameState.player.position.add(new Vector2(1, -1).scale(1.1));
             imageOffset = [0, 3];
         }
@@ -245,25 +247,25 @@ interface Game {
     canvasBounds: Bounds;
 }
 
-
-const directionBitmaskMap: Record<number, PlayerDirection> = {
-    0b0000: PlayerDirection.Idle,
-    0b0001: PlayerDirection.N,
-    0b1001: PlayerDirection.NE,
-    0b1000: PlayerDirection.E,
-    0b1010: PlayerDirection.SE,
-    0b0010: PlayerDirection.S,
-    0b0110: PlayerDirection.SW,
-    0b0100: PlayerDirection.W,
-    0b0101: PlayerDirection.NW
+/** Maps a [bitmask](https://en.wikipedia.org/wiki/Mask_(computing)) to the corresponding {@link Direction} state. */
+const bitmaskDirectionMap: Record<number, Direction> = {
+    0b0000: Direction.Idle,
+    0b0001: Direction.N,
+    0b1001: Direction.NE,
+    0b1000: Direction.E,
+    0b1010: Direction.SE,
+    0b0010: Direction.S,
+    0b0110: Direction.SW,
+    0b0100: Direction.W,
+    0b0101: Direction.NW
 };
 
 /** 
  * TODO: Currently, this gets called every frame. It should only be called/executed keyboard input changes
  * 
- * Translates the player's 8-directional keyboard input into a {@link PlayerDirection} using a bitmask.
+ * Translates the player's 8-directional keyboard input into a {@link Direction} using a bitmask.
  */
-function updatePlayerDirection(player: Player): PlayerDirection {
+function updatePlayerDirection(player: Player): Direction {
     let bitmask = 0;
 
     // Set bits based on input
@@ -284,7 +286,7 @@ function updatePlayerDirection(player: Player): PlayerDirection {
         bitmask &= ~EAST_BIT;
     }
 
-    return directionBitmaskMap[bitmask] ?? PlayerDirection.Idle;
+    return bitmaskDirectionMap[bitmask] ?? Direction.Idle;
 }
 
 class Player implements Bbox {
@@ -299,7 +301,7 @@ class Player implements Bbox {
     pressingDown = false;
     pressingLeft = false;
     pressingRight = false;
-    playerDirection = PlayerDirection.Idle;
+    playerDirection = Direction.Idle;
     velocity = new Vector2(0, 0);
     displayWidth = 128;
     displayHeight = 128;
