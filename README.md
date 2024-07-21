@@ -10,8 +10,10 @@ Technologies: [Next.js](https://nextjs.org), [NextAuth.js](https://next-auth.js.
 
 ## TODO
 
-Unrelated to the game.
+Low priority features.
 
+- [ ] Debounce camera resize
+- [ ] Camera zoom can exceed maximum bug-free canvas size
 - [ ] next-auth styling
 - [ ] Custom email signin template
 - [ ] Prevent email signin spam identification

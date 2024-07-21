@@ -1,9 +1,43 @@
-// function that takes in a canvasrenderingcontext and draws a rectangle
-
 import { Vector2 } from "./vector2";
 
 const GAME_WIDTH = 6400;
 const GAME_HEIGHT = 6400;
+
+// type PlayerDirection = 'N' | 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW';
+
+/** 0b0001 = Up Direction */
+const NORTH_BIT = 1;
+/** 0b0010 = Down Direction */
+const SOUTH_BIT = 2;
+/** 0b0100 = Left Direction */
+const WEST_BIT = 4;
+/** 0b1000 = Right Direction */
+const EAST_BIT = 8;
+
+// TODO: could map this to a vector and/or sprite, or change the enum to vector type
+enum PlayerDirection {
+    Idle,
+    N,       // Up 
+    NE,   // UpRight
+    E,        // Right
+    SE,   // DownRight
+    S,       // Down
+    SW,   // DownLeft
+    W,        // Left
+    NW    // UpLeft
+}
+
+const directionVectorMap: Record<PlayerDirection, Vector2> = {
+    [PlayerDirection.Idle]: new Vector2(0, 0),
+    [PlayerDirection.N]: new Vector2(0, 1),
+    [PlayerDirection.NE]: new Vector2(Math.SQRT1_2, Math.SQRT1_2),
+    [PlayerDirection.E]: new Vector2(1, 0),
+    [PlayerDirection.SE]: new Vector2(Math.SQRT1_2, -Math.SQRT1_2),
+    [PlayerDirection.S]: new Vector2(0, -1),
+    [PlayerDirection.SW]: new Vector2(-Math.SQRT1_2, -Math.SQRT1_2),
+    [PlayerDirection.W]: new Vector2(-1, 0),
+    [PlayerDirection.NW]: new Vector2(-Math.SQRT1_2, Math.SQRT1_2)
+};
 
 async function loadImage(src: string) {
     const img = new Image();
@@ -17,27 +51,161 @@ export async function createGame(strategy: string): Promise<Game> {
     world.insert({
         width: 128,
         height: 128,
+        position: new Vector2(-300, 500),
+        direction: 0,
+        velocity: new Vector2(0, 0)
+    });
+    world.insert({
+        width: 128,
+        height: 128,
         position: new Vector2(0, 0),
         direction: 0,
         velocity: new Vector2(0, 0)
     });
+    world.insert({ // Not rendered because it's too far away
+        width: 128,
+        height: 128,
+        position: new Vector2(2000, 2000),
+        direction: 0,
+        velocity: new Vector2(0, 0)
+    });
+    world.insert({ // player
+        width: 64,
+        height: 128,
+        position: new Vector2(248, 248),
+        direction: Math.PI,
+        velocity: new Vector2(0, 0),
+    })
+    // world.insert({
+    //     width: 128,
+    //     height: 128,
+    //     position: new Vector2(500, 500),
+    //     direction: 0,
+    //     velocity: new Vector2(0, 0)
+    // })
     const player = new Player();
-    return { world, player };
+    return { world, player, canvasBounds: { minX: 0, minY: 0, maxX: 0, maxY: 0 } };
 }
 
 export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game, time: number, deltaTime: number) {
-    // TODO: project the viewport to the world and fix code
-
     // game.insert({width: 128, height: 128, position: new Vector2(0, 0), direction: 0, velocity: new Vector2(0, 0)});
     // console.log(game.query(0,0)[0])
     const sprite: HTMLImageElement | null = gameState.player.sprite;
     if (!sprite) return;
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
     const dx = (ctx.canvas.width - gameState.player.displayWidth) / 2;
     const dy = (ctx.canvas.height - gameState.player.displayHeight) / 2;
 
-    ctx.drawImage(sprite, 0, 0, gameState.player.displayWidth, gameState.player.displayHeight, dx, 
-        dy, gameState.player.displayWidth, gameState.player.displayHeight);
+
+    const thingsToRender = gameState.world.query(gameState.canvasBounds.minX, gameState.canvasBounds.minY, gameState.canvasBounds.maxX, gameState.canvasBounds.maxY);
+    let imageOffset: number[] = [0, 0];
+
+    // We probably dont want to update the player direction directly here, maybe use a separate vector or scalar
+    gameState.player.playerDirection = updatePlayerDirection(gameState.player);
+    const prev = gameState.player.position.clone();
+    if (gameState.player.playerDirection !== PlayerDirection.Idle) {
+        if (gameState.player.playerDirection === PlayerDirection.N) {
+            gameState.player.position.add(new Vector2(0, 1).scale(1.1));
+            imageOffset = [3, 2];
+        }
+        if (gameState.player.playerDirection === PlayerDirection.S) {
+            gameState.player.position.add(new Vector2(0, -1).scale(1.1));
+            imageOffset = [2, 3];
+        }
+        if (gameState.player.playerDirection === PlayerDirection.W) {
+            gameState.player.position.add(new Vector2(-1, 0).scale(1.1));
+            imageOffset = [3, 3];
+        }
+        if (gameState.player.playerDirection === PlayerDirection.E) {
+            gameState.player.position.add(new Vector2(1, 0).scale(1.1));
+            imageOffset = [0, 2];
+        }
+        if (gameState.player.playerDirection === PlayerDirection.NW) {
+            gameState.player.position.add(new Vector2(-1, 1).scale(1.1));
+            imageOffset = [2, 2];
+        }
+        if (gameState.player.playerDirection === PlayerDirection.NE) {
+            gameState.player.position.add(new Vector2(1, 1).scale(1.1));
+            imageOffset = [1, 2];
+        }
+        if (gameState.player.playerDirection === PlayerDirection.SW) {
+            gameState.player.position.add(new Vector2(-1, - 1).scale(1.1));
+            imageOffset = [1, 3];
+        }
+        if (gameState.player.playerDirection === PlayerDirection.SE) {
+            gameState.player.position.add(new Vector2(1, -1).scale(1.1));
+            imageOffset = [0, 3];
+        }
+    }
+
+    ctx.drawImage(sprite, 128 * imageOffset[0]!, 128 * imageOffset[1]!, gameState.player.displayWidth, gameState.player.displayHeight, dx, dy, gameState.player.displayWidth, gameState.player.displayHeight);
+
+    // console.log('Player direction:',gameState.player.direction);
+
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.translate(ctx.canvas.width / 2, ctx.canvas.height / 2);
+    ctx.scale(1, -1);
+    ctx.translate(-(gameState.player.position.x), -(gameState.player.position.y));
+    // ctx.transform(1, 0, 0, -1, -ctx.canvas.width, ctx.canvas.height);
+    for (const thing of [...thingsToRender, gameState.player]) {
+        const directionRadius = 64;
+        // const exampleDirection = new Vector2(0.3, -1);
+        const exampleDirection = directionVectorMap[gameState.player.playerDirection].clone();
+        const direction = thing.position.clone().add(exampleDirection.setLength(directionRadius));
+
+        ctx.lineWidth = 2;
+
+        ctx.beginPath();
+        ctx.fillStyle = '#00ff00';
+        ctx.arc(thing.position.x, thing.position.y, 4, 0, 2 * Math.PI);
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(thing.position.x, thing.position.y, directionRadius, 0, 2 * Math.PI);
+        ctx.strokeStyle = '#ffffff';
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.strokeStyle = '#ffffff';
+        ctx.moveTo(thing.position.x, thing.position.y);
+        ctx.lineTo(direction.x, direction.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        const angle = Math.atan2(direction.y - thing.position.y, direction.x - thing.position.x);
+        const arrowSize = 8;
+        ctx.beginPath();
+        ctx.moveTo(direction.x, direction.y);
+        ctx.lineTo(
+            direction.x - arrowSize * Math.cos(angle - Math.PI / 6),
+            direction.y - arrowSize * Math.sin(angle - Math.PI / 6)
+        );
+        ctx.lineTo(
+            direction.x - arrowSize * Math.cos(angle + Math.PI / 6),
+            direction.y - arrowSize * Math.sin(angle + Math.PI / 6)
+        );
+        ctx.closePath();
+        ctx.fillStyle = 'white';
+        ctx.fill();
+
+        ctx.strokeStyle = '#ff0000';
+        ctx.strokeRect(thing.position.x - (thing.width / 2), thing.position.y - (thing.height / 2), thing.width, thing.height);
+
+        ctx.beginPath();
+        ctx.fillStyle = '#00a2ff';
+        ctx.arc(direction.x, direction.y, 4, 0, 2 * Math.PI);
+        ctx.fill();
+
+        ctx.strokeStyle = '#000000';
+        ctx.fillStyle = '#000000';
+    }
+
+    // Actually draw the player
+    // const newPlayerPos = gameState.player.position.clone().add(new Vector2(1, -1).scale(gameState.player.width/2));
+    // ctx.strokeRect(gameState.player.position.x - (gameState.player.width /2), gameState.player.position.y - (gameState.player.height /2), gameState.player.width, gameState.player.height);
+    ctx.restore();
 }
 
 export async function updateGame2(ctx: CanvasRenderingContext2D) {
@@ -74,6 +242,49 @@ async function collision() {
 interface Game {
     world: PartitionStrategy;
     player: Player;
+    canvasBounds: Bounds;
+}
+
+
+const directionBitmaskMap: Record<number, PlayerDirection> = {
+    0b0000: PlayerDirection.Idle,
+    0b0001: PlayerDirection.N,
+    0b1001: PlayerDirection.NE,
+    0b1000: PlayerDirection.E,
+    0b1010: PlayerDirection.SE,
+    0b0010: PlayerDirection.S,
+    0b0110: PlayerDirection.SW,
+    0b0100: PlayerDirection.W,
+    0b0101: PlayerDirection.NW
+};
+
+/** 
+ * TODO: Currently, this gets called every frame. It should only be called/executed keyboard input changes
+ * 
+ * Translates the player's 8-directional keyboard input into a {@link PlayerDirection} using a bitmask.
+ */
+function updatePlayerDirection(player: Player): PlayerDirection {
+    let bitmask = 0;
+
+    // Set bits based on input
+    bitmask |= player.pressingUp ? NORTH_BIT : 0;
+    bitmask |= player.pressingDown ? SOUTH_BIT : 0;
+    bitmask |= player.pressingLeft ? WEST_BIT : 0;
+    bitmask |= player.pressingRight ? EAST_BIT : 0;
+
+    // Cancel out conflicting directions
+    if ((bitmask & NORTH_BIT) && (bitmask & SOUTH_BIT)) {
+        // Clear both UP and DOWN bits (vertical movement canceled out)
+        bitmask &= ~NORTH_BIT;
+        bitmask &= ~SOUTH_BIT;
+    }
+    if ((bitmask & WEST_BIT) && (bitmask & EAST_BIT)) {
+        // Clear both LEFT and RIGHT bits (horizontal movement canceled out)
+        bitmask &= ~WEST_BIT;
+        bitmask &= ~EAST_BIT;
+    }
+
+    return directionBitmaskMap[bitmask] ?? PlayerDirection.Idle;
 }
 
 class Player implements Bbox {
@@ -82,6 +293,13 @@ class Player implements Bbox {
     height = 128;
     position = new Vector2(248, 248);
     direction = Math.PI;
+    idle = true;
+    mousePosition = new Vector2(0, 0);
+    pressingUp = false;
+    pressingDown = false;
+    pressingLeft = false;
+    pressingRight = false;
+    playerDirection = PlayerDirection.Idle;
     velocity = new Vector2(0, 0);
     displayWidth = 128;
     displayHeight = 128;
@@ -104,6 +322,8 @@ interface Bounds {
 }
 
 /** 
+ * TODO: we want some sort of way to get the vertices (to rotate it correctly on the canvas)
+ * 
  * The `Bbox` interface defines a bounding box for a game object in 2D space.
  * 
  * @property width - The width of the bbox in absolute pixels.
@@ -131,9 +351,10 @@ interface PartitionStrategy {
     insert(bbox: Bbox): void;
     remove(bbox: Bbox): void;
     update(bbox: Bbox): void;
-    query(x: number, y: number): Bbox[];
+    query(minX: number, minY: number, maxX: number, maxY: number): Bbox[];
 }
 
+/** Naive spatial partitioning strategy that divides the world into a single cell. */
 class SingleCell implements PartitionStrategy {
 
     private bboxes: Bbox[] = [];
@@ -147,10 +368,16 @@ class SingleCell implements PartitionStrategy {
     update(bbox: Bbox): void {
         this.bboxes = this.bboxes.map(b => b === bbox ? bbox : b);
     }
+    query(minX: number, minY: number, maxX: number, maxY: number): Bbox[] {
+        const result: Bbox[] = [];
 
-    /** All bboxes are contained in the same cell, so the entire list is returned. */
-    query(_x = 0, _y = 0): Bbox[] {
-        return this.bboxes;
+        for (const bbox of this.bboxes) {
+            if (bbox.position.x >= minX && bbox.position.x <= maxX && bbox.position.y >= minY && bbox.position.y <= maxY) {
+                result.push(bbox);
+            }
+        }
+
+        return result;
     }
 }
 

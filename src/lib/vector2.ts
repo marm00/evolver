@@ -32,6 +32,11 @@ export class Vector2 {
         return this;
     }
 
+    /** Sets the length of the vector via normalization and scaling. */
+    setLength(length: number): this {
+        return this.normalize().scale(length);
+    }
+
     /** Sets the coordinates of the vector from polar coordinates. */
     setPolar(direction: number, magnitude = 1): this {
         this.x = Math.cos(direction) * magnitude;
@@ -67,12 +72,16 @@ export class Vector2 {
         return this;
     }
 
-    /** Dot or scalar product of vectors. Normalized: 0 = orthoganal or perpendicular, 1 = parallel, -1 = anti-parallel. */
+    /** 
+     * Dot or scalar product of vectors. Normalized: 0 = orthoganal or perpendicular, 1 = parallel, -1 = anti-parallel. 
+     * Perpendicularly projects vector B onto vector A, resulting in the extended coordinate along the axis of vector A.
+     * This example only certainly works when one of the vectors is normalized, because it gets scaled otherwise.
+     * */
     dot(v: Vector2): number {
         return this.x * v.x + this.y * v.y;
     }
 
-    /** Normalizes the vector to have a magnitude of 1 (unit or direction vector). */
+    /** Normalizes the vector to have a magnitude of 1 (unit or direction vector). Zero vectors are ignored. */
     normalize(): this {
         const length = this.magnitude();
         if (length > 0) {
@@ -179,6 +188,11 @@ export class Vector2 {
 
         /** Return the angle in radians. */
         return Math.acos(clampedTheta);
+    }
+
+    /** Sets this vector to the normalized direction from this vector to the given vector. */
+    directionVectorTo(v: Vector2): this {
+        return this.sub(v).normalize();
     }
 
     /** Reverses the direction of the vector. */
