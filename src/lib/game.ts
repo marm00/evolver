@@ -3,8 +3,6 @@ import { Vector2 } from "./vector2";
 const GAME_WIDTH = 6400;
 const GAME_HEIGHT = 6400;
 
-// type PlayerDirection = 'N' | 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW';
-
 /** 0b0001 = Up Direction */
 const NORTH_BIT = 1;
 /** 0b0010 = Down Direction */
@@ -14,33 +12,47 @@ const WEST_BIT = 4;
 /** 0b1000 = Right Direction */
 const EAST_BIT = 8;
 
-// TODO: could map this to a vector and/or sprite, or change the enum to vector type
-/** 8-directional movement direction (e.g. NorthEast), plus 'idle' state. */  
-enum Direction {
-    Idle,
-    N,       // Up 
-    NE,   // UpRight
-    E,        // Right
-    SE,   // DownRight
-    S,       // Down
-    SW,   // DownLeft
-    W,        // Left
-    NW    // UpLeft
+/** An enum for 8-directional clockwise movement or idle (North = First, NorthEast = Second, etc.). */
+const DIR_9 = {
+    /** Idle state, no movement. */
+    Idle: 0,
+    /** North or up. */
+    N: 1,
+    /** Northeast or up-right. */
+    NE: 2,
+    /** East or right. */
+    E: 3,
+    /** Southeast or down-right. */
+    SE: 4,
+    /** South or down. */
+    S: 5,
+    /** Southwest or down-left. */
+    SW: 6,
+    /** West or left. */
+    W: 7,
+    /** Northwest or up-left. */
+    NW: 8
+} as const;
+
+type ObjectValues<T> = T[keyof T];
+
+/** A value mapping onto a {@link DIR_9} key, representing idle or one of eight possible directions. */
+type Dir9 = ObjectValues<typeof DIR_9>;
+
+/** Maps a {@link Dir9} to a unit vector. */
+const dir9VectorMap: Record<Dir9, Vector2> = {
+    [DIR_9.Idle]: new Vector2(0, 0),
+    [DIR_9.N]: new Vector2(0, 1),
+    [DIR_9.NE]: new Vector2(Math.SQRT1_2, Math.SQRT1_2),
+    [DIR_9.E]: new Vector2(1, 0),
+    [DIR_9.SE]: new Vector2(Math.SQRT1_2, -Math.SQRT1_2),
+    [DIR_9.S]: new Vector2(0, -1),
+    [DIR_9.SW]: new Vector2(-Math.SQRT1_2, -Math.SQRT1_2),
+    [DIR_9.W]: new Vector2(-1, 0),
+    [DIR_9.NW]: new Vector2(-Math.SQRT1_2, Math.SQRT1_2)
 }
 
-/** Maps a {@link Direction} to a unit vector. */
-const directionVectorMap: Record<Direction, Vector2> = {
-    [Direction.Idle]: new Vector2(0, 0),
-    [Direction.N]: new Vector2(0, 1),
-    [Direction.NE]: new Vector2(Math.SQRT1_2, Math.SQRT1_2),
-    [Direction.E]: new Vector2(1, 0),
-    [Direction.SE]: new Vector2(Math.SQRT1_2, -Math.SQRT1_2),
-    [Direction.S]: new Vector2(0, -1),
-    [Direction.SW]: new Vector2(-Math.SQRT1_2, -Math.SQRT1_2),
-    [Direction.W]: new Vector2(-1, 0),
-    [Direction.NW]: new Vector2(-Math.SQRT1_2, Math.SQRT1_2)
-};
-
+// TODO: make this a proper function and load player/spritesheet sprites better
 async function loadImage(src: string) {
     const img = new Image();
     img.src = src;
@@ -90,8 +102,6 @@ export async function createGame(strategy: string): Promise<Game> {
 }
 
 export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game, time: number, deltaTime: number) {
-    // game.insert({width: 128, height: 128, position: new Vector2(0, 0), direction: 0, velocity: new Vector2(0, 0)});
-    // console.log(game.query(0,0)[0])
     const sprite: HTMLImageElement | null = gameState.player.sprite;
     if (!sprite) return;
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
@@ -104,38 +114,36 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     let imageOffset: number[] = [0, 0];
 
     // We probably dont want to update the player direction directly here, maybe use a separate vector or scalar
-    gameState.player.playerDirection = updatePlayerDirection(gameState.player);
-    const prev = gameState.player.position.clone();
-    if (gameState.player.playerDirection !== Direction.Idle) {
-        if (gameState.player.playerDirection === Direction.N) {
+    if (gameState.player.playerDirection !== DIR_9.Idle) {
+        if (gameState.player.playerDirection === DIR_9.N) {
             gameState.player.position.add(new Vector2(0, 1).scale(1.1));
             imageOffset = [3, 2];
         }
-        if (gameState.player.playerDirection === Direction.S) {
+        if (gameState.player.playerDirection === DIR_9.S) {
             gameState.player.position.add(new Vector2(0, -1).scale(1.1));
             imageOffset = [2, 3];
         }
-        if (gameState.player.playerDirection === Direction.W) {
+        if (gameState.player.playerDirection === DIR_9.W) {
             gameState.player.position.add(new Vector2(-1, 0).scale(1.1));
             imageOffset = [3, 3];
         }
-        if (gameState.player.playerDirection === Direction.E) {
+        if (gameState.player.playerDirection === DIR_9.E) {
             gameState.player.position.add(new Vector2(1, 0).scale(1.1));
             imageOffset = [0, 2];
         }
-        if (gameState.player.playerDirection === Direction.NW) {
+        if (gameState.player.playerDirection === DIR_9.NW) {
             gameState.player.position.add(new Vector2(-1, 1).scale(1.1));
             imageOffset = [2, 2];
         }
-        if (gameState.player.playerDirection === Direction.NE) {
+        if (gameState.player.playerDirection === DIR_9.NE) {
             gameState.player.position.add(new Vector2(1, 1).scale(1.1));
             imageOffset = [1, 2];
         }
-        if (gameState.player.playerDirection === Direction.SW) {
+        if (gameState.player.playerDirection === DIR_9.SW) {
             gameState.player.position.add(new Vector2(-1, - 1).scale(1.1));
             imageOffset = [1, 3];
         }
-        if (gameState.player.playerDirection === Direction.SE) {
+        if (gameState.player.playerDirection === DIR_9.SE) {
             gameState.player.position.add(new Vector2(1, -1).scale(1.1));
             imageOffset = [0, 3];
         }
@@ -143,7 +151,6 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
 
     ctx.drawImage(sprite, 128 * imageOffset[0]!, 128 * imageOffset[1]!, gameState.player.displayWidth, gameState.player.displayHeight, dx, dy, gameState.player.displayWidth, gameState.player.displayHeight);
 
-    // console.log('Player direction:',gameState.player.direction);
 
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -154,7 +161,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     for (const thing of [...thingsToRender, gameState.player]) {
         const directionRadius = 64;
         // const exampleDirection = new Vector2(0.3, -1);
-        const exampleDirection = directionVectorMap[gameState.player.playerDirection].clone();
+        const exampleDirection = dir9VectorMap[gameState.player.playerDirection].clone();
         const direction = thing.position.clone().add(exampleDirection.setLength(directionRadius));
 
         ctx.lineWidth = 2;
@@ -209,16 +216,25 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     // ctx.strokeRect(gameState.player.position.x - (gameState.player.width /2), gameState.player.position.y - (gameState.player.height /2), gameState.player.width, gameState.player.height);
     ctx.restore();
 }
+// TODO: updating position
+// function updatePosition(position: Vector2, direction: Direction, magnitude: number): Vector2 {
+//     // Get the direction vector
+//     const directionVector = directionVectors[direction];
+
+//     // Update the position
+//     return {
+//         x: position.x + directionVector.x * magnitude,
+//         y: position.y + directionVector.y * magnitude
+//     };
+// }
 
 export async function updateGame2(ctx: CanvasRenderingContext2D) {
     const GAME_CELL = 64;
     const GAME_FACTOR = 100;
     const GAME_WIDTH = GAME_CELL * GAME_FACTOR;
     const GAME_HEIGHT = GAME_CELL * GAME_FACTOR;
-    // console.log(ctx.canvas.width, ctx.canvas.height);
     const cy = ctx.canvas.height / 2;
     const cx = ctx.canvas.width / 2;
-    // console.log(ctx);
     // ctx.drawImage(await loadImage('grass.png'), 0, 0);
     const rnd: number[] = [0, 128, 256, 384, 512];
     // get random
@@ -247,25 +263,21 @@ interface Game {
     canvasBounds: Bounds;
 }
 
-/** Maps a [bitmask](https://en.wikipedia.org/wiki/Mask_(computing)) to the corresponding {@link Direction} state. */
-const bitmaskDirectionMap: Record<number, Direction> = {
-    0b0000: Direction.Idle,
-    0b0001: Direction.N,
-    0b1001: Direction.NE,
-    0b1000: Direction.E,
-    0b1010: Direction.SE,
-    0b0010: Direction.S,
-    0b0110: Direction.SW,
-    0b0100: Direction.W,
-    0b0101: Direction.NW
+/** Maps a [bitmask](https://en.wikipedia.org/wiki/Mask_(computing)) to the corresponding {@link Dir9} state. */
+const bitmaskDir9Map: Record<number, Dir9> = {
+    0b0000: DIR_9.Idle,
+    0b0001: DIR_9.N,
+    0b1001: DIR_9.NE,
+    0b1000: DIR_9.E,
+    0b1010: DIR_9.SE,
+    0b0010: DIR_9.S,
+    0b0110: DIR_9.SW,
+    0b0100: DIR_9.W,
+    0b0101: DIR_9.NW
 };
 
-/** 
- * TODO: Currently, this gets called every frame. It should only be called/executed keyboard input changes
- * 
- * Translates the player's 8-directional keyboard input into a {@link Direction} using a bitmask.
- */
-function updatePlayerDirection(player: Player): Direction {
+/** Translates the player's 8-directional keyboard input into a {@link Dir9} using a bitmask.*/
+export function updatePlayerDirection(player: Player) {
     let bitmask = 0;
 
     // Set bits based on input
@@ -286,7 +298,7 @@ function updatePlayerDirection(player: Player): Direction {
         bitmask &= ~EAST_BIT;
     }
 
-    return bitmaskDirectionMap[bitmask] ?? Direction.Idle;
+    player.playerDirection = bitmaskDir9Map[bitmask] ?? DIR_9.Idle;
 }
 
 class Player implements Bbox {
@@ -301,7 +313,7 @@ class Player implements Bbox {
     pressingDown = false;
     pressingLeft = false;
     pressingRight = false;
-    playerDirection = Direction.Idle;
+    playerDirection: Dir9 = DIR_9.Idle;
     velocity = new Vector2(0, 0);
     displayWidth = 128;
     displayHeight = 128;
@@ -309,7 +321,6 @@ class Player implements Bbox {
     constructor() {
         void this.loadSprite();
     }
-
 
     async loadSprite() {
         this.sprite = await loadImage('Nomad_Atlas.webp');

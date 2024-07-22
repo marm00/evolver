@@ -37,7 +37,12 @@ export class Vector2 {
         return this.normalize().scale(length);
     }
 
-    /** Sets the coordinates of the vector from polar coordinates. */
+    /** 
+     * Sets the coordinates of the vector from polar coordinates. 
+     * 
+     * @param direction The direction or angle in radians.
+     * @param magnitude The {@link Vector2.magnitude} or length of the vector.
+     */
     setPolar(direction: number, magnitude = 1): this {
         this.x = Math.cos(direction) * magnitude;
         this.y = Math.sin(direction) * magnitude;
@@ -103,7 +108,7 @@ export class Vector2 {
         return this.scale(1 / scalar);
     }
 
-    /** Rotates the vector direction by the given angle around the origin. */
+    /** Rotates the vector direction by the given angle in radians around the origin. */
     rotate(angle: number): this {
         const cos = Math.cos(angle);
         const sin = Math.sin(angle);
@@ -114,7 +119,12 @@ export class Vector2 {
         return this;
     }
 
-    /** Rotates the vector by the given angle around the given vector. */
+    /** 
+     * Rotates the vector by the given angle around the given vector.
+     *  
+     * @param v The vector to rotate around.
+     * @param angle The angle in radians to rotate by.
+     */
     rotateAround(v: Vector2, angle: number): this {
         const cos = Math.cos(angle);
         const sin = Math.sin(angle);
@@ -143,7 +153,12 @@ export class Vector2 {
     }
 
     // TODO: Easing functions
-    /** Incremental linear interpolation, resulting in a vector between this and the given vector at the given time. */
+    /** 
+     * Incremental linear interpolation, resulting in a vector between this and the given vector at the given time. 
+     * 
+     * @param v The vector to interpolate towards.
+     * @param t The time value or scalar, between 0 and 1, representing the interpolation progress.
+     */
     lerp(v: Vector2, t: number): this {
         this.x += (v.x - this.x) * t;
         this.y += (v.y - this.y) * t;

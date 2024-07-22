@@ -58,56 +58,59 @@ export function Canvas() {
 
             /** Projects the mouse position to the world coordinate system, using the player's position as a reference point. */
             const handleMouseMove = (e: MouseEvent) => {
-                const dx = canvasCenter.current.x - e.clientX;
-                const dy = canvasCenter.current.y - e.clientY;
-                const nx = gameState.player.position.x - dx;
-                const ny = gameState.player.position.y + dy;
+                const nx = gameState.player.position.x - (canvasCenter.current.x - e.clientX);
+                const ny = gameState.player.position.y + (canvasCenter.current.y - e.clientY);
                 gameState.player.mousePosition.set(nx, ny);
             }
 
             /** TODO: Forward mouse clicks to the game state. */
             const handleMouseDown = (e: MouseEvent) => {
-                const dx = canvasCenter.current.x - e.clientX;
-                const dy = canvasCenter.current.y - e.clientY;
-                const nx = gameState.player.position.x - dx;
-                const ny = gameState.player.position.y + dy;
+                const nx = gameState.player.position.x - (canvasCenter.current.x - e.clientX);
+                const ny = gameState.player.position.y + (canvasCenter.current.y - e.clientY);
                 console.log('Click at projected:', new Vector2(nx, ny));
             }
 
             const handleMouseUp = (e: MouseEvent) => {
-                const dx = canvasCenter.current.x - e.clientX;
-                const dy = canvasCenter.current.y - e.clientY;
-                const nx = gameState.player.position.x - dx;
-                const ny = gameState.player.position.y + dy;
+                const nx = gameState.player.position.x - (canvasCenter.current.x - e.clientX);
+                const ny = gameState.player.position.y + (canvasCenter.current.y - e.clientY);
                 console.log('Released at projected:', new Vector2(nx, ny));
             }
 
+            type KeyAction = () => void;
+
+            const keyDownActions: Record<string, KeyAction> = {
+                'ArrowLeft': () => { gameState.player.pressingLeft = true; },
+                'a': () => { gameState.player.pressingLeft = true; },
+                'ArrowRight': () => { gameState.player.pressingRight = true; },
+                'd': () => { gameState.player.pressingRight = true; },
+                'ArrowUp': () => { gameState.player.pressingUp = true; },
+                'w': () => { gameState.player.pressingUp = true; },
+                'ArrowDown': () => { gameState.player.pressingDown = true; },
+                's': () => { gameState.player.pressingDown = true; }
+            };
+
+            const keyUpActions: Record<string, KeyAction> = {
+                'ArrowLeft': () => { gameState.player.pressingLeft = false; },
+                'a': () => { gameState.player.pressingLeft = false; },
+                'ArrowRight': () => { gameState.player.pressingRight = false; },
+                'd': () => { gameState.player.pressingRight = false; },
+                'ArrowUp': () => { gameState.player.pressingUp = false; },
+                'w': () => { gameState.player.pressingUp = false; },
+                'ArrowDown': () => { gameState.player.pressingDown = false; },
+                's': () => { gameState.player.pressingDown = false; }
+            };
+
             const handleKeyDown = (e: KeyboardEvent) => {
                 if (!e.repeat) {
-                    if (e.key === 'ArrowLeft' || e.key === 'a') {
-                        gameState.player.pressingLeft = true;
-                    } else if (e.key === 'ArrowRight' || e.key === 'd') {
-                        gameState.player.pressingRight = true;
-                    } else if (e.key === 'ArrowUp' || e.key === 'w') {
-                        gameState.player.pressingUp = true;
-                    } else if (e.key === 'ArrowDown' || e.key === 's') {
-                        gameState.player.pressingDown = true;
-                    }
+                    keyDownActions[e.key]?.();
+                    game.updatePlayerDirection(gameState.player);
                 }
             }
 
             const handleKeyUp = (e: KeyboardEvent) => {
                 if (!e.repeat) {
-                    // console.log('Releasing:', e.key);
-                    if (e.key === 'ArrowLeft' || e.key === 'a') {
-                        gameState.player.pressingLeft = false;
-                    } else if (e.key === 'ArrowRight' || e.key === 'd') {
-                        gameState.player.pressingRight = false;
-                    } else if (e.key === 'ArrowUp' || e.key === 'w') {
-                        gameState.player.pressingUp = false;
-                    } else if (e.key === 'ArrowDown' || e.key === 's') {
-                        gameState.player.pressingDown = false;
-                    }
+                    keyUpActions[e.key]?.();
+                    game.updatePlayerDirection(gameState.player);
                 }
             }
 
@@ -144,7 +147,7 @@ export function Canvas() {
             ctx.canvas.addEventListener('mousemove', handleMouseMove);
             ctx.canvas.addEventListener('mousedown', handleMouseDown);
             ctx.canvas.addEventListener('mouseup', handleMouseUp);
-            
+
             return () => {
                 window.removeEventListener('resize', handleResize);
                 window.removeEventListener('keydown', handleKeyDown);
