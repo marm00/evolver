@@ -40,10 +40,10 @@ export function Canvas() {
                 if (!canvas.getContext('2d')) throw new Error('2D context not found');
             };
 
-            /** Prepares the projection of the mouse position to the world coordinate system by setting the center offset. */
+            /** Sets the mouse center offset for faster mouse projection every frame. */
             const handleMouseMove = (e: MouseEvent) => {
-                const pp = gameState.player.position;
-                gameState.player.mousePosition.set(pp.x - (gameState.canvasCenterX - e.clientX), pp.y + (gameState.canvasCenterY - e.clientY));
+                gameState.player.mouseCanvasDX = gameState.canvasCenterX - e.clientX;
+                gameState.player.mouseCanvasDY = gameState.canvasCenterY - e.clientY;
             }
 
             /** TODO: Forward mouse clicks to the game state. */

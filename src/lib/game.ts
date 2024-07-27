@@ -102,7 +102,9 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     const cx = gameState.canvasCenterX;
     const cy = gameState.canvasCenterY;
     const pp = gameState.player.position;
+    const mp = gameState.player.mousePosition;
     // Project the canvas mouse position to the world coordinate system
+    mp.set(pp.x - gameState.player.mouseCanvasDX, pp.y + gameState.player.mouseCanvasDY);
 
     const thingsToRender = gameState.world.query(pp.x - cx, pp.y - cy, pp.x + cx, pp.y + cy);
 
@@ -209,7 +211,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     ctx.beginPath();
 
     ctx.moveTo(pp.x, pp.y);
-    ctx.lineTo(gameState.player.mousePosition.x, gameState.player.mousePosition.y);
+    ctx.lineTo(mp.x, mp.y);
     ctx.stroke();
     ctx.closePath();
 
@@ -270,6 +272,10 @@ class Player implements Bbox {
     position = new Vector2(248, 248);
     direction = Math.PI;
     idle = true;
+    /** Horizontal difference between the mouse position and the center of the canvas. */
+    mouseCanvasDX = 0;
+    /** Vertical difference between the mouse position and the center of the canvas. */
+    mouseCanvasDY = 0;
     /** The mouse position in world coordinates. */
     mousePosition = new Vector2(0, 0);
     pressingUp = false;
