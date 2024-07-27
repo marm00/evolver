@@ -2,24 +2,19 @@
 
 import { useEffect, useRef } from "react";
 import * as game from "~/lib/game";
-import { Vector2 } from "~/lib/vector2";
 
 export function Canvas() {
     /** Guard to prevent multiple games from being created in React strict mode. */
-    const _devGameGuard = useRef(Boolean(1));
+    const _devRunOnce = useRef(Boolean(1));
     const _devGameCreated = useRef(false);
 
     /** Canvas to render the game to. */
     const gameCanvas = useRef<HTMLCanvasElement>(null);
-    /** The center of the canvas (in unprojected client coordinates). */
-    const canvasCenter = useRef({ x: 0, y: 0 });
-    // /** The bounds of the canvas in world coordinates. */
-    // const projectedBounds = useRef({ minX: 0, minY: 0, maxX: 0, maxY: 0 });
-    // /** The canvas mouse position in world coordinates. */
-    // const projectedMousePosition = useRef(new Vector2(0, 0));
+
+    type KeyAction = () => void;
 
     useEffect(() => {
-        if (_devGameGuard.current === true) {
+        if (_devRunOnce.current === true) {
             if (_devGameCreated.current === true) {
                 return;
             } else {
@@ -34,49 +29,31 @@ export function Canvas() {
         if (!ctx) throw new Error('2D context not found');
 
         game.createGame("singlecell").then((gameState) => {
-            /**
-             * Projects the viewport onto the world coordinate system, centered around the player's position.
-             * Both use the same units (pixels), so no scaling occurs. This means that the dimensions of the
-             * viewport determine how much of the world is visible.
-             */
+            /** Update the canvas dimensions and store the center in game state. */
             const handleResize = (_?: Event) => {
                 const canvas = gameCanvas.current;
                 if (!canvas) throw new Error('Canvas not found');
                 canvas.width = window.innerWidth;
                 canvas.height = window.innerHeight;
-                canvasCenter.current.x = canvas.width / 2;
-                canvasCenter.current.y = canvas.height / 2;
-                const pos = gameState.player.position;
-                const center = canvasCenter.current;
-                gameState.canvasBounds = {
-                    minX: pos.x - center.x,
-                    minY: pos.y - center.y,
-                    maxX: pos.x + center.x,
-                    maxY: pos.y + center.y
-                }
+                gameState.canvasCenterX = canvas.width / 2;
+                gameState.canvasCenterY = canvas.height / 2;
+                if (!canvas.getContext('2d')) throw new Error('2D context not found');
             };
 
-            /** Projects the mouse position to the world coordinate system, using the player's position as a reference point. */
+            /** Prepares the projection of the mouse position to the world coordinate system by setting the center offset. */
             const handleMouseMove = (e: MouseEvent) => {
-                const nx = gameState.player.position.x - (canvasCenter.current.x - e.clientX);
-                const ny = gameState.player.position.y + (canvasCenter.current.y - e.clientY);
-                gameState.player.mousePosition.set(nx, ny);
+                const pp = gameState.player.position;
+                gameState.player.mousePosition.set(pp.x - (gameState.canvasCenterX - e.clientX), pp.y + (gameState.canvasCenterY - e.clientY));
             }
 
             /** TODO: Forward mouse clicks to the game state. */
-            const handleMouseDown = (e: MouseEvent) => {
-                const nx = gameState.player.position.x - (canvasCenter.current.x - e.clientX);
-                const ny = gameState.player.position.y + (canvasCenter.current.y - e.clientY);
-                console.log('Click at projected:', new Vector2(nx, ny));
+            const handleMouseDown = (_: MouseEvent) => {
+                console.log('Clicked at :', gameState.player.mousePosition.x, gameState.player.mousePosition.y);
             }
 
-            const handleMouseUp = (e: MouseEvent) => {
-                const nx = gameState.player.position.x - (canvasCenter.current.x - e.clientX);
-                const ny = gameState.player.position.y + (canvasCenter.current.y - e.clientY);
-                console.log('Released at projected:', new Vector2(nx, ny));
+            const handleMouseUp = (_: MouseEvent) => {
+                console.log('Released at:', gameState.player.mousePosition.x, gameState.player.mousePosition.y);
             }
-
-            type KeyAction = () => void;
 
             const keyDownActions: Record<string, KeyAction> = {
                 'ArrowLeft': () => { gameState.player.pressingLeft = true; },
@@ -115,7 +92,10 @@ export function Canvas() {
             }
 
             handleResize(); // Resize once to set the projected bounds
-            /** Stores the time difference between frames. */
+            /** 
+             * TODO: find a better way to show FPS
+             * Stores the time difference between frames.
+             */
             const deltas: number[] = [];
             let prevTimestamp = 0;
 
@@ -131,7 +111,6 @@ export function Canvas() {
                 const fps = Math.floor(1 / deltaAvg);
                 // console.log('FPS:', fps);
 
-                // TODO: update game state directly instead of passing it to the game update function
                 game.updateGame(ctx, gameState, time, deltaTime).then().catch(console.error);
                 window.requestAnimationFrame(frame);
             };

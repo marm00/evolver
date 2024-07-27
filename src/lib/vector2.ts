@@ -1,16 +1,35 @@
+import { type Resettable } from "./pool";
+
+
 /**
  * A vector class representing a point in 2D space.
  */
-export class Vector2 {
-    /** cartesian x-coordinate. */
+export class Vector2 implements Resettable {
+    /** Cartesian x-coordinate. */
     x: number;
-    /** cartesian y-coordinate. */
+    /** Cartesian y-coordinate. */
     y: number;
 
-    /** Constructs a new vector in 2D space. */
+    /** Constructs a new vector in 2D space (zero by default). */
     constructor(x = 0, y = 0) {
         this.x = x;
         this.y = y;
+    }
+
+    /** Returns a new zero vector. */
+    static zero(this: void): Vector2 {
+        return new Vector2(0, 0);
+    }
+
+    /** Returns a new vector with the given angle in radians. */
+    static fromAngle(angle: number): Vector2 {
+        return new Vector2(Math.cos(angle), Math.sin(angle));
+    }
+
+    /** Turns the vector into a zero vector. */
+    reset(): void {
+        this.x = 0;
+        this.y = 0;
     }
 
     /** Returns a new vector with the same coordinates. */
@@ -78,8 +97,8 @@ export class Vector2 {
     }
 
     /** 
-     * Dot or scalar product of vectors. Normalized: 0 = orthoganal or perpendicular, 1 = parallel, -1 = anti-parallel. 
-     * Perpendicularly projects vector B onto vector A, resulting in the extended coordinate along the axis of vector A.
+     * Dot or scalar product of vectors. Both normalized: 0 = orthoganal or perpendicular, 1 = parallel, -1 = anti-parallel. 
+     * Perpendicularly projects vector B onto vector A, resulting in the extended coordinate along the direction of vector A.
      * This example only certainly works when one of the vectors is normalized, because it gets scaled otherwise.
      * */
     dot(v: Vector2): number {

@@ -10,10 +10,29 @@ Technologies: [Next.js](https://nextjs.org), [NextAuth.js](https://next-auth.js.
 
 ## TODO
 
-Low priority features.
+Features:
+
+- [ ] Dev mode canvas rendering
+- [ ] Object pooling
+- [ ] Implement shapes (AABB/OBB/...)
+- [ ] Projectiles
+- [ ] Spatial partitioning
+- [ ] Collision detection
+- [ ] Pathfinding
+- [ ] Leveling
+- [ ] UI
+- [ ] Stats
+- [ ] Talents
+- [ ] Items
+- [ ] Art
+- [ ] Music
+- [ ] Sounds
+- [ ] React app
+
+Reminders:
 
 - [ ] Debounce camera resize
-- [ ] Camera zoom can exceed maximum bug-free canvas size
+- [ ] Canvas considerations for [max size](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/canvas#maximum_canvas_size)
 - [ ] next-auth styling
 - [ ] Custom email signin template
 - [ ] Prevent email signin spam identification

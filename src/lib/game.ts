@@ -3,6 +3,9 @@ import { Vector2 } from "./vector2";
 const GAME_WIDTH = 6400;
 const GAME_HEIGHT = 6400;
 
+const AUTO_AIM = true;
+const AUTO_ATTACK = true;
+
 /** 0b0001 = Up Direction */
 const NORTH_BIT = 1;
 /** 0b0010 = Down Direction */
@@ -12,7 +15,7 @@ const WEST_BIT = 4;
 /** 0b1000 = Right Direction */
 const EAST_BIT = 8;
 
-/** An enum for 8-directional clockwise movement or idle (North = First, NorthEast = Second, etc.). */
+/** An enum-like object for 8-directional clockwise movement or idle (North = First, Northeast = Second, etc.). */
 const DIR_9 = {
     /** Idle state, no movement. */
     Idle: 0,
@@ -62,107 +65,100 @@ async function loadImage(src: string) {
 
 export async function createGame(strategy: string): Promise<Game> {
     const world = new SingleCell();
+    const player = new Player();
+    world.insert(player);
     world.insert({
         width: 128,
         height: 128,
         position: new Vector2(-300, 500),
-        direction: 0,
+        direction: 90 * Math.PI / 180,
         velocity: new Vector2(0, 0)
     });
     world.insert({
-        width: 128,
-        height: 128,
+        width: 64,
+        height: 64,
         position: new Vector2(0, 0),
-        direction: 0,
+        direction: 0 * Math.PI / 180,
         velocity: new Vector2(0, 0)
     });
     world.insert({ // Not rendered because it's too far away
         width: 128,
         height: 128,
         position: new Vector2(2000, 2000),
-        direction: 0,
+        direction: 270 * Math.PI / 180,
         velocity: new Vector2(0, 0)
     });
-    world.insert({ // player
-        width: 64,
+    world.insert({
+        width: 128,
         height: 128,
         position: new Vector2(248, 248),
-        direction: Math.PI,
-        velocity: new Vector2(0, 0),
+        direction: 0 * Math.PI / 180,
+        velocity: new Vector2(0, 0)
     })
-    // world.insert({
-    //     width: 128,
-    //     height: 128,
-    //     position: new Vector2(500, 500),
-    //     direction: 0,
-    //     velocity: new Vector2(0, 0)
-    // })
-    const player = new Player();
-    return { world, player, canvasBounds: { minX: 0, minY: 0, maxX: 0, maxY: 0 } };
+    return { world, player, canvasCenterX: 0, canvasCenterY: 0 };
 }
 
 export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game, time: number, deltaTime: number) {
+    const cx = gameState.canvasCenterX;
+    const cy = gameState.canvasCenterY;
+    const pp = gameState.player.position;
+    // Project the canvas mouse position to the world coordinate system
+
+    const thingsToRender = gameState.world.query(pp.x - cx, pp.y - cy, pp.x + cx, pp.y + cy);
+
     const sprite: HTMLImageElement | null = gameState.player.sprite;
     if (!sprite) return;
-    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-
     const dx = (ctx.canvas.width - gameState.player.displayWidth) / 2;
     const dy = (ctx.canvas.height - gameState.player.displayHeight) / 2;
-
-
-    const thingsToRender = gameState.world.query(gameState.canvasBounds.minX, gameState.canvasBounds.minY, gameState.canvasBounds.maxX, gameState.canvasBounds.maxY);
     let imageOffset: number[] = [0, 0];
 
     // We probably dont want to update the player direction directly here, maybe use a separate vector or scalar
     if (gameState.player.playerDirection !== DIR_9.Idle) {
         if (gameState.player.playerDirection === DIR_9.N) {
-            gameState.player.position.add(new Vector2(0, 1).scale(1.1));
+            pp.add(new Vector2(0, 1).scale(1.1));
             imageOffset = [3, 2];
         }
         if (gameState.player.playerDirection === DIR_9.S) {
-            gameState.player.position.add(new Vector2(0, -1).scale(1.1));
+            pp.add(new Vector2(0, -1).scale(1.1));
             imageOffset = [2, 3];
         }
         if (gameState.player.playerDirection === DIR_9.W) {
-            gameState.player.position.add(new Vector2(-1, 0).scale(1.1));
+            pp.add(new Vector2(-1, 0).scale(1.1));
             imageOffset = [3, 3];
         }
         if (gameState.player.playerDirection === DIR_9.E) {
-            gameState.player.position.add(new Vector2(1, 0).scale(1.1));
+            pp.add(new Vector2(1, 0).scale(1.1));
             imageOffset = [0, 2];
         }
         if (gameState.player.playerDirection === DIR_9.NW) {
-            gameState.player.position.add(new Vector2(-1, 1).scale(1.1));
+            pp.add(new Vector2(-1, 1).scale(1.1));
             imageOffset = [2, 2];
         }
         if (gameState.player.playerDirection === DIR_9.NE) {
-            gameState.player.position.add(new Vector2(1, 1).scale(1.1));
+            pp.add(new Vector2(1, 1).scale(1.1));
             imageOffset = [1, 2];
         }
         if (gameState.player.playerDirection === DIR_9.SW) {
-            gameState.player.position.add(new Vector2(-1, - 1).scale(1.1));
+            pp.add(new Vector2(-1, - 1).scale(1.1));
             imageOffset = [1, 3];
         }
         if (gameState.player.playerDirection === DIR_9.SE) {
-            gameState.player.position.add(new Vector2(1, -1).scale(1.1));
+            pp.add(new Vector2(1, -1).scale(1.1));
             imageOffset = [0, 3];
         }
     }
 
+    ctx.clearRect(0, 0, gameState.canvasCenterX*2, gameState.canvasCenterY*2);
     ctx.drawImage(sprite, 128 * imageOffset[0]!, 128 * imageOffset[1]!, gameState.player.displayWidth, gameState.player.displayHeight, dx, dy, gameState.player.displayWidth, gameState.player.displayHeight);
-
-
     ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.translate(ctx.canvas.width / 2, ctx.canvas.height / 2);
-    ctx.scale(1, -1);
-    ctx.translate(-(gameState.player.position.x), -(gameState.player.position.y));
-    // ctx.transform(1, 0, 0, -1, -ctx.canvas.width, ctx.canvas.height);
-    for (const thing of [...thingsToRender, gameState.player]) {
+    ctx.translate(gameState.canvasCenterX, gameState.canvasCenterY); // Move origin to center of canvas
+    ctx.scale(1, -1); // Invert Y axis
+    ctx.translate(-pp.x, -pp.y); // Translate based on player position
+    gameState.player.direction = dir9VectorMap[gameState.player.playerDirection].direction();
+    for (const thing of [...thingsToRender]) {
         const directionRadius = 64;
-        // const exampleDirection = new Vector2(0.3, -1);
-        const exampleDirection = dir9VectorMap[gameState.player.playerDirection].clone();
-        const direction = thing.position.clone().add(exampleDirection.setLength(directionRadius));
+        const ng = Vector2.fromAngle(thing.direction);
+        const direction = thing.position.clone().add(ng.setLength(directionRadius));
 
         ctx.lineWidth = 2;
 
@@ -210,57 +206,22 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         ctx.strokeStyle = '#000000';
         ctx.fillStyle = '#000000';
     }
+    ctx.beginPath();
+
+    ctx.moveTo(pp.x, pp.y);
+    ctx.lineTo(gameState.player.mousePosition.x, gameState.player.mousePosition.y);
+    ctx.stroke();
+    ctx.closePath();
 
     // Actually draw the player
-    // const newPlayerPos = gameState.player.position.clone().add(new Vector2(1, -1).scale(gameState.player.width/2));
-    // ctx.strokeRect(gameState.player.position.x - (gameState.player.width /2), gameState.player.position.y - (gameState.player.height /2), gameState.player.width, gameState.player.height);
     ctx.restore();
-}
-// TODO: updating position
-// function updatePosition(position: Vector2, direction: Direction, magnitude: number): Vector2 {
-//     // Get the direction vector
-//     const directionVector = directionVectors[direction];
-
-//     // Update the position
-//     return {
-//         x: position.x + directionVector.x * magnitude,
-//         y: position.y + directionVector.y * magnitude
-//     };
-// }
-
-export async function updateGame2(ctx: CanvasRenderingContext2D) {
-    const GAME_CELL = 64;
-    const GAME_FACTOR = 100;
-    const GAME_WIDTH = GAME_CELL * GAME_FACTOR;
-    const GAME_HEIGHT = GAME_CELL * GAME_FACTOR;
-    const cy = ctx.canvas.height / 2;
-    const cx = ctx.canvas.width / 2;
-    // ctx.drawImage(await loadImage('grass.png'), 0, 0);
-    const rnd: number[] = [0, 128, 256, 384, 512];
-    // get random
-    // const a = rnd[Math.floor(Math.random() * rnd.length)] ?? 0;
-    // const b = rnd[Math.floor(Math.random() * rnd.length)] ?? 0;
-    const sx = 256;
-    const sy = 256;
-    ctx.drawImage(await loadImage('Nomad_Atlas.webp'), sx, sy, 128, 128, cx - GAME_CELL, cy - GAME_CELL, 128, 128);
-    // ctx.drawImage(await loadImage('Nomad_Atlas.webp'), sx, sy, 128, 128, cx, cy, 128, 128); 
-    // draw rectangle
-    // ctx.fillStyle = '#00ff00';
-    // ctx.fillRect(cx-GAME_CELL, cy-GAME_CELL, GAME_CELL*2, GAME_CELL*2);
-}
-
-async function collision() {
-    // We want to exclude static objects from spatial partitioning
-    // Broad phase
-
-    // Narrow phase
-    return;
 }
 
 interface Game {
     world: PartitionStrategy;
     player: Player;
-    canvasBounds: Bounds;
+    canvasCenterX: number;
+    canvasCenterY: number;
 }
 
 /** Maps a [bitmask](https://en.wikipedia.org/wiki/Mask_(computing)) to the corresponding {@link Dir9} state. */
@@ -301,6 +262,7 @@ export function updatePlayerDirection(player: Player) {
     player.playerDirection = bitmaskDir9Map[bitmask] ?? DIR_9.Idle;
 }
 
+/** Represents the player (main character) in the game. */
 class Player implements Bbox {
     sprite: HTMLImageElement | null = null;
     width = 64;
@@ -308,6 +270,7 @@ class Player implements Bbox {
     position = new Vector2(248, 248);
     direction = Math.PI;
     idle = true;
+    /** The mouse position in world coordinates. */
     mousePosition = new Vector2(0, 0);
     pressingUp = false;
     pressingDown = false;
@@ -325,13 +288,6 @@ class Player implements Bbox {
     async loadSprite() {
         this.sprite = await loadImage('Nomad_Atlas.webp');
     }
-}
-
-interface Bounds {
-    minX: number;
-    minY: number;
-    maxX: number;
-    maxY: number;
 }
 
 /** 
