@@ -9,7 +9,7 @@ export class Pool<T extends Resettable> {
     private items: T[];
     private create: () => T;
 
-    constructor(initialLength = 0, create: () => T) {
+    constructor(create: () => T, initialLength = 0) {
         this.create = create;
         this.items = [];
         for (let i = 0; i < initialLength; i++) {

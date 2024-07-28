@@ -1,18 +1,100 @@
-import { type Vector2 } from "./vector2";
+import { Pool, type Resettable } from "./pool";
+import { Vector2 } from "./vector2";
 
-// Architecture: decide on abstractions, compatible with pooling
-
-interface Shape {
+export abstract class Shape implements Resettable {
     /** The center position of the shape. */
     center: Vector2;
-    /** The resulting `extents` represents the half-width and half-height of the bounding box that fully encloses the shape. */
-    getAABB(): Vector2;
+    /** The `extents` represents the half-width and half-height of the bounding box that fully encloses the shape. */
+    extents: Vector2;
+
+    /** 
+     * Constructs a new shape with the given center and extents. 
+     * 
+     * @param center The center position of the shape.
+     * @param extents The half-width and half-height of the bounding box that fully encloses the shape.
+     */
+    constructor(center: Vector2, extents: Vector2) {
+        this.center = center;
+        this.extents = extents;
+    }
+
+    reset(): void {
+        this.center.reset();
+        this.extents.reset();
+    }
+
     /** Broad collision check: returns true if the given point is inside the shape. */
-    contains(point: Vector2): boolean;
+    aabbContains(point: Vector2): boolean {
+        return (Math.abs(this.center.x - point.x) <= this.extents.x) &&
+            (Math.abs(this.center.y - point.y) <= this.extents.y);
+    }
+
     /** Broad collision check: returns true if the given shape intersects with this shape. */
-    intersects(shape: Shape): boolean;
-    
+    aabbIntersects(s: Shape): boolean {
+        return (Math.abs(this.center.x - s.center.x) <= (this.extents.x + s.extents.x)) &&
+            (Math.abs(this.center.y - s.center.y) <= (this.extents.y + s.extents.y));
+    }
+
     // TODO: SAT collision support for narrow phase
-    getVertices(): Vector2[];
-    getNormals(): Vector2[];
+    // abstract getVertices(): Vector2[];
+    // abstract getNormals(): Vector2[];
+}
+
+/** Axis-aligned rectangle. */
+export class Rect extends Shape {
+    width: number;
+    height: number;
+
+    constructor(center: Vector2, width: number, height: number) {
+        super(center, new Vector2(width / 2, height / 2));
+        this.width = width;
+        this.height = height;
+    }
+
+    reset(): void {
+        super.reset();
+        this.width = 0;
+        this.height = 0;
+    }
+}
+
+/** Oriented rectangle. */
+export class OrientedRect extends Shape {
+    width: number;
+    height: number;
+    direction: number;
+
+    constructor(center: Vector2, width: number, height: number, direction: number) {
+        const maxExtents = Math.max(width, height) / 2;
+        super(center, new Vector2(maxExtents, maxExtents));
+        this.width = width;
+        this.height = height;
+        this.direction = direction;
+    }
+
+    reset(): void {
+        super.reset();
+        this.width = 0;
+        this.height = 0;
+        this.direction = 0;
+    }
+}
+
+export class Circle extends Shape {
+    radius: number;
+
+    constructor(center: Vector2, radius: number) {
+        super(center, new Vector2(radius, radius));
+        this.radius = radius;
+    }
+
+    reset(): void {
+        super.reset();
+        this.radius = 0;
+    }
+
+    radialIntersects(point: Vector2): boolean {
+        return this.center.distanceToSquared(point) <= (this.radius * this.radius);
+    }
+
 }

@@ -1,4 +1,5 @@
 import { Vector2 } from "./vector2";
+import { Shape, Circle, OrientedRect, Rect } from "./shape";
 
 const GAME_WIDTH = 6400;
 const GAME_HEIGHT = 6400;
@@ -157,7 +158,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     ctx.scale(1, -1); // Invert Y axis
     ctx.translate(-pp.x, -pp.y); // Translate based on player position
     gameState.player.direction = dir9VectorMap[gameState.player.playerDirection].direction();
-    for (const thing of [...thingsToRender]) {
+    for (const thing of thingsToRender) {
         const directionRadius = 64;
         const ng = Vector2.fromPolar(thing.direction, directionRadius);
         const direction = thing.position.clone().add(ng);
