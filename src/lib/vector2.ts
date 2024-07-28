@@ -21,9 +21,9 @@ export class Vector2 implements Resettable {
         return new Vector2(0, 0);
     }
 
-    /** Returns a new vector with the given angle in radians. */
-    static fromAngle(angle: number): Vector2 {
-        return new Vector2(Math.cos(angle), Math.sin(angle));
+    /** Returns a new Cartesian vector based on the given direction/angle in radians and magnitude. */
+    static fromPolar(direction: number, magnitude = 1): Vector2 {
+        return new Vector2(Math.cos(direction) * magnitude, Math.sin(direction) * magnitude);
     }
 
     /** Turns the vector into a zero vector. */

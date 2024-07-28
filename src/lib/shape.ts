@@ -1,5 +1,7 @@
 import { type Vector2 } from "./vector2";
 
+// Architecture: decide on abstractions, compatible with pooling
+
 interface Shape {
     /** The center position of the shape. */
     center: Vector2;

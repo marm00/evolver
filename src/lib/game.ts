@@ -159,8 +159,8 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     gameState.player.direction = dir9VectorMap[gameState.player.playerDirection].direction();
     for (const thing of [...thingsToRender]) {
         const directionRadius = 64;
-        const ng = Vector2.fromAngle(thing.direction);
-        const direction = thing.position.clone().add(ng.setLength(directionRadius));
+        const ng = Vector2.fromPolar(thing.direction, directionRadius);
+        const direction = thing.position.clone().add(ng);
 
         ctx.lineWidth = 2;
 
