@@ -51,6 +51,10 @@ export class Rect extends Shape {
         this.height = height;
     }
 
+    static zero(this: void): Rect {
+        return new Rect(Vector2.zero(), 0, 0);
+    }
+
     reset(): void {
         super.reset();
         this.width = 0;
@@ -72,6 +76,10 @@ export class OrientedRect extends Shape {
         this.direction = direction;
     }
 
+    static zero(this: void): OrientedRect {
+        return new OrientedRect(Vector2.zero(), 0, 0, 0);
+    }
+
     reset(): void {
         super.reset();
         this.width = 0;
@@ -86,6 +94,10 @@ export class Circle extends Shape {
     constructor(center: Vector2, radius: number) {
         super(center, new Vector2(radius, radius));
         this.radius = radius;
+    }
+
+    static zero(this: void): Circle {
+        return new Circle(Vector2.zero(), 0);
     }
 
     reset(): void {
