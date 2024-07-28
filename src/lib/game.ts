@@ -357,20 +357,20 @@ class SingleCell implements PartitionStrategy {
     }
 }
 
-class SpatialHashGrid implements PartitionStrategy {
-    insert(bbox: Bbox): void {
-        throw new Error("Method not implemented.");
-    }
-    remove(bbox: Bbox): void {
-        throw new Error("Method not implemented.");
-    }
-    update(bbox: Bbox): void {
-        throw new Error("Method not implemented.");
-    }
-    query(x: number, y: number): Bbox[] {
-        throw new Error("Method not implemented.");
-    }
-}
+// class SpatialHashGrid implements PartitionStrategy {
+//     insert(bbox: Bbox): void {
+//         throw new Error("Method not implemented.");
+//     }
+//     remove(bbox: Bbox): void {
+//         throw new Error("Method not implemented.");
+//     }
+//     update(bbox: Bbox): void {
+//         throw new Error("Method not implemented.");
+//     }
+//     query(x: number, y: number): Bbox[] {
+//         throw new Error("Method not implemented.");
+//     }
+// }
 
 // Spatial Grid, BVH, QuadTree, AABB, OBB
 // SAT

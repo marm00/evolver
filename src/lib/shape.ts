@@ -60,6 +60,14 @@ export class Rect extends Shape {
         this.width = 0;
         this.height = 0;
     }
+
+    /** Updates the extents and dimensions. */
+    setDimensions(width: number, height: number): this {
+        this.extents.set(width / 2, height / 2);
+        this.width = width;
+        this.height = height;
+        return this;
+    }
 }
 
 /** Oriented rectangle. */
@@ -86,6 +94,16 @@ export class OrientedRect extends Shape {
         this.height = 0;
         this.direction = 0;
     }
+    
+    /** Updates the extents and dimensions. */
+    setDimensions(width: number, height: number, direction: number): this {
+        const maxExtents = Math.max(width, height) / 2;
+        this.extents.set(maxExtents, maxExtents);
+        this.width = width;
+        this.height = height;
+        this.direction = direction;
+        return this;
+    }
 }
 
 export class Circle extends Shape {
@@ -103,6 +121,13 @@ export class Circle extends Shape {
     reset(): void {
         super.reset();
         this.radius = 0;
+    }
+
+    /** Updates the extents and dimensions. */
+    setDimensions(radius: number): this {
+        this.extents.set(radius, radius);
+        this.radius = radius;
+        return this;
     }
 
     radialIntersects(point: Vector2): boolean {
