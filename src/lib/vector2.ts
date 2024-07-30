@@ -100,9 +100,17 @@ export class Vector2 implements Resettable {
      * Dot or scalar product of vectors. Both normalized: 0 = orthoganal or perpendicular, 1 = parallel, -1 = anti-parallel. 
      * Perpendicularly projects vector B onto vector A, resulting in the extended coordinate along the direction of vector A.
      * This example only certainly works when one of the vectors is normalized, because it gets scaled otherwise.
-     * */
+     */
     dot(v: Vector2): number {
         return this.x * v.x + this.y * v.y;
+    }
+
+    /** 
+     * The 2D cross product returns a scalar unlike a vector in 3D. If this vector is on the right-hand side of vector v,
+     * the cross product will be negative, left-hand = positive. Parallel/anti-parallel vectors have a zero cross product.
+     */
+    cross(v: Vector2): number {
+        return this.x * v.y - this.y * v.x;
     }
 
     /** Normalizes the vector to have a magnitude of 1 (unit or direction vector). Zero vectors are ignored. */
@@ -236,6 +244,19 @@ export class Vector2 implements Resettable {
         return this;
     }
 
+    // TODO: Matrix3 support
+    // applyMatrix3( m ) {
+
+	// 	const x = this.x, y = this.y;
+	// 	const e = m.elements;
+
+	// 	this.x = e[ 0 ] * x + e[ 3 ] * y + e[ 6 ];
+	// 	this.y = e[ 1 ] * x + e[ 4 ] * y + e[ 7 ];
+
+	// 	return this;
+
+	// }
+
     /** Polar coordinates of the vector. */
     polar(): { direction: number, magnitude: number } {
         return { direction: this.direction(), magnitude: this.magnitude() };
@@ -244,5 +265,10 @@ export class Vector2 implements Resettable {
     /** Returns true if the vector has the same coordinates as the given vector. */
     equals(v: Vector2): boolean {
         return this.x === v.x && this.y === v.y;
+    }
+
+    /** Returns true if the vector is a zero vector (both components are zero). */
+    isZero(): boolean {
+        return this.x === 0 && this.y === 0;
     }
 }

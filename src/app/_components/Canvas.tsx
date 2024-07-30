@@ -102,7 +102,7 @@ export function Canvas() {
             /** The main game loop. Each frame, the game is updated and rendered to the canvas. */
             const frame = (timestamp: number) => {
                 const deltaTime = (timestamp - prevTimestamp) / 1000;
-                const time = timestamp / 1000;
+                const elapsedTime = timestamp / 1000;
                 prevTimestamp = timestamp;
 
                 deltas.push(deltaTime);
@@ -111,7 +111,7 @@ export function Canvas() {
                 const fps = Math.floor(1 / deltaAvg);
                 // console.log('FPS:', fps);
 
-                game.updateGame(ctx, gameState, time, deltaTime).then().catch(console.error);
+                game.updateGame(ctx, gameState, elapsedTime, deltaTime).then().catch(console.error);
                 window.requestAnimationFrame(frame);
             };
 

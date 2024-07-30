@@ -65,7 +65,7 @@ export async function createGame(strategy: string): Promise<Game> {
     return { world, player, canvasCenterX: 0, canvasCenterY: 0 };
 }
 
-export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game, time: number, deltaTime: number) {
+export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game, elapsedTime: number, deltaTime: number) {
     const cx = gameState.canvasCenterX;
     const cy = gameState.canvasCenterY;
     const pp = gameState.player.center;
@@ -230,28 +230,29 @@ export function updatePlayerDirection(player: Player) {
     }
 
     console.assert([0b0000, 0b0001, 0b1001, 0b1000, 0b1010, 0b0010, 0b0110, 0b0100, 0b0101].includes(bitmask));
-
     // Execute the action for the player direction, asserting idle as a default
     (bitmaskActionMap[bitmask] ?? bitmaskActionMap[0b0000])!(player);
 }
 
 /** Represents the player (main character) in the game. */
 class Player extends Rect {
+    playerDirection: Dir9 = DIR_9.Idle;
     sprite: HTMLImageElement | null = null;
-    idle = true;
+    displayWidth = 128;
+    displayHeight = 128;
+
     /** Horizontal difference between the mouse position and the center of the canvas. */
     mouseCanvasDX = 0;
     /** Vertical difference between the mouse position and the center of the canvas. */
     mouseCanvasDY = 0;
     /** The mouse position in world coordinates. */
     mousePosition = new Vector2(0, 0);
+
     pressingUp = false;
     pressingDown = false;
     pressingLeft = false;
     pressingRight = false;
-    playerDirection: Dir9 = DIR_9.Idle;
-    displayWidth = 128;
-    displayHeight = 128;
+    idle = () => this.playerDirection === DIR_9.Idle;
 
     constructor() {
         super(new Vector2(128, 128), new Vector2(0, 0), new Vector2(0, 0), 64, 128);
