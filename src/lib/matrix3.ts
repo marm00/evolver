@@ -194,23 +194,21 @@ export class Matrix3 implements Resettable {
 
     /** 
      * Combines (not chains) {@link Matrix3.translate}, {@link Matrix3.rotate}, and {@link Matrix3.scale} into a 
-     * single matrix premultiplication. The translation sets the matrix origin and the scale is multiplied by the
+     * single matrix premultiplication. The translation sets the matrix origin and the scalar is multiplied by the
      * axis rotation to form the transformation matrix.
      */
-    trs(translation: Vector2, rotation: number, scale: Vector2): this {
+    trs(translation: Vector2, rotation: number, scalar: Vector2): this {
         rotation = -rotation;
         const cos = Math.cos(rotation);
         const sin = Math.sin(rotation);
         _b.set(
-            scale.x * cos, sin, 0,           // col 1
-            -sin, scale.y * cos, 0,          // col 2
+            scalar.x * cos, sin, 0,          // col 1
+            -sin, scalar.y * cos, 0,         // col 2
             translation.x, translation.y, 1, // col 3
         );
         this.premul(_b);
         return this;
     }
-
-    // TODO:  maybe a 2x3 matrix function (dont need last row often)
 
 }
 

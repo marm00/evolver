@@ -245,7 +245,7 @@ export class Vector2 implements Resettable {
         return this;
     }
 
-    /** Applies a matrix transformation to the vector. */
+    /** Applies a matrix transformation to the vector, transforming this direction by the matrix. */
     matmul(m: Matrix3): this {
         const x = this.x, y = this.y;
         const a = m.elements;
