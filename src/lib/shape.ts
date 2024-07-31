@@ -1,6 +1,21 @@
+import { Matrix3 } from "./matrix3";
 import { Pool, type Resettable } from "./pool";
 import { Vector2 } from "./vector2";
 
+/**
+ * A shape is an object in 2D space, like a player hitbox (rectangle) or a projectile (circle).
+ * 
+ * 
+ * @example
+ * // Converting/transforming a vector in world space to the shape's local space
+ * const matrixPool = new Pool<Matrix3>(Matrix3.identity);
+ * const matrix = matrixPool.alloc();
+ * const circle = new Circle(Vector2.zero(), Vector2.zero(), Vector2.zero(), 64);
+ * const vector = new Vector2(0, 256);
+ * const transformed = vector.matmul(matrix.setShape(circle));
+ * // The transformed vector is 256 (y) units above the circle's center
+ * matrixPool.free(matrix);
+ */
 export abstract class Shape implements Resettable {
     center: Vector2;
     /** The `extents` represents the half-width and half-height of the bounding box that maximally encloses the shape. */
@@ -20,6 +35,9 @@ export abstract class Shape implements Resettable {
         this.velocity = velocity;
         this.acceleration = acceleration;
     }
+
+    /** Sets the given transformation matrix to the shape. */
+    abstract setMatrix(m: Matrix3): void;
 
     reset(): void {
         this.center.reset();
@@ -66,6 +84,11 @@ export class Rect extends Shape {
         this.height = 0;
     }
 
+    setMatrix(m: Matrix3): void {
+        // TODO: scale or not?
+        m.translate(this.center).scale(this.extents);
+    }
+
     /** Updates the extents and dimensions. */
     setDimensions(width: number, height: number): this {
         this.extents.set(width / 2, height / 2);
@@ -100,6 +123,11 @@ export class OrientedRect extends Shape {
         this.height = 0;
         this.direction = 0;
     }
+
+    setMatrix(m: Matrix3): void {
+        // TODO: scale or not?
+        m.translate(this.center).rotate(this.direction).scale(this.extents);
+    }
     
     /** Updates the extents and dimensions. */
     setDimensions(width: number, height: number, direction: number): this {
@@ -129,6 +157,11 @@ export class Circle extends Shape {
         this.radius = 0;
     }
 
+    setMatrix(m: Matrix3): void {
+        // TODO: scale or not?
+        m.translate(this.center).scale(this.extents);
+    }
+
     /** Updates the extents and dimensions. */
     setDimensions(radius: number): this {
         this.extents.set(radius, radius);
@@ -141,3 +174,4 @@ export class Circle extends Shape {
     }
 
 }
+

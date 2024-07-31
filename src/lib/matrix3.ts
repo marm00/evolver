@@ -1,4 +1,5 @@
 import { type Resettable } from "./pool";
+import { Shape } from "./shape";
 import { type Vector2 } from "./vector2";
 
 /**
@@ -61,6 +62,12 @@ export class Matrix3 implements Resettable {
         a[0] = a11, a[1] = a21, a[2] = a31; // col 1
         a[3] = a12, a[4] = a22, a[5] = a32; // col 2
         a[6] = a13, a[7] = a23, a[8] = a33; // col 3
+        return this;
+    }
+
+    /** Sets the transformation matrix to the given shape (e.g. a rectangle or circle in 2D space). */
+    setShape(s: Shape): this {
+        s.setMatrix(this);
         return this;
     }
 
@@ -162,7 +169,7 @@ export class Matrix3 implements Resettable {
 
     /** Rotate the matrix clockwise around the origin by the given angle in radians. */
     rotate(angle: number): this {
-        angle = -angle;
+        angle = -angle; // Negate for clockwise rotation
         const cos = Math.cos(angle);
         const sin = Math.sin(angle);
         _b.set(
