@@ -102,7 +102,6 @@ export class Rect extends Shape {
 export class OrientedRect extends Shape {
     width: number;
     height: number;
-    // TODO: do we need direction, or is the velocity enough
     direction: number;
 
     constructor(center: Vector2, velocity: Vector2, acceleration: Vector2, width: number, height: number, direction: number) {
