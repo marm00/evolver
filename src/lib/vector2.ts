@@ -1,4 +1,5 @@
 import { type Resettable } from "./pool";
+import { Matrix3 } from "./matrix3";
 
 
 /**
@@ -212,14 +213,14 @@ export class Vector2 implements Resettable {
         return Math.atan2(this.y, this.x);
     }
 
-    /** Direction or angle of the vector in radians from this to the given vector. Returns 90 degrees if a zero vector is given. */
+    /** Direction or angle of the vector in radians from this to the given vector. Returns 180 degrees if a zero vector is given. */
     directionTo(v: Vector2): number {
         /** Magnitude as the cosine denominator. */
         const denominator = Math.sqrt(this.magnitudeSquared() * v.magnitudeSquared());
 
-        /** Treat zero vectors as having the default direction (90 degrees), preventing further null checks. */
+        /** Treat zero vectors as having the default direction (180 degrees), preventing further null checks. */
         if (denominator === 0) {
-            return Math.PI / 2;
+            return Math.PI;
         }
 
         /** Cosine of the angle between the two vectors. */
@@ -244,18 +245,14 @@ export class Vector2 implements Resettable {
         return this;
     }
 
-    // TODO: Matrix3 support
-    // applyMatrix3( m ) {
-
-	// 	const x = this.x, y = this.y;
-	// 	const e = m.elements;
-
-	// 	this.x = e[ 0 ] * x + e[ 3 ] * y + e[ 6 ];
-	// 	this.y = e[ 1 ] * x + e[ 4 ] * y + e[ 7 ];
-
-	// 	return this;
-
-	// }
+    /** Applies a matrix transformation to the vector. */
+    matmul(m: Matrix3): this {
+        const x = this.x, y = this.y;
+        const a = m.elements;
+        this.x = a[0]! * x + a[1]! * y + a[2]!;
+        this.y = a[3]! * x + a[4]! * y + a[5]!;
+        return this;
+    }
 
     /** Polar coordinates of the vector. */
     polar(): { direction: number, magnitude: number } {

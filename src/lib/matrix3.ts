@@ -12,11 +12,11 @@ import { type Vector2 } from "./vector2";
  * a31  >^ a32  >^ a33  ==  2  >^ 5  >^ 8
  * >```
  */
-class Matrix3 implements Resettable {
+export class Matrix3 implements Resettable {
     elements: Float32Array;
 
     /** 
-     * Constructs a new 3x3 matrix with [column-major ordering](https://en.wikipedia.org/wiki/Row-_and_column-major_order).
+     * Constructs a new 3x3 Matrix3 with [column-major ordering](https://en.wikipedia.org/wiki/Row-_and_column-major_order).
      */
     constructor(
         //   row 1 ,      row 2 ,      row 3 ,
@@ -64,6 +64,7 @@ class Matrix3 implements Resettable {
         return this;
     }
 
+    /** Returns a new Matrix3 with the same elements. */
     clone(): Matrix3 {
         const a = this.elements;
         return new Matrix3(
@@ -74,7 +75,6 @@ class Matrix3 implements Resettable {
         );
     }
 
-
     /** 
      * Matrix multiplication in place. Memory layout by indices:
      * 
@@ -84,7 +84,7 @@ class Matrix3 implements Resettable {
      * 1 4 7   1 4 7
      * 2 5 8   2 5 8
      * >```
-    */
+     */
     mul(m: Matrix3): this {
         const a = this.elements;
         const b = m.elements;
@@ -121,7 +121,7 @@ class Matrix3 implements Resettable {
     * 1 4 7   1 4 7
     * 2 5 8   2 5 8
     * >```
-   */
+    */
     premul(m: Matrix3): this {
         const a = this.elements;
         const b = m.elements;
@@ -149,17 +149,61 @@ class Matrix3 implements Resettable {
         return this;
     }
 
-    // TODO: rotate, scale, TRS, vector mul, maybe a 2x3 matrix function (dont need last row often)
+    /** Set/translate the position of the matrix origin to the given vector. */
     translate(v: Vector2): this {
         _b.set(
             1, 0, 0,    // col 1
             0, 1, 0,    // col 2
             v.x, v.y, 1 // col 3
-        ); 
+        );
         this.premul(_b);
         return this;
     }
 
+    /** Rotate the matrix clockwise around the origin by the given angle in radians. */
+    rotate(angle: number): this {
+        angle = -angle;
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+        _b.set(
+            cos, sin, 0,  // col 1
+            -sin, cos, 0, // col 2
+            0, 0, 1,      // col 3
+        );
+        this.premul(_b);
+        return this;
+    }
+
+    /** Scales the matrix up or down by the given vector. @see {@link Vector2.scale} */
+    scale(v: Vector2): this {
+        _b.set(
+            v.x, 0, 0, // col 1
+            0, v.y, 0, // col 2
+            0, 0, 1,   // col 3
+        );
+        this.premul(_b);
+        return this;
+    }
+
+    /** 
+     * Combines (not chains) {@link Matrix3.translate}, {@link Matrix3.rotate}, and {@link Matrix3.scale} into a 
+     * single matrix premultiplication. The translation sets the matrix origin and the scale is multiplied by the
+     * axis rotation to form the transformation matrix.
+     */
+    trs(translation: Vector2, rotation: number, scale: Vector2): this {
+        rotation = -rotation;
+        const cos = Math.cos(rotation);
+        const sin = Math.sin(rotation);
+        _b.set(
+            scale.x * cos, sin, 0,           // col 1
+            -sin, scale.y * cos, 0,          // col 2
+            translation.x, translation.y, 1, // col 3
+        );
+        this.premul(_b);
+        return this;
+    }
+
+    // TODO:  maybe a 2x3 matrix function (dont need last row often)
 
 }
 
