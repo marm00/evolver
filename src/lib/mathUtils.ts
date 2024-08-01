@@ -15,8 +15,16 @@ export interface _Math {
      * @param radians A numeric expression representing the angle in degrees.
      */
     radToDeg(radians: number): number;
+    /** 
+     * Clamps the value between the supplied min and max bounds.
+     * @param value A numeric expression.
+     * @param min The minimum value to clamp the expression to.
+     * @param max The maximum value to clamp the expression to.
+     */
+    clamp(value: number, min: number, max: number): number;
 }
 
+/** An object that provides additional mathematics functionality and constants beyond the built-in {@link Math} object. */
 export const _Math: _Math = {
     TAU: Math.PI * 2,
     DEG_TO_RAD: Math.PI / 180,
@@ -26,5 +34,8 @@ export const _Math: _Math = {
     },
     radToDeg(radians: number): number {
         return radians * this.RAD_TO_DEG;
+    },
+    clamp(value: number, min: number, max: number): number {
+        return Math.max(min, Math.min(max, value));
     }
 };

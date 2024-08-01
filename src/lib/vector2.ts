@@ -1,5 +1,6 @@
 import { type Resettable } from "./pool";
 import { Matrix3 } from "./matrix3";
+import { _Math } from "./mathUtils";
 
 
 /**
@@ -69,6 +70,15 @@ export class Vector2 implements Resettable {
         return this;
     }
 
+    /** Applies a matrix transformation to the vector, transforming this direction by the matrix. */
+    matmul(m: Matrix3): this {
+        const x = this.x, y = this.y;
+        const a = m.elements;
+        this.x = a[0]! * x + a[1]! * y + a[2]!;
+        this.y = a[3]! * x + a[4]! * y + a[5]!;
+        return this;
+    }
+
     /** Element-wise addition. Visually duplicates B tail onto A head (and vice versa) to form an intersection (sum by parallelogram law). */
     add(v: Vector2): this {
         this.x += v.x;
@@ -107,11 +117,30 @@ export class Vector2 implements Resettable {
     }
 
     /** 
-     * The 2D cross product returns a scalar unlike a vector in 3D. If this vector is on the right-hand side of vector v,
+     * The determinant or 2D cross product returns a scalar unlike a vector in 3D. If `this` vector is on the right-hand side of vector `v`,
      * the cross product will be negative, left-hand = positive. Parallel/anti-parallel vectors have a zero cross product.
+     * Given two normalized vectors, the determinant is the signed area of the parallelogram formed by the vectors equal to sin(theta).
      */
-    cross(v: Vector2): number {
+    det(v: Vector2): number {
         return this.x * v.y - this.y * v.x;
+    }
+
+    /**
+     * The determinant or 2D cross product returns a scalar unlike a vector in 3D, representing the signed area for normalized vectors.
+     * Variant of {@link Vector2.det} that assumes the vectors are not normalized (and therefore does normalize). Returns 0 if a zero
+     * vector is given, since there is no meaningful area and the vectors are (anti-)parallel in a way.
+     */
+    detChecked(v: Vector2): number {
+        /** Magnitude as the sine demonimator. */
+        const denominator = Math.sqrt(this.magnitudeSquared() * v.magnitudeSquared());
+
+        // Return 0 in case of zero vector(s).
+        if (denominator === 0) {
+            return 0;
+        }
+
+        // Normalize and return the determinant or signed area.
+        return this.det(v) / denominator;
     }
 
     /** Normalizes the vector to have a magnitude of 1 (unit or direction vector). Zero vectors are ignored. */
@@ -213,24 +242,35 @@ export class Vector2 implements Resettable {
         return Math.atan2(this.y, this.x);
     }
 
-    /** Direction or angle of the vector in radians from this to the given vector. Returns 180 degrees if a zero vector is given. */
+    /** 
+     * Direction or angle of the vector in radians from this to the given vector. Returns {@link _Math.TAU} radians (or 0 or 360 degrees) 
+     * if a zero vector is given. Automatically normalizes and clamps the dot product for a meaningful acosine result. 
+     */
     directionTo(v: Vector2): number {
         /** Magnitude as the cosine denominator. */
         const denominator = Math.sqrt(this.magnitudeSquared() * v.magnitudeSquared());
 
-        /** Treat zero vectors as having the default direction (180 degrees), preventing further null checks. */
+        // Treat zero vectors as having the default direction (tau radians or 0 or 360 degrees), preventing further null checks.
         if (denominator === 0) {
-            return Math.PI;
+            return _Math.TAU;
         }
 
-        /** Cosine of the angle between the two vectors. */
+        /** Angle between the two normalized vectors. */
         const theta = this.dot(v) / denominator;
 
-        /** Cosine clamped to the range [-1, 1] to handle floating point errors. */
-        const clampedTheta = Math.max(-1, Math.min(1, theta));
+        /** Normalized and clamped dot product. Cosine clamped to the range [-1, 1] to handle floating point errors. */
+        const clampedTheta = _Math.clamp(theta, -1, 1);
 
-        /** Return the angle in radians. */
+        // Return the angle in radians.
         return Math.acos(clampedTheta);
+    }
+
+    /** 
+     * Direction or angle of the vector in radians from this to the given vector.
+     * Variant of {@link Vector2.directionTo} that assumes the vectors are normalized (and therefore does not normalize). 
+     */
+    directionToUnchecked(v: Vector2): number {
+        return Math.acos(_Math.clamp(this.dot(v), -1, 1));
     }
 
     /** Sets this vector to the normalized direction from this vector to the given vector. */
@@ -242,15 +282,6 @@ export class Vector2 implements Resettable {
     negate() {
         this.x = -this.x;
         this.y = -this.y;
-        return this;
-    }
-
-    /** Applies a matrix transformation to the vector, transforming this direction by the matrix. */
-    matmul(m: Matrix3): this {
-        const x = this.x, y = this.y;
-        const a = m.elements;
-        this.x = a[0]! * x + a[1]! * y + a[2]!;
-        this.y = a[3]! * x + a[4]! * y + a[5]!;
         return this;
     }
 
