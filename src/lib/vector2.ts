@@ -136,7 +136,7 @@ export class Vector2 implements Resettable {
 
     /** 
     * The determinant or 2D cross product returns a scalar unlike a vector in 3D, representing the signed area for normalized vectors.
-    * Variant of {@link Vector2.det} that assumes the vectors are normalized (and therefore does not normalize). Given two normalized 
+    * Variant of {@link Vector2.det} that proceses the vectors 'as is' and therefore does not normalize. Given two normalized 
     * vectors, the determinant is the signed area of the parallelogram formed by the vectors equal to sin(theta). 
     */
     detUnchecked(v: Vector2): number {
