@@ -116,21 +116,12 @@ export class Vector2 implements Resettable {
         return this.x * v.x + this.y * v.y;
     }
 
-    /** 
-     * The determinant or 2D cross product returns a scalar unlike a vector in 3D. If `this` vector is on the right-hand side of vector `v`,
-     * the cross product will be negative, left-hand = positive. Parallel/anti-parallel vectors have a zero cross product.
-     * Given two normalized vectors, the determinant is the signed area of the parallelogram formed by the vectors equal to sin(theta).
-     */
-    det(v: Vector2): number {
-        return this.x * v.y - this.y * v.x;
-    }
-
     /**
-     * The determinant or 2D cross product returns a scalar unlike a vector in 3D, representing the signed area for normalized vectors.
-     * Variant of {@link Vector2.det} that assumes the vectors are not normalized (and therefore does normalize). Returns 0 if a zero
+     * The determinant or 2D cross product returns a scalar unlike a vector in 3D, If `this` vector is on the right-hand side of vector `v`,
+     * the cross product will be negative, left-hand = positive. Parallel/anti-parallel vectors have a zero cross product. Returns 0 if a zero
      * vector is given, since there is no meaningful area and the vectors are (anti-)parallel in a way.
      */
-    detChecked(v: Vector2): number {
+    det(v: Vector2): number {
         /** Magnitude as the sine demonimator. */
         const denominator = Math.sqrt(this.magnitudeSquared() * v.magnitudeSquared());
 
@@ -140,7 +131,16 @@ export class Vector2 implements Resettable {
         }
 
         // Normalize and return the determinant or signed area.
-        return this.det(v) / denominator;
+        return (this.x * v.y - this.y * v.x) / denominator;
+    }
+
+    /** 
+    * The determinant or 2D cross product returns a scalar unlike a vector in 3D, representing the signed area for normalized vectors.
+    * Variant of {@link Vector2.det} that assumes the vectors are normalized (and therefore does not normalize). Given two normalized 
+    * vectors, the determinant is the signed area of the parallelogram formed by the vectors equal to sin(theta). 
+    */
+    detUnchecked(v: Vector2): number {
+        return this.x * v.y - this.y * v.x;
     }
 
     /** Normalizes the vector to have a magnitude of 1 (unit or direction vector). Zero vectors are ignored. */
