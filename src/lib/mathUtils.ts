@@ -32,13 +32,36 @@ export interface _Math {
     clamp(value: number, min: number, max: number): number;
 
     /**
-     * Linearly interpolates ([lerp](https://en.wikipedia.org/wiki/Linear_interpolation)) precisely between two values.
+     * Linearly interpolates ([lerp](https://en.wikipedia.org/wiki/Linear_interpolation)) precisely between two values, unclamped.
      * 
-     * @param x The start or initial value.
-     * @param y The end or final value.
+     * @param a The start or initial value.
+     * @param b The end or final value.
      * @param t The interpolation factor or time value, between 0 and 1.
+     * @returns The interpolated value between `a` and `b`.
      */
-    lerp(x: number, y: number, t: number): number;
+    lerp(a: number, by: number, t: number): number;
+
+    /**
+     * Inversely linearly interpolates ({@link _Math.lerp}) the given value between the given start and end values, unclamped.
+     * 
+     * @param a The start or initial value.
+     * @param b The end or final value.
+     * @param v The value between `a` and `b`.
+     * @returns The interpolation factor or time value, based on the position of `v` between `a` and `b`.
+     */
+    lerpInverse(a: number, b: number, v: number): number;
+
+    /**
+     * Remaps the given value from the range of `fromMin` to `fromMax` to the range of `toMin` to `toMax`.
+     * Uses {@link _Math.lerp} to interpolate between `to` with interpolation factor *t* as {@link _Math.lerpInverse} of `from`.
+     * 
+     * @param fromMin The start or initial value of `from`.
+     * @param fromMax The end or final value of `from`.
+     * @param toMin The start or initial value of `to`.
+     * @param toMax The end or final value of `to`.
+     * @param value The value to remap.
+     */
+    remap(fromMin: number, fromMax: number, toMin: number, toMax: number, value: number): number;
 }
 
 /** An object that provides additional mathematics functionality and constants beyond the built-in {@link Math} object. */
@@ -55,7 +78,13 @@ export const _Math: _Math = {
     clamp(value: number, min: number, max: number): number {
         return Math.max(min, Math.min(max, value));
     },
-    lerp(x: number, y: number, t: number): number {
-        return (1 - t) * x + t * y;
+    lerp(a: number, b: number, t: number): number {
+        return (1 - t) * a + b * t;
+    },
+    lerpInverse(a: number, b: number, v: number): number {
+        return a === b ? 0 : (v - a) / (b - a);
+    },
+    remap(fromMin: number, fromMax: number, toMin: number, toMax: number, value: number): number {
+        return this.lerp(toMin, toMax, this.lerpInverse(fromMin, fromMax, value));
     }
 };

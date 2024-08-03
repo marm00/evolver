@@ -211,7 +211,7 @@ export class Vector2 implements Resettable {
 
     // TODO: Easing functions
     /** 
-     * Incremental linear interpolation, resulting in a vector between this and the given vector at the given time. 
+     * Incremental linear interpolation, resulting in a vector between this and the given vector at the given time, unclamped.
      * 
      * @param v The vector to interpolate towards.
      * @param t The time value or scalar, between 0 and 1, representing the interpolation progress.

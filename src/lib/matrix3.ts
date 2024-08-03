@@ -20,7 +20,7 @@ export class Matrix3 implements Resettable {
     elements: Float32Array;
 
     /** 
-     * Constructs a new 3x3 Matrix3 with [column-major ordering](https://en.wikipedia.org/wiki/Row-_and_column-major_order).
+     * Constructs a new 3x3 matrix with [column-major ordering](https://en.wikipedia.org/wiki/Row-_and_column-major_order).
      */
     constructor(
         //   row 1 ,      row 2 ,      row 3 ,
