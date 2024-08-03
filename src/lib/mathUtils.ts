@@ -49,11 +49,11 @@ export interface _Math {
      * @param v The value between `a` and `b`.
      * @returns The interpolation factor or time value, based on the position of `v` between `a` and `b`.
      */
-    lerpInverse(a: number, b: number, v: number): number;
+    inverseLerp(a: number, b: number, v: number): number;
 
     /**
      * Remaps the given value from the range of `fromMin` to `fromMax` to the range of `toMin` to `toMax`.
-     * Uses {@link _Math.lerp} to interpolate between `to` with interpolation factor *t* as {@link _Math.lerpInverse} of `from`.
+     * Uses {@link _Math.lerp} to interpolate between `to` with interpolation factor *t* as {@link _Math.inverseLerp} of `from`.
      * 
      * @param fromMin The start or initial value of `from`.
      * @param fromMax The end or final value of `from`.
@@ -81,10 +81,10 @@ export const _Math: _Math = {
     lerp(a: number, b: number, t: number): number {
         return (1 - t) * a + b * t;
     },
-    lerpInverse(a: number, b: number, v: number): number {
+    inverseLerp(a: number, b: number, v: number): number {
         return a === b ? 0 : (v - a) / (b - a);
     },
     remap(fromMin: number, fromMax: number, toMin: number, toMax: number, value: number): number {
-        return this.lerp(toMin, toMax, this.lerpInverse(fromMin, fromMax, value));
+        return this.lerp(toMin, toMax, this.inverseLerp(fromMin, fromMax, value));
     }
 };

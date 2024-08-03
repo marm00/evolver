@@ -161,7 +161,7 @@ export class Vector2 implements Resettable {
     }
 
     /** Divides the vector by a scalar, resulting in a vector with the same (or negated) direction but different magnitude. */
-    scaleInverse(scalar: number): this {
+    inverseScale(scalar: number): this {
         return this.scale(1 / scalar);
     }
 
