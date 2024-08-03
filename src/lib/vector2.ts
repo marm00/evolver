@@ -1,6 +1,7 @@
 import { type Resettable } from "./pool";
 import { Matrix3 } from "./matrix3";
 import { _Math } from "./mathUtils";
+import { Matrix2 } from "./matrix2";
 
 
 /**
@@ -70,8 +71,17 @@ export class Vector2 implements Resettable {
         return this;
     }
 
-    /** Applies a matrix transformation to the vector, transforming this direction by the matrix. */
-    matmul(m: Matrix3): this {
+    /** Applies a {@link Matrix2} transformation to the vector, transforming this direction by the matrix. */
+    matmul2(m: Matrix2): this {
+        const x = this.x, y = this.y;
+        const a = m.elements;
+        this.x = a[0]! * x + a[1]! * y;
+        this.y = a[2]! * x + a[3]! * y;
+        return this;
+    }
+
+    /** Applies a {@link Matrix3} transformation to the vector, transforming this direction by the matrix. */
+    matmul3(m: Matrix3): this {
         const x = this.x, y = this.y;
         const a = m.elements;
         this.x = a[0]! * x + a[1]! * y + a[2]!;
@@ -169,10 +179,9 @@ export class Vector2 implements Resettable {
     rotate(angle: number): this {
         const cos = Math.cos(angle);
         const sin = Math.sin(angle);
-        const nx = this.x * cos - this.y * sin;
-        const ny = this.x * sin + this.y * cos;
-        this.x = nx;
-        this.y = ny;
+        const x = this.x, y = this.y;
+        this.x = x * cos - y * sin;
+        this.y = x * sin + y * cos;
         return this;
     }
 
@@ -189,6 +198,14 @@ export class Vector2 implements Resettable {
         const dy = this.y - v.y;
         this.x = dx * cos - dy * sin;
         this.y = dx * sin + dy * cos;
+        return this;
+    }
+
+    /** Rotates the vector 90 degrees counterclockwise. */
+    rotate90Deg(): this {
+        const x = this.x;
+        this.x = this.y;
+        this.y = -x;
         return this;
     }
 

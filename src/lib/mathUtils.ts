@@ -60,6 +60,7 @@ export interface _Math {
      * @param toMin The start or initial value of `to`.
      * @param toMax The end or final value of `to`.
      * @param value The value to remap.
+     * @returns The interpolated value between `toMin` and `toMax` with interpolation factor *t* as inverse lerp of `from`.
      */
     remap(fromMin: number, fromMax: number, toMin: number, toMax: number, value: number): number;
 }

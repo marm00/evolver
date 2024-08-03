@@ -5,7 +5,6 @@ import { Vector2 } from "./vector2";
 /**
  * A shape is an object in 2D space, like a player hitbox (rectangle) or a projectile (circle).
  * 
- * 
  * @example
  * // Converting/transforming a vector in world space to the shape's local space
  * const matrixPool = new Pool<Matrix3>(Matrix3.identity);
@@ -18,17 +17,14 @@ import { Vector2 } from "./vector2";
  */
 export abstract class Shape implements Resettable {
     center: Vector2;
-    /** The `extents` represents the half-width and half-height of the bounding box that maximally encloses the shape. */
+    /** Half-width (x) and half-height (y) of the bounding box that maximally encloses the shape. */
     extents: Vector2;
+    /** Direction and speed (as magnitude) in pixels per second. */
     velocity: Vector2;
+    /** Acceleration in pixels per second squared, used for physics like gravity. */
     acceleration: Vector2;
 
-    /** 
-     * Constructs a new shape with the given center and extents. 
-     * 
-     * @param center The center position of the shape.
-     * @param extents The half-width and half-height of the bounding box that maximally encloses the shape.
-     */
+    /** Abstract constructor for a {@link Shape}. */
     constructor(center: Vector2, extents: Vector2, velocity: Vector2, acceleration: Vector2) {
         this.center = center;
         this.extents = extents;

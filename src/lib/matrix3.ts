@@ -5,7 +5,6 @@ import { type Vector2 } from "./vector2";
 // TODO: If Matrix3 is always homogeneous (no need for perspective projection), we can reduce to Matrix2x3
 
 /**
- * 
  * A 3x3 matrix with [column-major ordering](https://en.wikipedia.org/wiki/Row-_and_column-major_order):
  * 
  * E.g. `a12` is the element in the first row and second column, indexable as `this.elements[3]`.
