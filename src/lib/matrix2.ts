@@ -57,11 +57,9 @@ export class Matrix2 implements Resettable {
         return this;
     }
 
-    /** Sets the transformation matrix to the basis vectors of the given vector by rotating it 90 degrees counterclockwise. */
-    setVector2(v: Vector2): this {
+    /** Sets the transformation matrix to the basis vectors of the given coordinates via 90 degrees counterclockwise rotation. */
+    setRotation(x: number, y: number): this {
         const a = this.elements;
-        const x = v.x;
-        const y = v.y;
         //1 row ,   2 row ;
         a[0] = x, a[1] = y; // col 1
         a[2] = y, a[3] = -x; // col 2
@@ -69,10 +67,10 @@ export class Matrix2 implements Resettable {
     }
 
     /** Sets the transformation matrix to the given direction or angle in radians. */
-    setRotation(direction: number): this {
+    setRotationAngle(angle: number): this {
         const a = this.elements;
-        const cos = Math.cos(direction);
-        const sin = Math.sin(direction);
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
         //1   row ,   2   row  ;
         a[0] = cos, a[1] = -sin; // col 1
         a[2] = sin, a[3] = cos; // col 2
