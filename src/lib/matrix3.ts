@@ -69,7 +69,7 @@ export class Matrix3 implements Resettable {
 
     /** Sets the transformation matrix to the given shape (e.g. a rectangle or circle in 2D space). */
     setShape(s: Shape): this {
-        s.setMatrix(this);
+        s.setMatrix3(this);
         return this;
     }
 

@@ -32,7 +32,7 @@ export class Pool<T extends Resettable> {
      * Clears the items in the pool. Does not reuse items if `keepLength > 0`, but creates new ones.
      * 
      * @param keepLength The number of items to recreate in the pool. If 0, all items are cleared.
-     * @param reset Whether to reset the items to their default state.
+     * @param reset Whether to reset the items to their default state. Defaults to false.
      */
     clear(keepLength = 0, reset = false): void {
         if (reset) {

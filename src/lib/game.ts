@@ -1,5 +1,8 @@
 import { Vector2 } from "./vector2";
 import { Shape, Circle, OrientedRect, Rect } from "./shape";
+import { Pool } from "./pool";
+import { _Math } from "./mathUtils";
+import { Matrix3 } from "./matrix3";
 
 const GAME_WIDTH = 6400;
 const GAME_HEIGHT = 6400;
@@ -9,6 +12,10 @@ const AUTO_ATTACK = true;
 
 /** Pixels per second: 5m/s (avg run speed) * 73pixels/m (128px=1.75meters) = 365pixels/s. */
 const HUMAN_VELOCITY = 365*1;
+const HUMAN_VELOCITY_DIAGONAL = HUMAN_VELOCITY * Math.SQRT1_2;
+
+/** Pixels per second: a spear throw is n times faster than human running speed. */
+const SPEAR_VELOCITY = HUMAN_VELOCITY * 4;
 
 /** 0b0001 = Up Direction */
 const NORTH_BIT = 1;
@@ -65,6 +72,24 @@ export async function createGame(strategy: string): Promise<Game> {
     return { world, player, canvasCenterX: 0, canvasCenterY: 0 };
 }
 
+const m3Pool = new Pool<Matrix3>(Matrix3.identity);
+const v2Pool = new Pool<Vector2>(Vector2.zero);
+const oRectPool = new Pool<OrientedRect>(OrientedRect.zero);
+const spearPool = new Pool<OrientedRect>(OrientedRect.zero);
+
+/**
+ * 
+ * @param target Position of the target in world space.
+ */
+export function attack(target: Vector2, player: Player, world: PartitionStrategy) {
+    const spear = spearPool.alloc();
+    spear.center.copy(player.center);
+    spear.velocity.copy(v2Pool.alloc().copy(target).sub(spear.center).normalize().scale(SPEAR_VELOCITY));
+    player.attackPos.copy(spear.center);
+    world.insert(spear);
+    // TODO: lifetime, rotation
+}
+
 export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game, elapsedTime: number, deltaTime: number) {
     const cx = gameState.canvasCenterX;
     const cy = gameState.canvasCenterY;
@@ -74,6 +99,10 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     // TODO: maybe floor/round mouse position when the canvas center is not an integer (but ends on .5)
     // Project the canvas mouse position to the world coordinate system
     mp.set(pp.x - gameState.player.mouseCanvasDX, pp.y + gameState.player.mouseCanvasDY);
+
+    // Update player position
+    pp.add(v2Pool.alloc().copy(pv).scale(deltaTime));
+    v2Pool.clear();
 
     const thingsToRender = gameState.world.query(pp.x - cx, pp.y - cy, pp.x + cx, pp.y + cy);
 
@@ -114,24 +143,26 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     ctx.clearRect(0, 0, gameState.canvasCenterX * 2, gameState.canvasCenterY * 2);
     ctx.drawImage(sprite, 128 * imageOffset[0]!, 128 * imageOffset[1]!, gameState.player.displayWidth, gameState.player.displayHeight, dx, dy, gameState.player.displayWidth, gameState.player.displayHeight);
     ctx.save();
-    ctx.translate(gameState.canvasCenterX, gameState.canvasCenterY); // Move origin to center of canvas
-    ctx.scale(1, -1); // Invert Y axis
-    ctx.translate(-pp.x, -pp.y); // Translate based on player position
-
+    ctx.transform(
+        1, 0,                           // Horizontal scaling and skewing
+        0, -1,                          // Vertical scaling and skewing
+        gameState.canvasCenterX - pp.x, // Horizontal translation to center player x
+        gameState.canvasCenterY + pp.y  // Vertical translation to center player y
+    );
     for (const thing of thingsToRender) {
         // TODO: obviously dont update velocity here, but rather in the game loop
-        thing.center.add(thing.velocity.setLength(HUMAN_VELOCITY).clone().scale(deltaTime));
+        // thing.center.add(thing.velocity.setLength(HUMAN_VELOCITY).clone().scale(deltaTime));
         const direction = thing.center.clone().add(thing.velocity);
 
         ctx.lineWidth = 2;
 
         ctx.beginPath();
         ctx.fillStyle = '#00ff00';
-        ctx.arc(thing.center.x, thing.center.y, 4, 0, 2 * Math.PI);
+        ctx.arc(thing.center.x, thing.center.y, 4, 0, _Math.TAU);
         ctx.fill();
 
         ctx.beginPath();
-        ctx.arc(thing.center.x, thing.center.y, thing.velocity.magnitude(), 0, 2 * Math.PI);
+        ctx.arc(thing.center.x, thing.center.y, thing.velocity.magnitude(), 0, _Math.TAU);
         ctx.strokeStyle = '#ffffff';
         ctx.stroke();
 
@@ -163,13 +194,13 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         if (thing instanceof Rect) {
             ctx.strokeRect(thing.center.x - (thing.width / 2), thing.center.y - (thing.height / 2), thing.width, thing.height);
         } else if (thing instanceof Circle) {
-            ctx.arc(thing.center.x, thing.center.y, thing.radius, 0, 2 * Math.PI);
+            ctx.arc(thing.center.x, thing.center.y, thing.radius, 0, _Math.TAU);
             ctx.stroke();
         }
 
         ctx.beginPath();
         ctx.fillStyle = '#00a2ff';
-        ctx.arc(direction.x, direction.y, 4, 0, 2 * Math.PI);
+        ctx.arc(direction.x, direction.y, 4, 0, _Math.TAU);
         ctx.fill();
 
         ctx.strokeStyle = '#000000';
@@ -177,9 +208,18 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     }
     ctx.beginPath();
 
+    // Draw line from player to mouse position
     ctx.moveTo(pp.x, pp.y);
     ctx.lineTo(mp.x, mp.y);
     ctx.stroke();
+    ctx.closePath();
+
+    // TODO: this temporary draws attack pos, remove it
+    ctx.beginPath();
+    ctx.lineTo(mp.x, mp.y);
+    ctx.fillStyle = '#fbff00';
+    ctx.arc(gameState.player.attackPos.x, gameState.player.attackPos.y, 10, 0, _Math.TAU);
+    ctx.fill();
     ctx.closePath();
 
     // Actually draw the player
@@ -197,14 +237,14 @@ type DirectionAction = (player: Player) => void;
 /** Maps a [bitmask](https://en.wikipedia.org/wiki/Mask_(computing)) to the corresponding {@link DirectionAction}. */
 const bitmaskActionMap: Record<number, DirectionAction> = {
     0b0000: (p) => { p.velocity.set(0, 0); p.playerDirection = DIR_9.Idle; },
-    0b0001: (p) => { p.velocity.set(0, 1); p.playerDirection = DIR_9.N; },
-    0b1001: (p) => { p.velocity.set(Math.SQRT1_2, Math.SQRT1_2); p.playerDirection = DIR_9.NE; },
-    0b1000: (p) => { p.velocity.set(1, 0); p.playerDirection = DIR_9.E; },
-    0b1010: (p) => { p.velocity.set(Math.SQRT1_2, -Math.SQRT1_2); p.playerDirection = DIR_9.SE; },
-    0b0010: (p) => { p.velocity.set(0, -1); p.playerDirection = DIR_9.S; },
-    0b0110: (p) => { p.velocity.set(-Math.SQRT1_2, -Math.SQRT1_2); p.playerDirection = DIR_9.SW; },
-    0b0100: (p) => { p.velocity.set(-1, 0); p.playerDirection = DIR_9.W; },
-    0b0101: (p) => { p.velocity.set(-Math.SQRT1_2, Math.SQRT1_2); p.playerDirection = DIR_9.NW; }
+    0b0001: (p) => { p.velocity.set(0, HUMAN_VELOCITY); p.playerDirection = DIR_9.N; },
+    0b1001: (p) => { p.velocity.set(HUMAN_VELOCITY_DIAGONAL, HUMAN_VELOCITY_DIAGONAL); p.playerDirection = DIR_9.NE; },
+    0b1000: (p) => { p.velocity.set(HUMAN_VELOCITY, 0); p.playerDirection = DIR_9.E; },
+    0b1010: (p) => { p.velocity.set(HUMAN_VELOCITY_DIAGONAL, -HUMAN_VELOCITY_DIAGONAL); p.playerDirection = DIR_9.SE; },
+    0b0010: (p) => { p.velocity.set(0, -HUMAN_VELOCITY); p.playerDirection = DIR_9.S; },
+    0b0110: (p) => { p.velocity.set(-HUMAN_VELOCITY_DIAGONAL, -HUMAN_VELOCITY_DIAGONAL); p.playerDirection = DIR_9.SW; },
+    0b0100: (p) => { p.velocity.set(-HUMAN_VELOCITY, 0); p.playerDirection = DIR_9.W; },
+    0b0101: (p) => { p.velocity.set(-HUMAN_VELOCITY_DIAGONAL, HUMAN_VELOCITY_DIAGONAL); p.playerDirection = DIR_9.NW; }
 };
 
 /** Translates the player's 8-directional keyboard input into a {@link Dir9} using a bitmask.*/
@@ -254,9 +294,12 @@ class Player extends Rect {
     pressingRight = false;
     idle = () => this.playerDirection === DIR_9.Idle;
 
+    attackPos: Vector2;
+
     constructor() {
         super(new Vector2(128, 128), new Vector2(0, 0), new Vector2(0, 0), 64, 128);
         void this.loadSprite();
+        this.attackPos = new Vector2(0, 0);
     }
 
     async loadSprite() {

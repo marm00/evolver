@@ -33,7 +33,7 @@ export abstract class Shape implements Resettable {
     }
 
     /** Sets the given transformation matrix to the shape. */
-    abstract setMatrix(m: Matrix3): void;
+    abstract setMatrix3(m: Matrix3): void;
 
     reset(): void {
         this.center.reset();
@@ -80,7 +80,7 @@ export class Rect extends Shape {
         this.height = 0;
     }
 
-    setMatrix(m: Matrix3): void {
+    setMatrix3(m: Matrix3): void {
         // TODO: scale or not?
         m.translate(this.center).scale(this.extents);
     }
@@ -119,7 +119,7 @@ export class OrientedRect extends Shape {
         this.direction = 0;
     }
 
-    setMatrix(m: Matrix3): void {
+    setMatrix3(m: Matrix3): void {
         // TODO: scale or not?
         m.translate(this.center).rotate(this.direction).scale(this.extents);
     }
@@ -152,7 +152,7 @@ export class Circle extends Shape {
         this.radius = 0;
     }
 
-    setMatrix(m: Matrix3): void {
+    setMatrix3(m: Matrix3): void {
         // TODO: scale or not?
         m.translate(this.center).scale(this.extents);
     }
