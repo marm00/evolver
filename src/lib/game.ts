@@ -64,6 +64,12 @@ async function loadImage(src: string) {
 export async function createGame(strategy: string): Promise<Game> {
     const world = new SingleCell();
     const player = new Player();
+
+    const tor = new OrientedRect(new Vector2(128, 0), new Vector2(0, 0), new Vector2(0, 0), 37, 71, 0);
+    tor.setAngle(_Math.TAU*.34);
+    tor.updateVertices();
+    world.insert(tor);
+
     world.insert(player);
     world.insert(new Circle(new Vector2(0, 0), new Vector2(0, 0), new Vector2(0, 0), 64));
     world.insert(new Rect(new Vector2(128, 128), new Vector2( 0, 0), new Vector2(0, 0), 128, 128));
@@ -75,7 +81,7 @@ export async function createGame(strategy: string): Promise<Game> {
 const m3Pool = new Pool<Matrix3>(Matrix3.identity);
 const v2Pool = new Pool<Vector2>(Vector2.zero);
 const oRectPool = new Pool<OrientedRect>(OrientedRect.zero);
-const spearPool = new Pool<OrientedRect>(OrientedRect.zero);
+const spearPool = new Pool<OrientedRect>(OrientedRect.zero, 0);
 
 /**
  * 
@@ -84,25 +90,26 @@ const spearPool = new Pool<OrientedRect>(OrientedRect.zero);
 export function attack(target: Vector2, player: Player, world: PartitionStrategy) {
     const spear = spearPool.alloc();
     spear.center.copy(player.center);
-    spear.velocity.copy(v2Pool.alloc().copy(target).sub(spear.center).normalize().scale(SPEAR_VELOCITY));
+    const targetTemp = v2Pool.alloc();
+    spear.velocity.copy(targetTemp.copy(target).sub(spear.center).normalize().scale(SPEAR_VELOCITY));
+    v2Pool.free(targetTemp);
     player.attackPos.copy(spear.center);
     world.insert(spear);
-    // TODO: lifetime, rotation
+    // TODO: lifetime, set rotation, reuse spear instance on lifetime end
 }
 
 export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game, elapsedTime: number, deltaTime: number) {
-    const cx = gameState.canvasCenterX;
-    const cy = gameState.canvasCenterY;
-    const pp = gameState.player.center;
-    const pv = gameState.player.velocity;
+    const cx = gameState.canvasCenterX, cy = gameState.canvasCenterY;
+    const pp = gameState.player.center, pv = gameState.player.velocity;
     const mp = gameState.player.mousePosition;
     // TODO: maybe floor/round mouse position when the canvas center is not an integer (but ends on .5)
     // Project the canvas mouse position to the world coordinate system
     mp.set(pp.x - gameState.player.mouseCanvasDX, pp.y + gameState.player.mouseCanvasDY);
 
     // Update player position
-    pp.add(v2Pool.alloc().copy(pv).scale(deltaTime));
-    v2Pool.clear();
+    const pvTemp = v2Pool.alloc();
+    pp.add(pvTemp.copy(pv).scale(deltaTime));
+    v2Pool.free(pvTemp);
 
     const thingsToRender = gameState.world.query(pp.x - cx, pp.y - cy, pp.x + cx, pp.y + cy);
 
@@ -205,6 +212,18 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
 
         ctx.strokeStyle = '#000000';
         ctx.fillStyle = '#000000';
+
+        if (thing instanceof OrientedRect) {
+            thing.setDimensions(thing.width + deltaTime * 3, thing.height + deltaTime * 1.5, thing.angle + deltaTime * 2);
+            thing.updateVertices();
+            const vertices = thing.vertices;
+            for (let i = 0; i < 4; i++) {
+                ctx.beginPath();
+                ctx.moveTo(vertices[i]!.x, vertices[i]!.y);
+                ctx.lineTo(vertices[(i + 1) % 4]!.x, vertices[(i + 1) % 4]!.y);
+                ctx.stroke();
+            }
+        }
     }
     ctx.beginPath();
 

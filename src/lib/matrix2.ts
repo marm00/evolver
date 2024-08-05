@@ -85,4 +85,10 @@ export class Matrix2 implements Resettable {
         a[2] = 0, a[3] = y; // col 2
         return this;
     }
+
+    /** Returns true if the matrix is the identity matrix. */
+    isIdentity(): boolean {
+        const a = this.elements;
+        return a[0] === 1 && a[1] === 0 && a[2] === 0 && a[3] === 1;
+    }
 }

@@ -1,6 +1,9 @@
+import { Matrix2 } from "./matrix2";
 import { Matrix3 } from "./matrix3";
 import { Pool, type Resettable } from "./pool";
 import { Vector2 } from "./vector2";
+
+type Vertices4 = [Vector2, Vector2, Vector2, Vector2];
 
 /**
  * A shape is an object in 2D space, like a player hitbox (rectangle) or a projectile (circle).
@@ -98,14 +101,18 @@ export class Rect extends Shape {
 export class OrientedRect extends Shape {
     width: number;
     height: number;
-    direction: number;
+    angle: number;
+    rotationMatrix: Matrix2;
+    vertices: Vertices4;
 
-    constructor(center: Vector2, velocity: Vector2, acceleration: Vector2, width: number, height: number, direction: number) {
+    constructor(center: Vector2, velocity: Vector2, acceleration: Vector2, width: number, height: number, angle: number) {
         const maxExtents = Math.max(width, height) / 2;
         super(center, new Vector2(maxExtents, maxExtents), velocity, acceleration);
         this.width = width;
         this.height = height;
-        this.direction = direction;
+        this.angle = angle;
+        this.rotationMatrix = Matrix2.identity();
+        this.vertices = [Vector2.zero(), Vector2.zero(), Vector2.zero(), Vector2.zero()];
     }
 
     static zero(this: void): OrientedRect {
@@ -116,21 +123,41 @@ export class OrientedRect extends Shape {
         super.reset();
         this.width = 0;
         this.height = 0;
-        this.direction = 0;
+        this.angle = 0;
+        this.rotationMatrix.reset();
+        for (const v of this.vertices) {
+            v.reset();
+        }
     }
 
     setMatrix3(m: Matrix3): void {
         // TODO: scale or not?
-        m.translate(this.center).rotate(this.direction).scale(this.extents);
+        m.translate(this.center).rotate(this.angle).scale(this.extents);
     }
-    
+
     /** Updates the extents and dimensions. */
-    setDimensions(width: number, height: number, direction: number): this {
+    setDimensions(width: number, height: number, angle: number): this {
         const maxExtents = Math.max(width, height) / 2;
         this.extents.set(maxExtents, maxExtents);
         this.width = width;
         this.height = height;
-        this.direction = direction;
+        this.setAngle(angle);
+        return this;
+    }
+
+    updateVertices(): void {
+        const v = this.vertices, m = this.rotationMatrix, c = this.center;
+        const halfWidth = this.width / 2, halfHeight = this.height / 2;
+        const negHalfWidth = -halfWidth, negHalfHeight = -halfHeight;
+        v[0].set(negHalfWidth, negHalfHeight).matmul2(m).add(c);
+        v[1].set(halfWidth, negHalfHeight).matmul2(m).add(c);
+        v[2].set(halfWidth, halfHeight).matmul2(m).add(c);
+        v[3].set(negHalfWidth, halfHeight).matmul2(m).add(c);
+    }
+
+    setAngle(angle: number): this {
+        this.angle = angle;
+        this.rotationMatrix.setRotationAngle(angle);
         return this;
     }
 }
