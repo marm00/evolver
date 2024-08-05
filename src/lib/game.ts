@@ -65,7 +65,7 @@ export async function createGame(strategy: string): Promise<Game> {
     const world = new SingleCell();
     const player = new Player();
 
-    const angle = _Math.TAU*0.33;
+    const angle = _Math.TAU;
     const tor = new OrientedRect(new Vector2(128, 0), Vector2.fromPolar(angle, 64), new Vector2(0, 0), 64, 32, 0);
     tor.setAngle(angle);
     tor.updateVertices();
@@ -218,9 +218,13 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             thing.setDimensions(thing.width + deltaTime * 3, thing.height + deltaTime * 1.5, thing.angle + deltaTime * 2);
             thing.updateVertices();
             const vertices = thing.vertices;
+            const colorArray = ['#ff0000', '#00ff00', '#0000ff', '#ffff00'];
             for (let i = 0; i < 4; i++) {
                 ctx.beginPath();
                 ctx.moveTo(vertices[i]!.x, vertices[i]!.y);
+                ctx.fillStyle = colorArray[i % 4]!;
+                ctx.arc(vertices[i]!.x, vertices[i]!.y, 4, 0, _Math.TAU);
+                ctx.fill();
                 ctx.lineTo(vertices[(i + 1) % 4]!.x, vertices[(i + 1) % 4]!.y);
                 ctx.stroke();
             }

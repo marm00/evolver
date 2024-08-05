@@ -103,10 +103,10 @@ export class OrientedRect extends Shape {
     height: number;
     halfWidth: number;
     halfHeight: number;
-    // TODO: right now, Math.TAU is pointing upwards, but it should be pointing rightwards
     angle: number;
     rotationMatrix: Matrix2;
     vertices: Vertices4;
+    dirtyAngle = false;
 
     constructor(center: Vector2, velocity: Vector2, acceleration: Vector2, width: number, height: number, angle: number) {
         const halfWidth = width / 2, halfHeight = height / 2;
@@ -158,15 +158,28 @@ export class OrientedRect extends Shape {
     updateVertices(): void {
         const v = this.vertices, m = this.rotationMatrix, c = this.center;
         const halfWidth = this.halfWidth, halfHeight = this.halfHeight;
-        v[0].set(-halfWidth, -halfHeight).matmul2(m).add(c);
-        v[1].set(halfWidth, -halfHeight).matmul2(m).add(c);
-        v[2].set(halfWidth, halfHeight).matmul2(m).add(c);
-        v[3].set(-halfWidth, halfHeight).matmul2(m).add(c);
+        const v0 = v[0], v1 = v[1], v2 = v[2], v3 = v[3];
+        v0.set(-halfWidth, -halfHeight);
+        v1.set(halfWidth, -halfHeight);
+        v2.set(halfWidth, halfHeight);
+        v3.set(-halfWidth, halfHeight);
+        if (this.dirtyAngle) {
+            v0.matmul2(m);
+            v1.matmul2(m);
+            v2.matmul2(m);
+            v3.matmul2(m);
+            this.dirtyAngle = false;
+        }
+        v0.add(c);
+        v1.add(c);
+        v2.add(c);
+        v3.add(c);
     }
 
     setAngle(angle: number): this {
         this.angle = angle;
         this.rotationMatrix.setRotationAngle(angle);
+        this.dirtyAngle = true;
         return this;
     }
 }
