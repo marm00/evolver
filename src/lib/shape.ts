@@ -101,15 +101,21 @@ export class Rect extends Shape {
 export class OrientedRect extends Shape {
     width: number;
     height: number;
+    halfWidth: number;
+    halfHeight: number;
+    // TODO: right now, Math.TAU is pointing upwards, but it should be pointing rightwards
     angle: number;
     rotationMatrix: Matrix2;
     vertices: Vertices4;
 
     constructor(center: Vector2, velocity: Vector2, acceleration: Vector2, width: number, height: number, angle: number) {
-        const maxExtents = Math.max(width, height) / 2;
+        const halfWidth = width / 2, halfHeight = height / 2;
+        const maxExtents = Math.max(halfWidth, halfHeight);
         super(center, new Vector2(maxExtents, maxExtents), velocity, acceleration);
         this.width = width;
         this.height = height;
+        this.halfWidth = halfWidth;
+        this.halfHeight = halfHeight;
         this.angle = angle;
         this.rotationMatrix = Matrix2.identity();
         this.vertices = [Vector2.zero(), Vector2.zero(), Vector2.zero(), Vector2.zero()];
@@ -123,6 +129,8 @@ export class OrientedRect extends Shape {
         super.reset();
         this.width = 0;
         this.height = 0;
+        this.halfWidth = 0;
+        this.halfHeight = 0;
         this.angle = 0;
         this.rotationMatrix.reset();
         for (const v of this.vertices) {
@@ -141,18 +149,19 @@ export class OrientedRect extends Shape {
         this.extents.set(maxExtents, maxExtents);
         this.width = width;
         this.height = height;
+        this.halfWidth = width / 2;
+        this.halfHeight = height / 2;
         this.setAngle(angle);
         return this;
     }
 
     updateVertices(): void {
         const v = this.vertices, m = this.rotationMatrix, c = this.center;
-        const halfWidth = this.width / 2, halfHeight = this.height / 2;
-        const negHalfWidth = -halfWidth, negHalfHeight = -halfHeight;
-        v[0].set(negHalfWidth, negHalfHeight).matmul2(m).add(c);
-        v[1].set(halfWidth, negHalfHeight).matmul2(m).add(c);
+        const halfWidth = this.halfWidth, halfHeight = this.halfHeight;
+        v[0].set(-halfWidth, -halfHeight).matmul2(m).add(c);
+        v[1].set(halfWidth, -halfHeight).matmul2(m).add(c);
         v[2].set(halfWidth, halfHeight).matmul2(m).add(c);
-        v[3].set(negHalfWidth, halfHeight).matmul2(m).add(c);
+        v[3].set(-halfWidth, halfHeight).matmul2(m).add(c);
     }
 
     setAngle(angle: number): this {
