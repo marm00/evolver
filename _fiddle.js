@@ -1,3 +1,5 @@
+// Unused test file
+
 class A {
     x;
     y;
