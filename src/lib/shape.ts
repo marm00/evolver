@@ -108,7 +108,7 @@ export class OrientedRect extends Shape {
     vertices: Vertices4;
     dirtyAngle = false;
 
-    constructor(center: Vector2, velocity: Vector2, acceleration: Vector2, width: number, height: number, angle: number) {
+    constructor(center: Vector2, velocity: Vector2, acceleration: Vector2, width: number, height: number, angle: number, zero = false) {
         const halfWidth = width / 2, halfHeight = height / 2;
         const maxExtents = Math.max(halfWidth, halfHeight);
         super(center, new Vector2(maxExtents, maxExtents), velocity, acceleration);
@@ -119,10 +119,14 @@ export class OrientedRect extends Shape {
         this.angle = angle;
         this.rotationMatrix = Matrix2.identity();
         this.vertices = [Vector2.zero(), Vector2.zero(), Vector2.zero(), Vector2.zero()];
+        if (!zero) {
+            this.setAngle(angle);
+            this.updateVertices();
+        }
     }
 
     static zero(this: void): OrientedRect {
-        return new OrientedRect(Vector2.zero(), Vector2.zero(), Vector2.zero(), 0, 0, 0);
+        return new OrientedRect(Vector2.zero(), Vector2.zero(), Vector2.zero(), 0, 0, 0, true);
     }
 
     reset(): void {
@@ -145,24 +149,26 @@ export class OrientedRect extends Shape {
 
     /** Updates the extents and dimensions. */
     setDimensions(width: number, height: number, angle: number): this {
-        const maxExtents = Math.max(width, height) / 2;
+        const halfWidth = width / 2, halfHeight = height / 2;
+        const maxExtents = Math.max(halfWidth, halfHeight);
         this.extents.set(maxExtents, maxExtents);
         this.width = width;
         this.height = height;
-        this.halfWidth = width / 2;
-        this.halfHeight = height / 2;
+        this.halfWidth = halfWidth;
+        this.halfHeight = halfHeight;
         this.setAngle(angle);
+        this.updateVertices();
         return this;
     }
 
     updateVertices(): void {
         const v = this.vertices, m = this.rotationMatrix, c = this.center;
-        const halfWidth = this.halfWidth, halfHeight = this.halfHeight;
+        const hW = this.halfWidth, hH = this.halfHeight;
         const v0 = v[0], v1 = v[1], v2 = v[2], v3 = v[3];
-        v0.set(-halfWidth, -halfHeight);
-        v1.set(halfWidth, -halfHeight);
-        v2.set(halfWidth, halfHeight);
-        v3.set(-halfWidth, halfHeight);
+        v0.set(-hW, -hH); // Initially bottom left
+        v1.set(hW, -hH);  // Initially bottom right
+        v2.set(hW, hH);   // Initially top right
+        v3.set(-hW, hH);  // Initially top left
         if (this.dirtyAngle) {
             v0.matmul2(m);
             v1.matmul2(m);
