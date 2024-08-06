@@ -9,7 +9,7 @@ export class Pool<T extends Resettable> {
     private items: T[];
     private create: () => T;
 
-    /** Creates a new pool with the given create function and initial length. The create function should return a *zero* instance. */
+    /** Creates a new pool with the given create function and initial length. The create function should return a *reset* or 'zero' instance. */
     constructor(create: () => T, initialLength = 0) {
         this.create = create;
         this.items = [];

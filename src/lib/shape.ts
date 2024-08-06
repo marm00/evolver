@@ -12,7 +12,7 @@ type Vertices4 = [Vector2, Vector2, Vector2, Vector2];
  * // Converting/transforming a vector in world space to the shape's local space
  * const matrixPool = new Pool<Matrix3>(Matrix3.identity);
  * const matrix = matrixPool.alloc();
- * const circle = new Circle(Vector2.zero(), Vector2.zero(), Vector2.zero(), 64);
+ * const circle = new Circle(new Vector2(), new Vector2(), new Vector2(), 64);
  * const vector = new Vector2(0, 256);
  * const transformed = vector.matmul(matrix.setShape(circle));
  * // The transformed vector is 256 (y) units above the circle's center
@@ -20,7 +20,7 @@ type Vertices4 = [Vector2, Vector2, Vector2, Vector2];
  */
 export abstract class Shape implements Resettable {
     center: Vector2;
-    /** Half-width (x) and half-height (y) of the bounding box that maximally encloses the shape. */
+    /** Half-width (x) and half-height (y) of the bounding box that encloses the shape, representing a rectangle or AABB. */
     extents: Vector2;
     /** Direction and speed (as magnitude) in pixels per second. */
     velocity: Vector2;
@@ -74,7 +74,7 @@ export class Rect extends Shape {
     }
 
     static zero(this: void): Rect {
-        return new Rect(Vector2.zero(), Vector2.zero(), Vector2.zero(), 0, 0);
+        return new Rect(new Vector2(), new Vector2(), new Vector2(), 0, 0);
     }
 
     reset(): void {
@@ -103,6 +103,7 @@ export class OrientedRect extends Shape {
     height: number;
     halfWidth: number;
     halfHeight: number;
+    /** Angle or direction in radians, independent of velocity. */
     angle: number;
     rotationMatrix: Matrix2;
     vertices: Vertices4;
@@ -117,7 +118,7 @@ export class OrientedRect extends Shape {
         this.halfHeight = halfHeight;
         this.angle = angle;
         this.rotationMatrix = Matrix2.identity();
-        this.vertices = [Vector2.zero(), Vector2.zero(), Vector2.zero(), Vector2.zero()];
+        this.vertices = [new Vector2(), new Vector2(), new Vector2(), new Vector2()];
         if (!zero) {
             this.setAngle(angle);
             this.update();
@@ -125,7 +126,7 @@ export class OrientedRect extends Shape {
     }
 
     static zero(this: void): OrientedRect {
-        return new OrientedRect(Vector2.zero(), Vector2.zero(), Vector2.zero(), 0, 0, 0, true);
+        return new OrientedRect(new Vector2(), new Vector2(), new Vector2(), 0, 0, 0, true);
     }
 
     reset(): void {
@@ -202,19 +203,22 @@ export class OrientedRect extends Shape {
 
 export class Circle extends Shape {
     radius: number;
+    radiusSqr: number;
 
     constructor(center: Vector2, velocity: Vector2, acceleration: Vector2, radius: number) {
         super(center, new Vector2(radius, radius), velocity, acceleration);
         this.radius = radius;
+        this.radiusSqr = radius * radius;
     }
 
     static zero(this: void): Circle {
-        return new Circle(Vector2.zero(), Vector2.zero(), Vector2.zero(), 0);
+        return new Circle(new Vector2(), new Vector2(), new Vector2(), 0);
     }
 
     reset(): void {
         super.reset();
         this.radius = 0;
+        this.radiusSqr = 0;
     }
 
     setMatrix3(m: Matrix3): void {
@@ -226,11 +230,12 @@ export class Circle extends Shape {
     setDimensions(radius: number): this {
         this.extents.set(radius, radius);
         this.radius = radius;
+        this.radiusSqr = radius * radius;
         return this;
     }
 
     radialContains(point: Vector2): boolean {
-        return this.center.distanceToSquared(point) <= (this.radius * this.radius);
+        return this.center.distanceToSqr(point) <= this.radiusSqr;
     }
 
 }

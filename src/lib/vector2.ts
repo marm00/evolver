@@ -133,7 +133,7 @@ export class Vector2 implements Resettable {
      */
     det(v: Vector2): number {
         /** Magnitude as the sine demonimator. */
-        const denominator = Math.sqrt(this.magnitudeSquared() * v.magnitudeSquared());
+        const denominator = Math.sqrt(this.magnitudeSqr() * v.magnitudeSqr());
 
         // Return 0 in case of zero vector(s).
         if (denominator === 0) {
@@ -210,7 +210,7 @@ export class Vector2 implements Resettable {
     }
 
     /** Squared magnitude from this to the given vector. */
-    distanceToSquared(v: Vector2): number {
+    distanceToSqr(v: Vector2): number {
         const dx = this.x - v.x;
         const dy = this.y - v.y;
         return dx * dx + dy * dy;
@@ -218,7 +218,7 @@ export class Vector2 implements Resettable {
 
     /** Magnitude from this to the given vector. */
     distanceTo(v: Vector2): number {
-        return Math.sqrt(this.distanceToSquared(v));
+        return Math.sqrt(this.distanceToSqr(v));
     }
 
     /** Manhatten magnitude from this to the given vector. */
@@ -240,13 +240,13 @@ export class Vector2 implements Resettable {
     }
 
     /** Squared magnitude or Euclidean distance from the origin (Pythagorean theorem). */
-    magnitudeSquared(): number {
+    magnitudeSqr(): number {
         return this.x * this.x + this.y * this.y;
     }
 
     /** Magnitude or Euclidean distance from the origin (Pythagorean theorem). */
     magnitude(): number {
-        return Math.sqrt(this.magnitudeSquared());
+        return Math.sqrt(this.magnitudeSqr());
     }
 
     /** Returns the Manhatten distance from the origin (sum of the absolute values of the coordinates). */
@@ -265,7 +265,7 @@ export class Vector2 implements Resettable {
      */
     directionTo(v: Vector2): number {
         /** Magnitude as the cosine denominator. */
-        const denominator = Math.sqrt(this.magnitudeSquared() * v.magnitudeSquared());
+        const denominator = Math.sqrt(this.magnitudeSqr() * v.magnitudeSqr());
 
         // Treat zero vectors as having the default direction (tau radians or 0 or 360 degrees), preventing further null checks.
         if (denominator === 0) {

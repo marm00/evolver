@@ -4,7 +4,7 @@ class A {
     x: number;
     y: number;
 
-    constructor(x: number, y: number) {
+    constructor(x = 0, y = 0) { 
         this.x = x;
         this.y = y;
     }
@@ -37,6 +37,16 @@ function cloneZeros(iterations: number) {
     return end - start;
 }
 
-const iterations = 100000000;
+function newZeros(iterations: number) {
+    const start = performance.now();
+    for (let i = 1; i < iterations; i++) {
+        const a = new A(0, 0);
+    }
+    const end = performance.now();
+    return end - start;
+}
+
+const iterations = 1000000000;
 console.log("Static:", staticZeros(iterations), "ms");
 console.log("Clone:", cloneZeros(iterations), "ms");
+console.log("New:", newZeros(iterations), "ms");
