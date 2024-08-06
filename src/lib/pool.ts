@@ -20,6 +20,7 @@ export class Pool<T extends Resettable> {
 
     /** Allocates an item from the pool, or creates a new one if the pool is empty. */
     alloc(): T {
+        // console.log(this.items.length)
         return this.items.pop() ?? this.create();
     }
 

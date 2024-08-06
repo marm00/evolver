@@ -11,11 +11,17 @@ const AUTO_AIM = true;
 const AUTO_ATTACK = true;
 
 /** Pixels per second: 5m/s (avg run speed) * 73pixels/m (128px=1.75meters) = 365pixels/s. */
-const HUMAN_VELOCITY = 365*1;
+const HUMAN_VELOCITY = 365 * 1;
 const HUMAN_VELOCITY_DIAGONAL = HUMAN_VELOCITY * Math.SQRT1_2;
+const HUMAN_HEIGHT = 128;
+const HUMAN_WIDTH = 64;
 
 /** Pixels per second: a spear throw is n times faster than human running speed. */
 const SPEAR_VELOCITY = HUMAN_VELOCITY * 4;
+/** Height of a spear in pixels, n times the height of a human. */
+const SPEAR_WIDTH = HUMAN_HEIGHT * 1.14;
+/** Width of a spear in pixels, n times the width of a human. */
+const SPEAR_HEIGHT = HUMAN_WIDTH * 0.11;
 
 /** 0b0001 = Up Direction */
 const NORTH_BIT = 1;
@@ -65,7 +71,7 @@ export async function createGame(strategy: string): Promise<Game> {
     const world = new SingleCell();
     const player = new Player();
 
-    const angle = _Math.TAU*0.22;
+    const angle = _Math.TAU*.33;
     const tor = new OrientedRect(new Vector2(128, 0), Vector2.fromPolar(angle, 64), new Vector2(0, 0), 64, 32, angle);
     world.insert(tor);
     const tor2 = OrientedRect.zero().setDimensions(128, 35, _Math.TAU);
@@ -73,30 +79,31 @@ export async function createGame(strategy: string): Promise<Game> {
     world.insert(player);
     world.insert(tor2);
     world.insert(new Circle(new Vector2(0, 0), new Vector2(0, 1), new Vector2(0, 0), 64));
-    world.insert(new Rect(new Vector2(128, 128), new Vector2( 0, 0), new Vector2(0, 0), 128, 128));
-    world.insert(new Rect(new Vector2(0, 256), new Vector2( 0, 0), new Vector2(0, 0), 512, 512));
+    world.insert(new Rect(new Vector2(128, 128), new Vector2(0, 0), new Vector2(0, 0), 128, 128));
+    world.insert(new Rect(new Vector2(0, 256), new Vector2(0, 0), new Vector2(0, 0), 512, 512));
     world.insert(new Circle(new Vector2(-64, -128), new Vector2(Math.SQRT1_2, Math.SQRT1_2), new Vector2(0, 0), 64));
     return { world, player, canvasCenterX: 0, canvasCenterY: 0 };
 }
 
 const m3Pool = new Pool<Matrix3>(Matrix3.identity);
-const v2Pool = new Pool<Vector2>(Vector2.zero);
+const v2Pool = new Pool<Vector2>(() => new Vector2());
 const oRectPool = new Pool<OrientedRect>(OrientedRect.zero);
-const spearPool = new Pool<OrientedRect>(OrientedRect.zero, 0);
+const spearPool = new Pool<OrientedRect>(OrientedRect.zero, 5);
 
 /**
  * 
  * @param target Position of the target in world space.
  */
 export function attack(target: Vector2, player: Player, world: PartitionStrategy) {
-    const spear = spearPool.alloc();
-    spear.center.copy(player.center);
-    const targetTemp = v2Pool.alloc();
-    spear.velocity.copy(targetTemp.copy(target).sub(spear.center).normalize().scale(SPEAR_VELOCITY));
-    v2Pool.free(targetTemp);
-    player.attackPos.copy(spear.center);
-    world.insert(spear);
-    // TODO: lifetime, set rotation, reuse spear instance on lifetime end
+    const p_spear = spearPool.alloc();
+    const p_target = v2Pool.alloc();
+    p_spear.center.copy(player.center);
+    p_spear.velocity.copy(p_target.copy(target).sub(p_spear.center).normalize().scale(SPEAR_VELOCITY));
+    p_spear.setDimensions(SPEAR_WIDTH, SPEAR_HEIGHT, p_spear.velocity.direction());
+    v2Pool.free(p_target);
+    player.attackPos.copy(p_spear.center); // TODO: prob not needed?
+    world.insert(p_spear);
+    // TODO: lifetime, reuse spear instance on lifetime end
 }
 
 export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game, elapsedTime: number, deltaTime: number) {
@@ -108,9 +115,9 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     mp.set(pp.x - gameState.player.mouseCanvasDX, pp.y + gameState.player.mouseCanvasDY);
 
     // Update player position
-    const pvTemp = v2Pool.alloc();
-    pp.add(pvTemp.copy(pv).scale(deltaTime));
-    v2Pool.free(pvTemp);
+    // const p_pv = v2Pool.alloc();
+    // pp.add(p_pv.copy(pv).scale(deltaTime));
+    // v2Pool.free(p_pv);
 
     const thingsToRender = gameState.world.query(pp.x - cx, pp.y - cy, pp.x + cx, pp.y + cy);
 
@@ -147,6 +154,19 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             imageOffset = [0, 3];
         }
     }
+    // TODO: how to iterate over all shapes in the world, use an Iterator for spatial partiioning or separate arrays, or just over partitions
+    const allShapes = gameState.world.all();
+    for (const thing of allShapes) {
+        const tc = thing.center, tv = thing.velocity;
+        if (!tv.isZero()) {
+            const p_tv = v2Pool.alloc();
+            tc.add(p_tv.copy(tv).scale(deltaTime));
+            v2Pool.free(p_tv);
+            if (thing instanceof OrientedRect) {
+                thing.update();
+            }
+        }
+    }
 
     ctx.clearRect(0, 0, gameState.canvasCenterX * 2, gameState.canvasCenterY * 2);
     ctx.drawImage(sprite, 128 * imageOffset[0]!, 128 * imageOffset[1]!, gameState.player.displayWidth, gameState.player.displayHeight, dx, dy, gameState.player.displayWidth, gameState.player.displayHeight);
@@ -157,6 +177,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         gameState.canvasCenterX - pp.x, // Horizontal translation to center player x
         gameState.canvasCenterY + pp.y  // Vertical translation to center player y
     );
+    // TODO: use off screen canvas/ctx for rendering even the dev mode elements
     for (const thing of thingsToRender) {
         // TODO: obviously dont update velocity here, but rather in the game loop
         // thing.center.add(thing.velocity.setLength(HUMAN_VELOCITY).clone().scale(deltaTime));
@@ -343,6 +364,7 @@ interface PartitionStrategy {
     remove(shape: Shape): void;
     update(shape: Shape): void;
     query(minX: number, minY: number, maxX: number, maxY: number): Shape[];
+    all(): Shape[]; // TODO: use an iterator for spatial partiioning or memory references (like array for spears)
 }
 
 /** Naive spatial partitioning strategy that divides the world into a single cell. */
@@ -370,6 +392,9 @@ class SingleCell implements PartitionStrategy {
 
         return result;
     }
+    all(): Shape[] {
+        return this.shapes;
+    }
 }
 
 class SpatialHashGrid implements PartitionStrategy {
@@ -383,6 +408,9 @@ class SpatialHashGrid implements PartitionStrategy {
         throw new Error("Method not implemented.");
     }
     query(minX: number, minY: number, maxX: number, maxY: number): Shape[] {
+        throw new Error("Method not implemented.");
+    }
+    all(): Shape[] {
         throw new Error("Method not implemented.");
     }
 }

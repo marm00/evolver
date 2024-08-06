@@ -11,12 +11,12 @@ type Vertices4 = [Vector2, Vector2, Vector2, Vector2];
  * @example
  * // Converting/transforming a vector in world space to the shape's local space
  * const matrixPool = new Pool<Matrix3>(Matrix3.identity);
- * const matrix = matrixPool.alloc();
+ * const p_matrix = matrixPool.alloc();
  * const circle = new Circle(new Vector2(), new Vector2(), new Vector2(), 64);
  * const vector = new Vector2(0, 256);
- * const transformed = vector.matmul(matrix.setShape(circle));
+ * const transformed = vector.matmul(p_matrix.setShape(circle));
  * // The transformed vector is 256 (y) units above the circle's center
- * matrixPool.free(matrix);
+ * matrixPool.free(p_matrix);
  */
 export abstract class Shape implements Resettable {
     center: Vector2;
@@ -160,22 +160,21 @@ export class OrientedRect extends Shape {
     }
 
     /** 
-     * Updates the `vertices` based on the center and rotation matrix (on demand: {@link dirtyAngle}).
-     * Updates the `extents` based on the updated `vertices` (min and max x and y divided by 2).
+     * Updates the `vertices` based on the center and rotation matrix.
+     * Updates the `extents` based on the updated `vertices` (on demand: {@link dirtyAngle}).
      */
     update(): void {
         const v = this.vertices, m = this.rotationMatrix, c = this.center;
         const hW = this.halfWidth, hH = this.halfHeight;
         const v0 = v[0], v1 = v[1], v2 = v[2], v3 = v[3];
-        v0.set(-hW, -hH); // Initially bottom left
-        v1.set(hW, -hH);  // Initially bottom right
-        v2.set(hW, hH);   // Initially top right
-        v3.set(-hW, hH);  // Initially top left
+        // Setting and rotating the vertices is not necessary if the offset vertices are stored
+        // But that's only useful if rotations are not used or rare, and even then there's a memory tax
+        // So in the current implementation, each update call resets (to normal space) and rotates the vertices
+        v0.set(-hW, -hH).matmul2(m); // Initially bottom left
+        v1.set(hW, -hH).matmul2(m);  // Initially bottom right
+        v2.set(hW, hH).matmul2(m);   // Initially top right
+        v3.set(-hW, hH).matmul2(m);  // Initially top left
         if (this.dirtyAngle) {
-            v0.matmul2(m);
-            v1.matmul2(m);
-            v2.matmul2(m);
-            v3.matmul2(m);
             let minX = 0, minY = 0, maxX = 0, maxY = 0;
             for (const vi of v) {
                 if (vi.x < minX) minX = vi.x;
