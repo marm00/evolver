@@ -110,8 +110,7 @@ export class OrientedRect extends Shape {
 
     constructor(center: Vector2, velocity: Vector2, acceleration: Vector2, width: number, height: number, angle: number, zero = false) {
         const halfWidth = width / 2, halfHeight = height / 2;
-        const maxExtents = Math.max(halfWidth, halfHeight);
-        super(center, new Vector2(maxExtents, maxExtents), velocity, acceleration);
+        super(center, new Vector2(halfWidth, halfHeight), velocity, acceleration);
         this.width = width;
         this.height = height;
         this.halfWidth = halfWidth;
@@ -121,7 +120,7 @@ export class OrientedRect extends Shape {
         this.vertices = [Vector2.zero(), Vector2.zero(), Vector2.zero(), Vector2.zero()];
         if (!zero) {
             this.setAngle(angle);
-            this.updateVertices();
+            this.update();
         }
     }
 
@@ -147,21 +146,23 @@ export class OrientedRect extends Shape {
         m.translate(this.center).rotate(this.angle).scale(this.extents);
     }
 
-    /** Updates the extents and dimensions. */
+    /** Updates the dimensions and handles translation, rotation and scaling. */
     setDimensions(width: number, height: number, angle: number): this {
         const halfWidth = width / 2, halfHeight = height / 2;
-        const maxExtents = Math.max(halfWidth, halfHeight);
-        this.extents.set(maxExtents, maxExtents);
         this.width = width;
         this.height = height;
         this.halfWidth = halfWidth;
         this.halfHeight = halfHeight;
         this.setAngle(angle);
-        this.updateVertices();
+        this.update();
         return this;
     }
 
-    updateVertices(): void {
+    /** 
+     * Updates the `vertices` based on the center and rotation matrix (on demand: {@link dirtyAngle}).
+     * Updates the `extents` based on the updated `vertices` (min and max x and y divided by 2).
+     */
+    update(): void {
         const v = this.vertices, m = this.rotationMatrix, c = this.center;
         const hW = this.halfWidth, hH = this.halfHeight;
         const v0 = v[0], v1 = v[1], v2 = v[2], v3 = v[3];
@@ -174,6 +175,14 @@ export class OrientedRect extends Shape {
             v1.matmul2(m);
             v2.matmul2(m);
             v3.matmul2(m);
+            let minX = 0, minY = 0, maxX = 0, maxY = 0;
+            for (const vi of v) {
+                if (vi.x < minX) minX = vi.x;
+                if (vi.y < minY) minY = vi.y;
+                if (vi.x > maxX) maxX = vi.x;
+                if (vi.y > maxY) maxY = vi.y;
+            }
+            this.extents.set((maxX - minX) / 2, (maxY - minY) / 2);
             this.dirtyAngle = false;
         }
         v0.add(c);
@@ -182,6 +191,7 @@ export class OrientedRect extends Shape {
         v3.add(c);
     }
 
+    /** Sets the angle, rotation matrix, and {@link dirtyAngle} flag to notify a rotation update. */
     setAngle(angle: number): this {
         this.angle = angle;
         this.rotationMatrix.setRotationAngle(angle);

@@ -66,13 +66,12 @@ export async function createGame(strategy: string): Promise<Game> {
     const player = new Player();
 
     const angle = _Math.TAU*0.22;
-    const tor = new OrientedRect(new Vector2(128, 0), Vector2.fromPolar(angle, 64), new Vector2(0, 0), 64, 32, 0);
-    tor.setAngle(angle);
-    tor.updateVertices();
+    const tor = new OrientedRect(new Vector2(128, 0), Vector2.fromPolar(angle, 64), new Vector2(0, 0), 64, 32, angle);
     world.insert(tor);
+    const tor2 = OrientedRect.zero().setDimensions(128, 35, _Math.TAU);
 
     world.insert(player);
-    world.insert(OrientedRect.zero().setDimensions(128, 64, angle));
+    world.insert(tor2);
     world.insert(new Circle(new Vector2(0, 0), new Vector2(0, 1), new Vector2(0, 0), 64));
     world.insert(new Rect(new Vector2(128, 128), new Vector2( 0, 0), new Vector2(0, 0), 128, 128));
     world.insert(new Rect(new Vector2(0, 256), new Vector2( 0, 0), new Vector2(0, 0), 512, 512));
