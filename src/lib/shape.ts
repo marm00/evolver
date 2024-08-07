@@ -188,31 +188,20 @@ export class OrientedRect extends Shape {
             }
             this.extents.set((maxX - minX) / 2, (maxY - minY) / 2);
             // Translate vertices to current center
-            v0.add(c); 
+            v0.add(c);
             v1.add(c);
             v2.add(c);
             v3.add(c);
             this.dirtyAngle = false;
         } else {
             // Unchanged rotation, translate vertices by center difference
-            const dx = c.x - pc.x, dy = c.y - pc.y;
-            if (dx !== 0) {
-                v0.x += dx;
-                v1.x += dx;
-                v2.x += dx;
-                v3.x += dx;
-            }
-            if (dy !== 0) {
-                v0.y += dy;
-                v1.y += dy;
-                v2.y += dy;
-                v3.y += dy;
-            }
+            pc.set(c.x - pc.x, c.y - pc.y);
+            v0.add(pc);
+            v1.add(pc);
+            v2.add(pc);
+            v3.add(pc);
         }
         pc.copy(c);
-        if (Math.random() < 0.005) {
-            this.setAngle(Math.PI * 2 * Math.random());
-        }
     }
 
     /** Sets the angle, rotation matrix, and {@link dirtyAngle} flag to notify a rotation update. */
