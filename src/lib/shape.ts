@@ -107,7 +107,10 @@ export class OrientedRect extends Shape {
     angle: number;
     rotationMatrix: Matrix2;
     vertices: Vertices4;
+    /** Flag that indicates whether the vertex rotations and shape extents need to be updated. */
     dirtyAngle = false;
+    /** Previous center of the shape, used for vertex translations (subtracted from current center). */
+    previousCenter: Vector2;
 
     constructor(center: Vector2, velocity: Vector2, acceleration: Vector2, width: number, height: number, angle: number, zero = false) {
         const halfWidth = width / 2, halfHeight = height / 2;
@@ -119,6 +122,7 @@ export class OrientedRect extends Shape {
         this.angle = angle;
         this.rotationMatrix = Matrix2.identity();
         this.vertices = [new Vector2(), new Vector2(), new Vector2(), new Vector2()];
+        this.previousCenter = new Vector2();
         if (!zero) {
             this.setAngle(angle);
             this.update();
@@ -160,21 +164,21 @@ export class OrientedRect extends Shape {
     }
 
     /** 
-     * Updates the `vertices` based on the center and rotation matrix.
-     * Updates the `extents` based on the updated `vertices` (on demand: {@link dirtyAngle}).
+     * Updates the `vertices` normal space offset and rotation (on demand: {@link dirtyAngle}). 
+     * Updates the `extents` based on the updated `vertices` (on demand).
+     * Updates the `vertices` world space translations by adding the difference between the previous and current center.
      */
     update(): void {
-        const v = this.vertices, m = this.rotationMatrix, c = this.center;
+        const v = this.vertices, m = this.rotationMatrix;
+        const c = this.center, pc = this.previousCenter;
         const hW = this.halfWidth, hH = this.halfHeight;
         const v0 = v[0], v1 = v[1], v2 = v[2], v3 = v[3];
-        // Setting and rotating the vertices is not necessary if the offset vertices are stored
-        // But that's only useful if rotations are not used or rare, and even then there's a memory tax
-        // So in the current implementation, each update call resets (to normal space) and rotates the vertices
-        v0.set(-hW, -hH).matmul2(m); // Initially bottom left
-        v1.set(hW, -hH).matmul2(m);  // Initially bottom right
-        v2.set(hW, hH).matmul2(m);   // Initially top right
-        v3.set(-hW, hH).matmul2(m);  // Initially top left
         if (this.dirtyAngle) {
+            // Set vertices in normal space with rectangular scaling and rotate
+            v0.set(-hW, -hH).matmul2(m); // Bottom left
+            v1.set(hW, -hH).matmul2(m);  // Bottom right
+            v2.set(hW, hH).matmul2(m);   // Top right
+            v3.set(-hW, hH).matmul2(m);  // Top left
             let minX = 0, minY = 0, maxX = 0, maxY = 0;
             for (const vi of v) {
                 if (vi.x < minX) minX = vi.x;
@@ -183,12 +187,32 @@ export class OrientedRect extends Shape {
                 if (vi.y > maxY) maxY = vi.y;
             }
             this.extents.set((maxX - minX) / 2, (maxY - minY) / 2);
+            // Translate vertices to current center
+            v0.add(c); 
+            v1.add(c);
+            v2.add(c);
+            v3.add(c);
             this.dirtyAngle = false;
+        } else {
+            // Unchanged rotation, translate vertices by center difference
+            const dx = c.x - pc.x, dy = c.y - pc.y;
+            if (dx !== 0) {
+                v0.x += dx;
+                v1.x += dx;
+                v2.x += dx;
+                v3.x += dx;
+            }
+            if (dy !== 0) {
+                v0.y += dy;
+                v1.y += dy;
+                v2.y += dy;
+                v3.y += dy;
+            }
         }
-        v0.add(c);
-        v1.add(c);
-        v2.add(c);
-        v3.add(c);
+        pc.copy(c);
+        if (Math.random() < 0.005) {
+            this.setAngle(Math.PI * 2 * Math.random());
+        }
     }
 
     /** Sets the angle, rotation matrix, and {@link dirtyAngle} flag to notify a rotation update. */

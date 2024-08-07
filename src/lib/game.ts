@@ -70,14 +70,22 @@ async function loadImage(src: string) {
 export async function createGame(strategy: string): Promise<Game> {
     const world = new SingleCell();
     const player = new Player();
+    world.insert(player);
 
     const angle = _Math.TAU*.33;
-    const tor = new OrientedRect(new Vector2(128, 0), Vector2.fromPolar(angle, 64), new Vector2(0, 0), 64, 32, angle);
-    world.insert(tor);
-    const tor2 = OrientedRect.zero().setDimensions(128, 35, _Math.TAU);
+    const tor0 = OrientedRect.zero().setDimensions(64, 32, angle);
+    tor0.center.set(128, 0);
+    tor0.velocity.setPolar(angle, 64);
+    world.insert(tor0);
 
-    world.insert(player);
+    const tor1 = new OrientedRect(new Vector2(0, 0), Vector2.fromPolar(angle, 64), new Vector2(0, 0), 64, 32, angle);
+    world.insert(tor1);
+    
+    const tor2 = OrientedRect.zero().setDimensions(128, 35, _Math.TAU*.15);
+    tor2.center.set(-20, -20);
+    tor2.velocity.set(-10,3.3)
     world.insert(tor2);
+    
     world.insert(new Circle(new Vector2(0, 0), new Vector2(0, 1), new Vector2(0, 0), 64));
     world.insert(new Rect(new Vector2(128, 128), new Vector2(0, 0), new Vector2(0, 0), 128, 128));
     world.insert(new Rect(new Vector2(0, 256), new Vector2(0, 0), new Vector2(0, 0), 512, 512));
@@ -249,6 +257,9 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
                 ctx.lineTo(vertices[(i + 1) % 4]!.x, vertices[(i + 1) % 4]!.y);
                 ctx.stroke();
             }
+            ctx.moveTo(thing.center.x, thing.center.y);
+            ctx.arc(thing.center.x, thing.center.y, 1, 0, _Math.TAU);
+            ctx.fill();
         }
     }
     ctx.beginPath();
