@@ -103,10 +103,10 @@ export class OrientedRect extends Shape {
     height: number;
     halfWidth: number;
     halfHeight: number;
-    /** Angle or direction in radians, independent of velocity. */
-    angle: number;
     rotationMatrix: Matrix2;
     vertices: Vertices4;
+    /** Angle or direction in radians, independent of velocity. */
+    angle: number;
     /** Flag that indicates whether the vertex rotations and shape extents need to be updated. */
     dirtyAngle = false;
     /** Previous center of the shape, used for vertex translations (subtracted from current center). */

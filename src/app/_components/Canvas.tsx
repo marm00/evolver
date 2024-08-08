@@ -35,21 +35,21 @@ export function Canvas() {
                 if (!canvas) throw new Error('Canvas not found');
                 canvas.width = window.innerWidth;
                 canvas.height = window.innerHeight;
-                gameState.canvasCenterX = canvas.width / 2;
-                gameState.canvasCenterY = canvas.height / 2;
+                gameState.player.canvasCenterX = canvas.width / 2;
+                gameState.player.canvasCenterY = canvas.height / 2;
                 if (!canvas.getContext('2d')) throw new Error('2D context not found');
             };
 
             /** Sets the mouse center offset for faster mouse projection every frame. */
             const handleMouseMove = (e: MouseEvent) => {
-                gameState.player.mouseCanvasDX = gameState.canvasCenterX - e.clientX;
-                gameState.player.mouseCanvasDY = gameState.canvasCenterY - e.clientY;
+                gameState.player.mouseCanvasDX = gameState.player.canvasCenterX - e.clientX;
+                gameState.player.mouseCanvasDY = gameState.player.canvasCenterY - e.clientY;
             }
 
             /** TODO: Forward mouse clicks to the game state. */
             const handleMouseDown = (_: MouseEvent) => {
                 console.log('Clicked at :', gameState.player.mousePosition.x, gameState.player.mousePosition.y);
-                game.attack(gameState.player.mousePosition, gameState.player, gameState.world);
+                game.attack(gameState.player.mousePosition, gameState.player, gameState.world, gameState.spearPool, gameState.v2Pool);
             }
 
             const handleMouseUp = (_: MouseEvent) => {

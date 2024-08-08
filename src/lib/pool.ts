@@ -24,9 +24,11 @@ export class Pool<T extends Resettable> {
         return this.items.pop() ?? this.create();
     }
 
-    /** Frees an item back to the pool for reuse. */
-    free(item: T): void {
-        item.reset();
+    /** Releases an item back to the pool for reuse, resets on demand (explicit pool responsibility). */
+    free(item: T, reset = false): void {
+        if (reset) {
+            item.reset();
+        }
         this.items.push(item);
     }
 

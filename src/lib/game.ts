@@ -68,6 +68,11 @@ async function loadImage(src: string) {
 }
 
 export async function createGame(strategy: string): Promise<Game> {
+    const m3Pool = new Pool<Matrix3>(Matrix3.identity);
+    const v2Pool = new Pool<Vector2>(() => new Vector2());
+    const oRectPool = new Pool<OrientedRect>(OrientedRect.zero);
+    const spearPool = new Pool<OrientedRect>(OrientedRect.zero, 5);
+
     const world = new SingleCell();
     const player = new Player();
     world.insert(player);
@@ -90,19 +95,16 @@ export async function createGame(strategy: string): Promise<Game> {
     world.insert(new Rect(new Vector2(128, 128), new Vector2(0, 0), new Vector2(0, 0), 128, 128));
     world.insert(new Rect(new Vector2(0, 256), new Vector2(0, 0), new Vector2(0, 0), 512, 512));
     world.insert(new Circle(new Vector2(-64, -128), new Vector2(Math.SQRT1_2, Math.SQRT1_2), new Vector2(0, 0), 64));
-    return { world, player, canvasCenterX: 0, canvasCenterY: 0 };
+    return { world, player, m3Pool, v2Pool, oRectPool, spearPool };
 }
 
-const m3Pool = new Pool<Matrix3>(Matrix3.identity);
-const v2Pool = new Pool<Vector2>(() => new Vector2());
-const oRectPool = new Pool<OrientedRect>(OrientedRect.zero);
-const spearPool = new Pool<OrientedRect>(OrientedRect.zero, 5);
+
 
 /**
  * 
  * @param target Position of the target in world space.
  */
-export function attack(target: Vector2, player: Player, world: PartitionStrategy) {
+export function attack(target: Vector2, player: Player, world: PartitionStrategy, spearPool: Pool<OrientedRect>, v2Pool: Pool<Vector2>) {
     const p_spear = spearPool.alloc();
     const p_target = v2Pool.alloc();
     p_spear.center.copy(player.center);
@@ -115,7 +117,7 @@ export function attack(target: Vector2, player: Player, world: PartitionStrategy
 }
 
 export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game, elapsedTime: number, deltaTime: number) {
-    const cx = gameState.canvasCenterX, cy = gameState.canvasCenterY;
+    const cx = gameState.player.canvasCenterX, cy = gameState.player.canvasCenterY;
     const pp = gameState.player.center, pv = gameState.player.velocity;
     const mp = gameState.player.mousePosition;
     // TODO: maybe floor/round mouse position when the canvas center is not an integer (but ends on .5)
@@ -167,23 +169,23 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     for (const thing of allShapes) {
         const tc = thing.center, tv = thing.velocity;
         if (!tv.isZero()) {
-            const p_tv = v2Pool.alloc();
+            const p_tv = gameState.v2Pool.alloc();
             tc.add(p_tv.copy(tv).scale(deltaTime));
-            v2Pool.free(p_tv);
+            gameState.v2Pool.free(p_tv);
             if (thing instanceof OrientedRect) {
                 thing.update();
             }
         }
     }
 
-    ctx.clearRect(0, 0, gameState.canvasCenterX * 2, gameState.canvasCenterY * 2);
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     ctx.drawImage(sprite, 128 * imageOffset[0]!, 128 * imageOffset[1]!, gameState.player.displayWidth, gameState.player.displayHeight, dx, dy, gameState.player.displayWidth, gameState.player.displayHeight);
     ctx.save();
     ctx.transform(
         1, 0,                           // Horizontal scaling and skewing
         0, -1,                          // Vertical scaling and skewing
-        gameState.canvasCenterX - pp.x, // Horizontal translation to center player x
-        gameState.canvasCenterY + pp.y  // Vertical translation to center player y
+        cx - pp.x, // Horizontal translation to center player x
+        cy + pp.y  // Vertical translation to center player y
     );
     // TODO: use off screen canvas/ctx for rendering even the dev mode elements
     for (const thing of thingsToRender) {
@@ -281,11 +283,15 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     // Actually draw the player
     ctx.restore();
 }
+
+// TODO: the game contains lists for different things (like spears), pools, and the partinioning contains references
 interface Game {
     world: PartitionStrategy;
     player: Player;
-    canvasCenterX: number;
-    canvasCenterY: number;
+    m3Pool: Pool<Matrix3>;
+    v2Pool: Pool<Vector2>;
+    oRectPool: Pool<OrientedRect>;
+    spearPool: Pool<OrientedRect>;
 }
 
 type DirectionAction = (player: Player) => void;
@@ -343,6 +349,8 @@ class Player extends Rect {
     mouseCanvasDY = 0;
     /** The mouse position in world coordinates. */
     mousePosition = new Vector2(0, 0);
+    canvasCenterX = 0;
+    canvasCenterY = 0;
 
     pressingUp = false;
     pressingDown = false;
@@ -362,6 +370,7 @@ class Player extends Rect {
         this.sprite = await loadImage('Nomad_Atlas.webp');
     }
 }
+
 
 /**
  * The `PartitionStrategy` interface defines a spatial partitioning algorithm that
