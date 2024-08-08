@@ -75,8 +75,8 @@ export class Vector2 implements Resettable {
     matmul2(m: Matrix2): this {
         const x = this.x, y = this.y;
         const a = m.elements;
-        this.x = a[0]! * x + a[1]! * y;
-        this.y = a[2]! * x + a[3]! * y;
+        this.x = a[0]! * x + a[2]! * y;
+        this.y = a[1]! * x + a[3]! * y;
         return this;
     }
 
@@ -254,9 +254,9 @@ export class Vector2 implements Resettable {
         return Math.abs(this.x) + Math.abs(this.y);
     }
 
-    /** Direction or angle of the vector in radians. */
+    /** Direction or angle of the vector in radians. Normalized to the range [0, 2π]. */
     direction(): number {
-        return Math.atan2(this.y, this.x);
+        return Math.atan2(this.y, this.x) + _Math.TAU;  
     }
 
     /** 

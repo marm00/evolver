@@ -49,7 +49,7 @@ export function Canvas() {
             /** TODO: Forward mouse clicks to the game state. */
             const handleMouseDown = (_: MouseEvent) => {
                 console.log('Clicked at :', gameState.player.mousePosition.x, gameState.player.mousePosition.y);
-                game.attack(gameState.player.mousePosition, gameState.player, gameState.world, gameState.spearPool, gameState.v2Pool);
+                game.attack(gameState.player.mousePosition, gameState.player, gameState.world, gameState.oRectPool, gameState.v2Pool);
             }
 
             const handleMouseUp = (_: MouseEvent) => {

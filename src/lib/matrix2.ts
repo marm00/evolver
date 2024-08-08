@@ -72,8 +72,8 @@ export class Matrix2 implements Resettable {
         const cos = Math.cos(angle);
         const sin = Math.sin(angle);
         //1   row ,   2   row  ;
-        a[0] = cos, a[1] = -sin; // col 1
-        a[2] = sin, a[3] = cos; // col 2
+        a[0] = cos, a[1] = sin; // col 1
+        a[2] = -sin, a[3] = cos; // col 2
         return this;
     }
 

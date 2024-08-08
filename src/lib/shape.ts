@@ -1,3 +1,4 @@
+import { _Math } from "./mathUtils";
 import { Matrix2 } from "./matrix2";
 import { Matrix3 } from "./matrix3";
 import { Pool, type Resettable } from "./pool";
@@ -175,10 +176,10 @@ export class OrientedRect extends Shape {
         const v0 = v[0], v1 = v[1], v2 = v[2], v3 = v[3];
         if (this.dirtyAngle) {
             // Set vertices in normal space with rectangular scaling and rotate
-            v0.set(-hW, -hH).matmul2(m); // Bottom left
-            v1.set(hW, -hH).matmul2(m);  // Bottom right
-            v2.set(hW, hH).matmul2(m);   // Top right
-            v3.set(-hW, hH).matmul2(m);  // Top left
+            v0.set(-hH, -hW).matmul2(m); // Bottom left along the longer side
+            v1.set(hH, -hW).matmul2(m);  // Bottom right
+            v2.set(hH, hW).matmul2(m);   // Top right
+            v3.set(-hH, hW).matmul2(m);  // Top left
             let minX = 0, minY = 0, maxX = 0, maxY = 0;
             for (const vi of v) {
                 if (vi.x < minX) minX = vi.x;
@@ -207,6 +208,8 @@ export class OrientedRect extends Shape {
     /** Sets the angle, rotation matrix, and {@link dirtyAngle} flag to notify a rotation update. */
     setAngle(angle: number): this {
         this.angle = angle;
+        // this.angle = angle % _Math.TAU;
+        // if (this.angle < 0) this.angle += _Math.TAU;
         this.rotationMatrix.setRotationAngle(angle);
         this.dirtyAngle = true;
         return this;

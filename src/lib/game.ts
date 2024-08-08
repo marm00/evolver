@@ -19,9 +19,9 @@ const HUMAN_WIDTH = 64;
 /** Pixels per second: a spear throw is n times faster than human running speed. */
 const SPEAR_VELOCITY = HUMAN_VELOCITY * 4;
 /** Height of a spear in pixels, n times the height of a human. */
-const SPEAR_WIDTH = HUMAN_HEIGHT * 1.14;
+const SPEAR_HEIGHT = HUMAN_HEIGHT * 1.14;
 /** Width of a spear in pixels, n times the width of a human. */
-const SPEAR_HEIGHT = HUMAN_WIDTH * 0.11;
+const SPEAR_WIDTH = HUMAN_WIDTH * 0.11;
 
 /** 0b0001 = Up Direction */
 const NORTH_BIT = 1;
@@ -59,32 +59,35 @@ type ObjectValues<T> = T[keyof T];
 /** A value mapping onto a {@link DIR_9} key, representing idle or one of eight possible directions. */
 type Dir9 = ObjectValues<typeof DIR_9>;
 
-// TODO: make this a proper function and load player/spritesheet sprites better
-async function loadImage(src: string) {
-    const img = new Image();
-    img.src = src;
-    await img.decode();
-    return img;
+// TODO: the game contains lists for different things (like spears), pools, and the partinioning contains references
+interface Game {
+    world: PartitionStrategy;
+    player: Player;
+    m3Pool: Pool<Matrix3>;
+    v2Pool: Pool<Vector2>;
+    oRectPool: Pool<OrientedRect>;
 }
 
 export async function createGame(strategy: string): Promise<Game> {
     const m3Pool = new Pool<Matrix3>(Matrix3.identity);
     const v2Pool = new Pool<Vector2>(() => new Vector2());
-    const oRectPool = new Pool<OrientedRect>(OrientedRect.zero);
-    const spearPool = new Pool<OrientedRect>(OrientedRect.zero, 5);
+    const oRectPool = new Pool<OrientedRect>(OrientedRect.zero, 5);
 
     const world = new SingleCell();
     const player = new Player();
     world.insert(player);
 
     const angle = _Math.TAU*.33;
-    const tor0 = OrientedRect.zero().setDimensions(64, 32, angle);
+    const tor0 = OrientedRect.zero().setDimensions(32, 64, angle);
     tor0.center.set(128, 0);
     tor0.velocity.setPolar(angle, 64);
     world.insert(tor0);
-
-    const tor1 = new OrientedRect(new Vector2(0, 0), Vector2.fromPolar(angle, 64), new Vector2(0, 0), 64, 32, angle);
+    
+    const tor1 = new OrientedRect(new Vector2(0, 0), Vector2.fromPolar(angle, 64), new Vector2(0, 0), 32, 64, angle);
     world.insert(tor1);
+
+    const tor11 = new OrientedRect(new Vector2(-128, 0), Vector2.fromPolar(angle, 64), new Vector2(0, 0), 32, 64, angle);
+    world.insert(tor11);
     
     const tor2 = OrientedRect.zero().setDimensions(128, 35, _Math.TAU*.15);
     tor2.center.set(-20, -20);
@@ -95,17 +98,15 @@ export async function createGame(strategy: string): Promise<Game> {
     world.insert(new Rect(new Vector2(128, 128), new Vector2(0, 0), new Vector2(0, 0), 128, 128));
     world.insert(new Rect(new Vector2(0, 256), new Vector2(0, 0), new Vector2(0, 0), 512, 512));
     world.insert(new Circle(new Vector2(-64, -128), new Vector2(Math.SQRT1_2, Math.SQRT1_2), new Vector2(0, 0), 64));
-    return { world, player, m3Pool, v2Pool, oRectPool, spearPool };
+    return { world, player, m3Pool, v2Pool, oRectPool};
 }
-
-
 
 /**
  * 
  * @param target Position of the target in world space.
  */
-export function attack(target: Vector2, player: Player, world: PartitionStrategy, spearPool: Pool<OrientedRect>, v2Pool: Pool<Vector2>) {
-    const p_spear = spearPool.alloc();
+export function attack(target: Vector2, player: Player, world: PartitionStrategy, oRectPool: Pool<OrientedRect>, v2Pool: Pool<Vector2>) {
+    const p_spear = oRectPool.alloc();
     const p_target = v2Pool.alloc();
     p_spear.center.copy(player.center);
     p_spear.velocity.copy(p_target.copy(target).sub(p_spear.center).normalize().scale(SPEAR_VELOCITY));
@@ -284,15 +285,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     ctx.restore();
 }
 
-// TODO: the game contains lists for different things (like spears), pools, and the partinioning contains references
-interface Game {
-    world: PartitionStrategy;
-    player: Player;
-    m3Pool: Pool<Matrix3>;
-    v2Pool: Pool<Vector2>;
-    oRectPool: Pool<OrientedRect>;
-    spearPool: Pool<OrientedRect>;
-}
+
 
 type DirectionAction = (player: Player) => void;
 
@@ -436,3 +429,11 @@ class SpatialHashGrid implements PartitionStrategy {
 }
 
 // Spatial Grid, BVH, QuadTree
+
+// TODO: make this a proper function and load player/spritesheet sprites better
+async function loadImage(src: string) {
+    const img = new Image();
+    img.src = src;
+    await img.decode();
+    return img;
+}

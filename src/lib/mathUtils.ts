@@ -2,6 +2,9 @@ export interface _Math {
     /** The mathematical constant τ (tau) or 2 * π (two pi). */
     readonly TAU: number;
 
+    /** The mathematical constant π/2 (pi over 2). */
+    readonly HALF_PI: number;
+
     /** The conversion factor from degrees to radians as the mathemetical constant π/180 (pi over 180). */
     readonly DEG_TO_RAD: number;
 
@@ -68,6 +71,7 @@ export interface _Math {
 /** An object that provides additional mathematics functionality and constants beyond the built-in {@link Math} object. */
 export const _Math: _Math = {
     TAU: Math.PI * 2,
+    HALF_PI: Math.PI / 2,
     DEG_TO_RAD: Math.PI / 180,
     RAD_TO_DEG: 180 / Math.PI,
     degToRad(degrees: number): number {
