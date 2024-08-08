@@ -83,13 +83,13 @@ export async function createGame(strategy: string): Promise<Game> {
     tor0.velocity.setPolar(angle, 64);
     world.insert(tor0);
     
-    const tor1 = new OrientedRect(new Vector2(0, 0), Vector2.fromPolar(angle, 64), new Vector2(0, 0), 32, 64, angle);
+    const tor1 = new OrientedRect(new Vector2(0, 0), Vector2.fromPolar(angle, 64), new Vector2(0, 0), 32, 64, _Math.TAU);
     world.insert(tor1);
 
-    const tor11 = new OrientedRect(new Vector2(-128, 0), Vector2.fromPolar(angle, 64), new Vector2(0, 0), 32, 64, angle);
+    const tor11 = new OrientedRect(new Vector2(-128, 0), Vector2.fromPolar(angle, 64), new Vector2(0, 0), 64, 32, _Math.TAU);
     world.insert(tor11);
     
-    const tor2 = OrientedRect.zero().setDimensions(128, 35, _Math.TAU*.15);
+    const tor2 = OrientedRect.zero().setDimensions(128, 35, new Vector2(-10,3.3).direction());
     tor2.center.set(-20, -20);
     tor2.velocity.set(-10,3.3)
     world.insert(tor2);

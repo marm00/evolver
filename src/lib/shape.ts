@@ -102,8 +102,8 @@ export class Rect extends Shape {
 export class OrientedRect extends Shape {
     width: number;
     height: number;
-    halfWidth: number;
-    halfHeight: number;
+    halfLong: number;
+    halfShort: number;
     rotationMatrix: Matrix2;
     vertices: Vertices4;
     /** Angle or direction in radians, independent of velocity. */
@@ -118,8 +118,8 @@ export class OrientedRect extends Shape {
         super(center, new Vector2(halfWidth, halfHeight), velocity, acceleration);
         this.width = width;
         this.height = height;
-        this.halfWidth = halfWidth;
-        this.halfHeight = halfHeight;
+        this.halfShort = Math.min(halfWidth, halfHeight);
+        this.halfLong = Math.max(halfWidth, halfHeight);
         this.angle = angle;
         this.rotationMatrix = Matrix2.identity();
         this.vertices = [new Vector2(), new Vector2(), new Vector2(), new Vector2()];
@@ -138,8 +138,8 @@ export class OrientedRect extends Shape {
         super.reset();
         this.width = 0;
         this.height = 0;
-        this.halfWidth = 0;
-        this.halfHeight = 0;
+        this.halfShort = 0;
+        this.halfLong = 0;
         this.angle = 0;
         this.rotationMatrix.reset();
         for (const v of this.vertices) {
@@ -157,8 +157,8 @@ export class OrientedRect extends Shape {
         const halfWidth = width / 2, halfHeight = height / 2;
         this.width = width;
         this.height = height;
-        this.halfWidth = halfWidth;
-        this.halfHeight = halfHeight;
+        this.halfShort = Math.min(halfWidth, halfHeight);
+        this.halfLong = Math.max(halfWidth, halfHeight);
         this.setAngle(angle);
         this.update();
         return this;
@@ -172,14 +172,14 @@ export class OrientedRect extends Shape {
     update(): void {
         const v = this.vertices, m = this.rotationMatrix;
         const c = this.center, pc = this.previousCenter;
-        const hW = this.halfWidth, hH = this.halfHeight;
+        const hS = this.halfShort, hL = this.halfLong;
         const v0 = v[0], v1 = v[1], v2 = v[2], v3 = v[3];
         if (this.dirtyAngle) {
             // Set vertices in normal space with rectangular scaling and rotate
-            v0.set(-hH, -hW).matmul2(m); // Bottom left along the longer side
-            v1.set(hH, -hW).matmul2(m);  // Bottom right
-            v2.set(hH, hW).matmul2(m);   // Top right
-            v3.set(-hH, hW).matmul2(m);  // Top left
+            v0.set(-hL, -hS).matmul2(m); // Bottom left
+            v1.set(hL, -hS).matmul2(m);  // Bottom right
+            v2.set(hL, hS).matmul2(m);   // Top right
+            v3.set(-hL, hS).matmul2(m);  // Top left
             let minX = 0, minY = 0, maxX = 0, maxY = 0;
             for (const vi of v) {
                 if (vi.x < minX) minX = vi.x;
@@ -203,6 +203,9 @@ export class OrientedRect extends Shape {
             v3.add(pc);
         }
         pc.copy(c);
+        // if (Math.random() < 0.01) {
+        //     this.setAngle(Math.random() * _Math.TAU);
+        // }
     }
 
     /** Sets the angle, rotation matrix, and {@link dirtyAngle} flag to notify a rotation update. */
