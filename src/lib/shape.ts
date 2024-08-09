@@ -1,7 +1,7 @@
 import { _Math } from "./mathUtils";
 import { Matrix2 } from "./matrix2";
 import { Matrix3 } from "./matrix3";
-import { Pool, type Resettable } from "./pool";
+import { Pool2, type Resettable } from "./pool";
 import { Vector2 } from "./vector2";
 
 type Vertices4 = [Vector2, Vector2, Vector2, Vector2];

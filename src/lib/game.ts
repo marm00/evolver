@@ -1,6 +1,6 @@
 import { Vector2 } from "./vector2";
 import { Shape, Circle, OrientedRect, Rect } from "./shape";
-import { Pool } from "./pool";
+import { Pool2 } from "./pool";
 import { _Math } from "./mathUtils";
 import { Matrix3 } from "./matrix3";
 
@@ -11,7 +11,7 @@ const AUTO_AIM = true;
 const AUTO_ATTACK = true;
 
 /** Pixels per second: 5m/s (avg run speed) * 73pixels/m (128px=1.75meters) = 365pixels/s. */
-const HUMAN_VELOCITY = 365 * 1;
+const HUMAN_VELOCITY = 365;
 const HUMAN_VELOCITY_DIAGONAL = HUMAN_VELOCITY * Math.SQRT1_2;
 const HUMAN_HEIGHT = 128;
 const HUMAN_WIDTH = 64;
@@ -22,6 +22,32 @@ const SPEAR_VELOCITY = HUMAN_VELOCITY * 4;
 const SPEAR_HEIGHT = HUMAN_HEIGHT * 1.14;
 /** Width of a spear in pixels, n times the width of a human. */
 const SPEAR_WIDTH = HUMAN_WIDTH * 0.11;
+
+
+
+// TODO: the game contains lists for different things (like spears), pools, and the partinioning contains references
+interface Game {
+    world: PartitionStrategy;
+    player: Player;
+    m3Pool: Pool2<Matrix3>;
+    v2Pool: Pool2<Vector2>;
+    oRectPool: Pool2<OrientedRect>;
+}
+
+/**
+ * The `PartitionStrategy` interface defines a spatial partitioning algorithm that
+ * models the game objects. The goal is to divide the world into smaller regions
+ * based on the positions of objects in 2D space. This allows us to perform efficient spatial 
+ * queries to find adjacent elements, aiding e.g. the *broad phase* of collision detection.
+ */
+interface PartitionStrategy {
+    // insert(bbox: Bbox, layer: number): void;
+    insert(shape: Shape): void;
+    remove(shape: Shape): void;
+    update(shape: Shape): void;
+    query(minX: number, minY: number, maxX: number, maxY: number): Shape[];
+    all(): Shape[]; // TODO: use an iterator for spatial partiioning or memory references (like array for spears)
+}
 
 /** 0b0001 = Up Direction */
 const NORTH_BIT = 1;
@@ -59,60 +85,65 @@ type ObjectValues<T> = T[keyof T];
 /** A value mapping onto a {@link DIR_9} key, representing idle or one of eight possible directions. */
 type Dir9 = ObjectValues<typeof DIR_9>;
 
-// TODO: the game contains lists for different things (like spears), pools, and the partinioning contains references
-interface Game {
-    world: PartitionStrategy;
-    player: Player;
-    m3Pool: Pool<Matrix3>;
-    v2Pool: Pool<Vector2>;
-    oRectPool: Pool<OrientedRect>;
-}
+type DirectionAction = (player: Player) => void;
+
+/** Maps a [bitmask](https://en.wikipedia.org/wiki/Mask_(computing)) to the corresponding {@link DirectionAction}. */
+const bitmaskActionMap: Record<number, DirectionAction> = {
+    0b0000: (p) => { p.velocity.set(0, 0); p.playerDirection = DIR_9.Idle; },
+    0b0001: (p) => { p.velocity.set(0, HUMAN_VELOCITY); p.playerDirection = DIR_9.N; },
+    0b1001: (p) => { p.velocity.set(HUMAN_VELOCITY_DIAGONAL, HUMAN_VELOCITY_DIAGONAL); p.playerDirection = DIR_9.NE; },
+    0b1000: (p) => { p.velocity.set(HUMAN_VELOCITY, 0); p.playerDirection = DIR_9.E; },
+    0b1010: (p) => { p.velocity.set(HUMAN_VELOCITY_DIAGONAL, -HUMAN_VELOCITY_DIAGONAL); p.playerDirection = DIR_9.SE; },
+    0b0010: (p) => { p.velocity.set(0, -HUMAN_VELOCITY); p.playerDirection = DIR_9.S; },
+    0b0110: (p) => { p.velocity.set(-HUMAN_VELOCITY_DIAGONAL, -HUMAN_VELOCITY_DIAGONAL); p.playerDirection = DIR_9.SW; },
+    0b0100: (p) => { p.velocity.set(-HUMAN_VELOCITY, 0); p.playerDirection = DIR_9.W; },
+    0b0101: (p) => { p.velocity.set(-HUMAN_VELOCITY_DIAGONAL, HUMAN_VELOCITY_DIAGONAL); p.playerDirection = DIR_9.NW; }
+};
 
 export async function createGame(strategy: string): Promise<Game> {
-    const m3Pool = new Pool<Matrix3>(Matrix3.identity);
-    const v2Pool = new Pool<Vector2>(() => new Vector2());
-    const oRectPool = new Pool<OrientedRect>(OrientedRect.zero, 5);
+    const m3Pool = new Pool2<Matrix3>(Matrix3.identity);
+    const v2Pool = new Pool2<Vector2>(() => new Vector2());
+    const oRectPool = new Pool2<OrientedRect>(OrientedRect.zero, 5);
 
     const world = new SingleCell();
     const player = new Player();
     world.insert(player);
 
-    const angle = _Math.TAU*.33;
+    const angle = _Math.TAU * .33;
     const tor0 = OrientedRect.zero().setDimensions(32, 64, angle);
     tor0.center.set(128, 0);
     tor0.velocity.setPolar(angle, 64);
     world.insert(tor0);
-    
+
     const tor1 = new OrientedRect(new Vector2(0, 0), Vector2.fromPolar(angle, 64), new Vector2(0, 0), 32, 64, _Math.TAU);
     world.insert(tor1);
 
     const tor11 = new OrientedRect(new Vector2(-128, 0), Vector2.fromPolar(angle, 64), new Vector2(0, 0), 64, 32, _Math.TAU);
     world.insert(tor11);
-    
-    const tor2 = OrientedRect.zero().setDimensions(128, 35, new Vector2(-10,3.3).direction());
+
+    const tor2 = OrientedRect.zero().setDimensions(128, 35, new Vector2(-10, 3.3).direction());
     tor2.center.set(-20, -20);
-    tor2.velocity.set(-10,3.3)
+    tor2.velocity.set(-10, 3.3)
     world.insert(tor2);
-    
+
     world.insert(new Circle(new Vector2(0, 0), new Vector2(0, 1), new Vector2(0, 0), 64));
     world.insert(new Rect(new Vector2(128, 128), new Vector2(0, 0), new Vector2(0, 0), 128, 128));
     world.insert(new Rect(new Vector2(0, 256), new Vector2(0, 0), new Vector2(0, 0), 512, 512));
     world.insert(new Circle(new Vector2(-64, -128), new Vector2(Math.SQRT1_2, Math.SQRT1_2), new Vector2(0, 0), 64));
-    return { world, player, m3Pool, v2Pool, oRectPool};
+    return { world, player, m3Pool, v2Pool, oRectPool };
 }
 
 /**
  * 
  * @param target Position of the target in world space.
  */
-export function attack(target: Vector2, player: Player, world: PartitionStrategy, oRectPool: Pool<OrientedRect>, v2Pool: Pool<Vector2>) {
+export function attack(target: Vector2, player: Player, world: PartitionStrategy, oRectPool: Pool2<OrientedRect>, v2Pool: Pool2<Vector2>) {
     const p_spear = oRectPool.alloc();
     const p_target = v2Pool.alloc();
     p_spear.center.copy(player.center);
     p_spear.velocity.copy(p_target.copy(target).sub(p_spear.center).normalize().scale(SPEAR_VELOCITY));
     p_spear.setDimensions(SPEAR_WIDTH, SPEAR_HEIGHT, p_spear.velocity.direction());
     v2Pool.free(p_target);
-    player.attackPos.copy(p_spear.center); // TODO: prob not needed?
     world.insert(p_spear);
     // TODO: lifetime, reuse spear instance on lifetime end
 }
@@ -273,34 +304,44 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     ctx.stroke();
     ctx.closePath();
 
-    // TODO: this temporary draws attack pos, remove it
-    ctx.beginPath();
-    ctx.lineTo(mp.x, mp.y);
-    ctx.fillStyle = '#fbff00';
-    ctx.arc(gameState.player.attackPos.x, gameState.player.attackPos.y, 10, 0, _Math.TAU);
-    ctx.fill();
-    ctx.closePath();
-
-    // Actually draw the player
     ctx.restore();
 }
 
 
 
-type DirectionAction = (player: Player) => void;
 
-/** Maps a [bitmask](https://en.wikipedia.org/wiki/Mask_(computing)) to the corresponding {@link DirectionAction}. */
-const bitmaskActionMap: Record<number, DirectionAction> = {
-    0b0000: (p) => { p.velocity.set(0, 0); p.playerDirection = DIR_9.Idle; },
-    0b0001: (p) => { p.velocity.set(0, HUMAN_VELOCITY); p.playerDirection = DIR_9.N; },
-    0b1001: (p) => { p.velocity.set(HUMAN_VELOCITY_DIAGONAL, HUMAN_VELOCITY_DIAGONAL); p.playerDirection = DIR_9.NE; },
-    0b1000: (p) => { p.velocity.set(HUMAN_VELOCITY, 0); p.playerDirection = DIR_9.E; },
-    0b1010: (p) => { p.velocity.set(HUMAN_VELOCITY_DIAGONAL, -HUMAN_VELOCITY_DIAGONAL); p.playerDirection = DIR_9.SE; },
-    0b0010: (p) => { p.velocity.set(0, -HUMAN_VELOCITY); p.playerDirection = DIR_9.S; },
-    0b0110: (p) => { p.velocity.set(-HUMAN_VELOCITY_DIAGONAL, -HUMAN_VELOCITY_DIAGONAL); p.playerDirection = DIR_9.SW; },
-    0b0100: (p) => { p.velocity.set(-HUMAN_VELOCITY, 0); p.playerDirection = DIR_9.W; },
-    0b0101: (p) => { p.velocity.set(-HUMAN_VELOCITY_DIAGONAL, HUMAN_VELOCITY_DIAGONAL); p.playerDirection = DIR_9.NW; }
-};
+
+/** Represents the player (main character) in the game. */
+class Player extends Rect {
+    playerDirection: Dir9 = DIR_9.Idle;
+    sprite: HTMLImageElement | null = null;
+    displayWidth = 128;
+    displayHeight = 128;
+
+    /** Horizontal difference between the mouse position and the center of the canvas. */
+    mouseCanvasDX = 0;
+    /** Vertical difference between the mouse position and the center of the canvas. */
+    mouseCanvasDY = 0;
+    /** The mouse position in world coordinates. */
+    mousePosition = new Vector2(0, 0);
+    canvasCenterX = 0;
+    canvasCenterY = 0;
+
+    pressingUp = false;
+    pressingDown = false;
+    pressingLeft = false;
+    pressingRight = false;
+    idle = () => this.playerDirection === DIR_9.Idle;
+
+    constructor() {
+        super(new Vector2(128, 128), new Vector2(0, 0), new Vector2(0, 0), 64, 128);
+        void this.loadSprite();
+    }
+
+    async loadSprite() {
+        this.sprite = await loadImage('Nomad_Atlas.webp');
+    }
+}
 
 /** Translates the player's 8-directional keyboard input into a {@link Dir9} using a bitmask.*/
 export function updatePlayerDirection(player: Player) {
@@ -329,56 +370,8 @@ export function updatePlayerDirection(player: Player) {
     (bitmaskActionMap[bitmask] ?? bitmaskActionMap[0b0000])!(player);
 }
 
-/** Represents the player (main character) in the game. */
-class Player extends Rect {
-    playerDirection: Dir9 = DIR_9.Idle;
-    sprite: HTMLImageElement | null = null;
-    displayWidth = 128;
-    displayHeight = 128;
-
-    /** Horizontal difference between the mouse position and the center of the canvas. */
-    mouseCanvasDX = 0;
-    /** Vertical difference between the mouse position and the center of the canvas. */
-    mouseCanvasDY = 0;
-    /** The mouse position in world coordinates. */
-    mousePosition = new Vector2(0, 0);
-    canvasCenterX = 0;
-    canvasCenterY = 0;
-
-    pressingUp = false;
-    pressingDown = false;
-    pressingLeft = false;
-    pressingRight = false;
-    idle = () => this.playerDirection === DIR_9.Idle;
-
-    attackPos: Vector2;
-
-    constructor() {
-        super(new Vector2(128, 128), new Vector2(0, 0), new Vector2(0, 0), 64, 128);
-        void this.loadSprite();
-        this.attackPos = new Vector2(0, 0);
-    }
-
-    async loadSprite() {
-        this.sprite = await loadImage('Nomad_Atlas.webp');
-    }
-}
 
 
-/**
- * The `PartitionStrategy` interface defines a spatial partitioning algorithm that
- * models the game objects. The goal is to divide the world into smaller regions
- * based on the positions of objects in 2D space. This allows us to perform efficient spatial 
- * queries to find adjacent elements, aiding e.g. the *broad phase* of collision detection.
- */
-interface PartitionStrategy {
-    // insert(bbox: Bbox, layer: number): void;
-    insert(shape: Shape): void;
-    remove(shape: Shape): void;
-    update(shape: Shape): void;
-    query(minX: number, minY: number, maxX: number, maxY: number): Shape[];
-    all(): Shape[]; // TODO: use an iterator for spatial partiioning or memory references (like array for spears)
-}
 
 /** Naive spatial partitioning strategy that divides the world into a single cell. */
 class SingleCell implements PartitionStrategy {

@@ -105,11 +105,11 @@ function setWithFlag(iterations: number) {
 
 const iterations = 1000000000;
 
-console.log("No Flag:", setNoFlag(iterations), "ms");
-console.log("With Flag:", setWithFlag(iterations), "ms");
+// console.log("No Flag:", setNoFlag(iterations), "ms");
+// console.log("With Flag:", setWithFlag(iterations), "ms");
 
-// console.log("Class:", allocClass(iterations), "ms");
-// console.log("Functional:", allocFunctional(iterations), "ms");
+console.log("Class:", allocClass(iterations), "ms");
+console.log("Functional:", allocFunctional(iterations), "ms");
 
 // console.log("Static:", staticZeros(iterations), "ms");
 // console.log("Clone:", cloneZeros(iterations), "ms");
