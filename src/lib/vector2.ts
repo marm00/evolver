@@ -256,7 +256,7 @@ export class Vector2 implements Resettable {
 
     /** Direction or angle of the vector in radians. Normalized to the range [0, 2π]. */
     direction(): number {
-        return Math.atan2(this.y, this.x) + _Math.TAU;  
+        return Math.atan2(-this.y, -this.x) + Math.PI;  
     }
 
     /** 
