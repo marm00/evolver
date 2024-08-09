@@ -1,9 +1,32 @@
-import { Vector2 } from "./vector2";
-
 interface Settable<T> {
     set(...args: unknown[]): T;
 }
 
+/**
+ * A stack-like pool of reusable items of type `T`. Reduces garbage collection for temporary objects.
+ * 
+ * @example
+ * ```typescript
+ * // Usage with a Vector2 class
+ * const v2Pool = new Pool<Vector2>((x = 0, y = 0) => new Vector2(x as number, y as number));
+ * const p_v2 = v2Pool.alloc(20, 30);
+ * console.log(p_v2.x, p_v2.y); // 20, 30
+ * v2Pool.free(p_v2);
+ * ```
+ * 
+ * @example
+ * ```typescript
+ * // Usage with a Square object
+ * interface Square { size: number; set: (size: number) => this; }
+ * const squarePool = new Pool<Square>((size = 10) => ({
+ *     size: size as number,
+ *     set(size: number) {
+ *         this.size = size;
+ *         return this;
+ *     }
+ * }));
+ * ```
+ */
 export class Pool<T extends Settable<T>> {
     // For items that update every frame specifically, a different pooling strategy could be used,
     // where the array contains all items of T and an occupancy number is managed, reducing the
@@ -13,14 +36,6 @@ export class Pool<T extends Settable<T>> {
 
     /**
      * Creates an object pool of `T`, functions like a stack. Allocate with {@link alloc}, free with {@link free}.
-     * 
-     * @example
-     * const v2Pool = new Pool<Vector2>((x = 0, y = 0) => new Vector2(x as number, y as number));
-     * const p_v2 = v2Pool.alloc(20, 30);
-     * console.log(p_v2.x, p_v2.y); // 20, 30
-     * v2Pool.free(p_v2);
-     * 
-     * @example
      * 
      * @param generator A generator of `T`, used to create new items when the pool is empty, and optionally on construction with {@link initialSize}.
      * @param initialSize The initial size *n* of the pool, where *n* items are created using the {@link generator} and pushed to the pool.
@@ -47,15 +62,8 @@ export class Pool<T extends Settable<T>> {
     size(): number {
         return this.available.length;
     }
-    
+
 }
-
-
-// TODO: interface example for new Pool<T>
-interface Square {
-    size: number;
-}
-
 
 /** Explicit contract for {@link Pool2} items: the item must implement a `reset` method. */
 export interface Resettable {
