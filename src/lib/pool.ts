@@ -1,25 +1,31 @@
+import { Vector2 } from "./vector2";
+
+/** Explicit contract for {@link Pool} items: the item must implement a `set` method. */
 interface Settable<T> {
     set(...args: unknown[]): T;
+    // An additional copy function might necessarily be slower at runtime if just `T` is passed, 
+    // specifically in the case that the pool is empty, since the generator cannot be called with just `T`.
+    // This tradeoff is disadvantageous until a better solution is found.
 }
 
 /**
  * A stack-like pool of reusable items of type `T`. Reduces garbage collection for temporary objects.
  * 
  * @example
+ * Usage with a Vector2 class
  * ```typescript
- * // Usage with a Vector2 class
- * const v2Pool = new Pool<Vector2>((x = 0, y = 0) => new Vector2(x as number, y as number));
+ * const v2Pool = new Pool<Vector2>((x = 0, y = 0) => new Vector2(x, y), 5);
  * const p_v2 = v2Pool.alloc(20, 30);
  * console.log(p_v2.x, p_v2.y); // 20, 30
  * v2Pool.free(p_v2);
  * ```
  * 
  * @example
+ * Usage with a Square object
  * ```typescript
- * // Usage with a Square object
  * interface Square { size: number; set: (size: number) => this; }
  * const squarePool = new Pool<Square>((size = 10) => ({
- *     size: size as number,
+ *     size,
  *     set(size: number) {
  *         this.size = size;
  *         return this;
@@ -32,7 +38,7 @@ export class Pool<T extends Settable<T>> {
     // where the array contains all items of T and an occupancy number is managed, reducing the
     // amount of freeing and making the pool serve as a container.
     private available: T[];
-    private generator: (...args: unknown[]) => T;
+    private generator: (...args: Parameters<T["set"]>) => T;
 
     /**
      * Creates an object pool of `T`, functions like a stack. Allocate with {@link alloc}, free with {@link free}.
@@ -40,11 +46,11 @@ export class Pool<T extends Settable<T>> {
      * @param generator A generator of `T`, used to create new items when the pool is empty, and optionally on construction with {@link initialSize}.
      * @param initialSize The initial size *n* of the pool, where *n* items are created using the {@link generator} and pushed to the pool.
      */
-    constructor(generator: (...args: unknown[]) => T, initialSize = 0) {
+    constructor(generator: (...args: Parameters<T["set"]>) => T, initialSize = 0) {
         this.available = [];
         this.generator = generator;
         for (let i = 0; i < initialSize; i++) {
-            this.available.push(this.generator());
+            this.available.push(this.generator(...[] as unknown as Parameters<T["set"]>));
         }
     }
 
@@ -62,7 +68,6 @@ export class Pool<T extends Settable<T>> {
     size(): number {
         return this.available.length;
     }
-
 }
 
 /** Explicit contract for {@link Pool2} items: the item must implement a `reset` method. */
