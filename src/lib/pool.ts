@@ -58,9 +58,9 @@ export class Pool<T extends Settable<T>> {
         return this.available.pop()?.set(...args) ?? this.generator(...args);
     }
 
-    /** Releases an item back to the pool for reuse. */
-    free(item: T): void {
-        this.available.push(item);
+    /** Releases an item back to the pool for reuse and returns the new number of available items (size). */
+    free(item: T): number {
+        return this.available.push(item);
     }
 
     /** Returns the number of available items in the pool. */
