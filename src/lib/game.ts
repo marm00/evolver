@@ -1,8 +1,9 @@
 import { Vector2 } from "./vector2";
 import { Shape, Circle, OrientedRect, Rect } from "./shape";
-import { Pool2 } from "./pool";
+import { Pool, Pool2 } from "./pool";
 import { _Math } from "./mathUtils";
 import { Matrix3 } from "./matrix3";
+import { createSpear, Spear } from "./spear";
 
 const GAME_WIDTH = 6400;
 const GAME_HEIGHT = 6400;
@@ -10,18 +11,24 @@ const GAME_HEIGHT = 6400;
 const AUTO_AIM = true;
 const AUTO_ATTACK = true;
 
+const METER_TO_PIXELS = 73.14;
+
 /** Pixels per second: 5m/s (avg run speed) * 73pixels/m (128px=1.75meters) = 365pixels/s. */
 const HUMAN_VELOCITY = 365;
 const HUMAN_VELOCITY_DIAGONAL = HUMAN_VELOCITY * Math.SQRT1_2;
 const HUMAN_HEIGHT = 128;
 const HUMAN_WIDTH = 64;
 
-/** Pixels per second: a spear throw is n times faster than human running speed. */
-const SPEAR_VELOCITY = HUMAN_VELOCITY * 4;
+/** Distance a spear travels in meters to pixels. */
+const SPEAR_DISTANCE = 25 * METER_TO_PIXELS;
+/** Lifetime of a spear in seconds. */
+const SPEAR_LIFETIME = 1;
 /** Height of a spear in pixels, n times the height of a human. */
 const SPEAR_HEIGHT = HUMAN_HEIGHT * 1.14;
+const SPEAR_HALF_HEIGHT = SPEAR_HEIGHT / 2;
 /** Width of a spear in pixels, n times the width of a human. */
 const SPEAR_WIDTH = HUMAN_WIDTH * 0.11;
+const SPEAR_HALF_WIDTH = SPEAR_WIDTH / 2;
 
 
 
@@ -30,8 +37,11 @@ interface Game {
     world: PartitionStrategy;
     player: Player;
     m3Pool: Pool2<Matrix3>;
-    v2Pool: Pool2<Vector2>;
+    v2Pool: Pool<Vector2>;
+    v2Pool2: Pool2<Vector2>;
     oRectPool: Pool2<OrientedRect>;
+    spearPool: Pool<Spear>;
+    spears: Spear[]
 }
 
 /**
@@ -47,6 +57,7 @@ interface PartitionStrategy {
     update(shape: Shape): void;
     query(minX: number, minY: number, maxX: number, maxY: number): Shape[];
     all(): Shape[]; // TODO: use an iterator for spatial partiioning or memory references (like array for spears)
+    // TODO: perhaps an AABB tree per partition
 }
 
 /** 0b0001 = Up Direction */
@@ -102,8 +113,11 @@ const bitmaskActionMap: Record<number, DirectionAction> = {
 
 export async function createGame(strategy: string): Promise<Game> {
     const m3Pool = new Pool2<Matrix3>(Matrix3.identity);
-    const v2Pool = new Pool2<Vector2>(() => new Vector2());
+    const v2Pool = new Pool<Vector2>((x = 0, y = 0) => new Vector2(x, y), 20);
+    const v2Pool2 = new Pool2<Vector2>(() => new Vector2());
     const oRectPool = new Pool2<OrientedRect>(OrientedRect.zero, 5);
+    const spearPool = new Pool<Spear>((cx = 0, cy = 0, halfWidth = 0, halfHeight = 0,
+        rotation = 0, vx = 0, vy = 0, lifetime = 0) => createSpear(cx, cy, halfWidth, halfHeight, rotation, vx, vy, lifetime), 0);
 
     const world = new SingleCell();
     const player = new Player();
@@ -130,21 +144,27 @@ export async function createGame(strategy: string): Promise<Game> {
     world.insert(new Rect(new Vector2(128, 128), new Vector2(0, 0), new Vector2(0, 0), 128, 128));
     world.insert(new Rect(new Vector2(0, 256), new Vector2(0, 0), new Vector2(0, 0), 512, 512));
     world.insert(new Circle(new Vector2(-64, -128), new Vector2(Math.SQRT1_2, Math.SQRT1_2), new Vector2(0, 0), 64));
-    return { world, player, m3Pool, v2Pool, oRectPool };
+    return { world, player, m3Pool, v2Pool, v2Pool2, oRectPool, spearPool, spears: [] };
 }
 
 /**
  * 
  * @param target Position of the target in world space.
  */
-export function attack(target: Vector2, player: Player, world: PartitionStrategy, oRectPool: Pool2<OrientedRect>, v2Pool: Pool2<Vector2>) {
-    const p_spear = oRectPool.alloc();
-    const p_target = v2Pool.alloc();
-    p_spear.center.copy(player.center);
-    p_spear.velocity.copy(p_target.copy(target).sub(p_spear.center).normalize().scale(SPEAR_VELOCITY));
-    p_spear.setDimensions(SPEAR_WIDTH, SPEAR_HEIGHT, p_spear.velocity.direction());
-    v2Pool.free(p_target);
-    world.insert(p_spear);
+export function attack(target: Vector2, player: Player, world: PartitionStrategy, oRectPool: Pool2<OrientedRect>, v2Pool2: Pool2<Vector2>, v2Pool: Pool<Vector2>, spearPool: Pool<Spear>, spears: Spear[]) {
+    // const p_spear = oRectPool.alloc();
+    // const p_target = v2Pool2.alloc();
+    // p_spear.center.copy(player.center);
+    // p_spear.velocity.copy(p_target.copy(target).sub(p_spear.center).normalize().scale(SPEAR_VELOCITY));
+    // p_spear.setDimensions(SPEAR_WIDTH, SPEAR_HEIGHT, p_spear.velocity.direction());
+    // v2Pool2.free(p_target);
+    // world.insert(p_spear);
+    const p_velocity = v2Pool.alloc(target.x, target.y).sub(player.center).normalize().scale(SPEAR_DISTANCE);
+    const cx = player.center.x, cy = player.center.y;
+    const spear = spearPool.alloc(cx, cy, SPEAR_HALF_WIDTH, SPEAR_HALF_HEIGHT, p_velocity.direction(), p_velocity.x, p_velocity.y, SPEAR_LIFETIME);
+    spears.push(spear);
+    // world.insert(spear);
+    v2Pool.free(p_velocity);
     // TODO: lifetime, reuse spear instance on lifetime end
 }
 
@@ -157,9 +177,9 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     mp.set(pp.x - gameState.player.mouseCanvasDX, pp.y + gameState.player.mouseCanvasDY);
 
     // Update player position
-    // const p_pv = v2Pool.alloc();
+    // const p_pv = v2Pool2.alloc();
     // pp.add(p_pv.copy(pv).scale(deltaTime));
-    // v2Pool.free(p_pv);
+    // v2Pool2.free(p_pv);
 
     const thingsToRender = gameState.world.query(pp.x - cx, pp.y - cy, pp.x + cx, pp.y + cy);
 
@@ -196,14 +216,31 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             imageOffset = [0, 3];
         }
     }
+
+    const p_previousCenter = gameState.v2Pool.alloc(0, 0);
+    const p_velocity = gameState.v2Pool.alloc(0, 0);
+    for (const spear of gameState.spears) {
+        p_previousCenter.copy(spear.center);
+        spear.center.add(p_velocity.copy(spear.velocity).scale(deltaTime));
+        p_velocity.set(spear.center.x - p_previousCenter.x, spear.center.y - p_previousCenter.y);
+        const v = spear.vertices;
+        const v0 = v[0], v1 = v[1], v2 = v[2], v3 = v[3];
+        v0.add(p_velocity);
+        v1.add(p_velocity);
+        v2.add(p_velocity);
+        v3.add(p_velocity);
+    }
+    gameState.v2Pool.free(p_previousCenter);
+    gameState.v2Pool.free(p_velocity);
+
     // TODO: how to iterate over all shapes in the world, use an Iterator for spatial partiioning or separate arrays, or just over partitions
     const allShapes = gameState.world.all();
     for (const thing of allShapes) {
         const tc = thing.center, tv = thing.velocity;
         if (!tv.isZero()) {
-            const p_tv = gameState.v2Pool.alloc();
+            const p_tv = gameState.v2Pool2.alloc();
             tc.add(p_tv.copy(tv).scale(deltaTime));
-            gameState.v2Pool.free(p_tv);
+            gameState.v2Pool2.free(p_tv);
             if (thing instanceof OrientedRect) {
                 thing.update();
             }

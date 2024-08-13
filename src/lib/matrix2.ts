@@ -37,6 +37,16 @@ export class Matrix2 implements Resettable {
         );
     }
 
+    /** Constructs and sets the transformation matrix to the given direction or angle in radians */
+    static fromRotationAngle(angle: number): Matrix2 {
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+        return new Matrix2(
+            cos, sin, // col 1
+            -sin, cos, // col 2
+        );
+    }
+
     /** Resets the matrix to the [identity matrix](https://en.wikipedia.org/wiki/Identity_matrix). */
     reset(): void {
         const a = this.elements;
