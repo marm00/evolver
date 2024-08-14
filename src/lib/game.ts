@@ -3,7 +3,7 @@ import { Shape, Circle, OrientedRect, Rect } from "./shape";
 import { Pool, Pool2 } from "./pool";
 import { _Math } from "./mathUtils";
 import { Matrix3 } from "./matrix3";
-import { createSpear, Spear } from "./spear";
+import { Spear } from "./spear";
 
 const GAME_WIDTH = 6400;
 const GAME_HEIGHT = 6400;
@@ -41,7 +41,7 @@ interface Game {
     v2Pool2: Pool2<Vector2>;
     oRectPool: Pool2<OrientedRect>;
     spearPool: Pool<Spear>;
-    spears: Spear[]
+    spears: Spear[] // TODO: different data structure?
 }
 
 /**
@@ -117,7 +117,7 @@ export async function createGame(strategy: string): Promise<Game> {
     const v2Pool2 = new Pool2<Vector2>(() => new Vector2());
     const oRectPool = new Pool2<OrientedRect>(OrientedRect.zero, 5);
     const spearPool = new Pool<Spear>((cx = 0, cy = 0, halfWidth = 0, halfHeight = 0,
-        rotation = 0, vx = 0, vy = 0, lifetime = 0) => createSpear(cx, cy, halfWidth, halfHeight, rotation, vx, vy, lifetime), 0);
+        rotation = 0, vx = 0, vy = 0, lifetime = 0) => new Spear(cx, cy, halfWidth, halfHeight, rotation, vx, vy, lifetime), 0);
 
     const world = new SingleCell();
     const player = new Player();
@@ -161,7 +161,7 @@ export function attack(target: Vector2, player: Player, world: PartitionStrategy
     // world.insert(p_spear);
     const p_velocity = v2Pool.alloc(target.x, target.y).sub(player.center).normalize().scale(SPEAR_DISTANCE);
     const cx = player.center.x, cy = player.center.y;
-    const spear = spearPool.alloc(cx, cy, SPEAR_HALF_WIDTH, SPEAR_HALF_HEIGHT, p_velocity.direction(), p_velocity.x, p_velocity.y, SPEAR_LIFETIME);
+    const spear = spearPool.alloc(cx, cy, SPEAR_HALF_WIDTH, SPEAR_HALF_HEIGHT, p_velocity.direction() - _Math.HALF_PI, p_velocity.x, p_velocity.y, SPEAR_LIFETIME);
     spears.push(spear);
     // world.insert(spear);
     v2Pool.free(p_velocity);
@@ -217,21 +217,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         }
     }
 
-    const p_previousCenter = gameState.v2Pool.alloc(0, 0);
-    const p_velocity = gameState.v2Pool.alloc(0, 0);
-    for (const spear of gameState.spears) {
-        p_previousCenter.copy(spear.center);
-        spear.center.add(p_velocity.copy(spear.velocity).scale(deltaTime));
-        p_velocity.set(spear.center.x - p_previousCenter.x, spear.center.y - p_previousCenter.y);
-        const v = spear.vertices;
-        const v0 = v[0], v1 = v[1], v2 = v[2], v3 = v[3];
-        v0.add(p_velocity);
-        v1.add(p_velocity);
-        v2.add(p_velocity);
-        v3.add(p_velocity);
-    }
-    gameState.v2Pool.free(p_previousCenter);
-    gameState.v2Pool.free(p_velocity);
+    
 
     // TODO: how to iterate over all shapes in the world, use an Iterator for spatial partiioning or separate arrays, or just over partitions
     const allShapes = gameState.world.all();
@@ -257,6 +243,36 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         cy + pp.y  // Vertical translation to center player y
     );
     // TODO: use off screen canvas/ctx for rendering even the dev mode elements
+
+    // Move all spears
+    const p_previousCenter = gameState.v2Pool.alloc(0, 0);
+    const p_velocity = gameState.v2Pool.alloc(0, 0);
+    for (const spear of gameState.spears) {
+        spear.lifetime -= deltaTime;
+        if (spear.lifetime <= 0) {
+            gameState.spears.splice(gameState.spears.indexOf(spear), 1);
+            gameState.spearPool.free(spear);
+            continue;
+        }
+        p_previousCenter.copy(spear.center);
+        spear.center.add(p_velocity.copy(spear.velocity).scale(deltaTime));
+        p_velocity.set(spear.center.x - p_previousCenter.x, spear.center.y - p_previousCenter.y);
+        const v = spear.vertices;
+        v[0].add(p_velocity);
+        v[1].add(p_velocity);
+        v[2].add(p_velocity);
+        v[3].add(p_velocity);
+        ctx.beginPath();
+        ctx.moveTo(v[0].x, v[0].y);
+        ctx.lineTo(v[1].x, v[1].y);
+        ctx.lineTo(v[2].x, v[2].y);
+        ctx.lineTo(v[3].x, v[3].y);
+        ctx.stroke();
+    }
+    gameState.v2Pool.free(p_previousCenter);
+    gameState.v2Pool.free(p_velocity);
+
+
     for (const thing of thingsToRender) {
         // TODO: obviously dont update velocity here, but rather in the game loop
         // thing.center.add(thing.velocity.setLength(HUMAN_VELOCITY).clone().scale(deltaTime));
