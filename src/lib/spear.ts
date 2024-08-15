@@ -66,23 +66,41 @@ export class Spear {
 }
 
 // TODO: circular object: meteorite
-class Meteorite {
+export class Meteorite {
+    // The meteor pathing should be straight and origin should be randomized
+    // Acceleration should be used (gravity)
+    // The size of the sprite should be the distance between the center and the target (higher distance = smaller)
+    // The sprite should innately rotate around its center
+    origin: Vector2;
     center: Vector2;
+    target: Vector2;
     radius: number;
-    radiusSqr: number;
+    displayRadius: number;
+    // radiusSqr: number;
 
-    // lifetime: number; // TODO: this is not directly relevant for Meteorite
+    duration: number;
+    lifetime: number; 
 
-    constructor(center: Vector2, radius: number) {
-        this.center = center;
+    constructor(ox: number, oy: number, tx: number, ty: number, radius: number, duration: number) {
+        this.origin = new Vector2(ox, oy);
+        this.center = new Vector2(ox, oy);
+        this.target = new Vector2(tx, ty);
         this.radius = radius;
-        this.radiusSqr = radius * radius;
+        this.displayRadius = radius;
+        // this.radiusSqr = radius * radius;
+        this.duration = duration;
+        this.lifetime = duration;
     }
 
-    set(center: Vector2, radius: number): this {
-        this.center = center;
+    set(ox: number, oy: number, tx: number, ty: number, radius: number, duration: number): this {
+        this.origin.set(ox, oy);
+        this.center.set(ox, oy);
+        this.target.set(tx, ty);
         this.radius = radius;
-        this.radiusSqr = radius * radius;
+        this.displayRadius = radius;
+        // this.radiusSqr = radius * radius;
+        this.duration = duration;
+        this.lifetime = duration;
         return this;
     }
 

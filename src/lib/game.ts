@@ -3,7 +3,7 @@ import { Shape, Circle, OrientedRect, Rect } from "./shape";
 import { Pool, Pool2 } from "./pool";
 import { _Math } from "./mathUtils";
 import { Matrix3 } from "./matrix3";
-import { Spear } from "./spear";
+import { Meteorite, Spear } from "./spear";
 
 const GAME_WIDTH = 6400;
 const GAME_HEIGHT = 6400;
@@ -30,6 +30,9 @@ const SPEAR_HALF_HEIGHT = SPEAR_HEIGHT / 2;
 const SPEAR_WIDTH = HUMAN_WIDTH * 0.11;
 const SPEAR_HALF_WIDTH = SPEAR_WIDTH / 2;
 
+const METEROTE_RADIUS = 64;
+const METEORITE_LIFETIME = 2;
+
 
 
 // TODO: the game contains lists for different things (like spears), pools, and the partinioning contains references
@@ -42,6 +45,8 @@ interface Game {
     oRectPool: Pool2<OrientedRect>;
     spearPool: Pool<Spear>;
     spears: Spear[] // TODO: different data structure?
+    meteoritePool: Pool<Meteorite>;
+    meteorites: Meteorite[]; // TODO: different data structure?
 }
 
 /**
@@ -118,6 +123,8 @@ export async function createGame(strategy: string): Promise<Game> {
     const oRectPool = new Pool2<OrientedRect>(OrientedRect.zero, 5);
     const spearPool = new Pool<Spear>((cx = 0, cy = 0, halfWidth = 0, halfHeight = 0,
         rotation = 0, vx = 0, vy = 0, lifetime = 0) => new Spear(cx, cy, halfWidth, halfHeight, rotation, vx, vy, lifetime), 0);
+    const meteoritePool = new Pool<Meteorite>((ox = 0, oy = 0, tx = 0, ty = 0, radius = 0,
+        lifetime = 0) => new Meteorite(ox, oy, tx, ty, radius, lifetime), 0);
 
     const world = new SingleCell();
     const player = new Player();
@@ -144,7 +151,7 @@ export async function createGame(strategy: string): Promise<Game> {
     world.insert(new Rect(new Vector2(128, 128), new Vector2(0, 0), new Vector2(0, 0), 128, 128));
     world.insert(new Rect(new Vector2(0, 256), new Vector2(0, 0), new Vector2(0, 0), 512, 512));
     world.insert(new Circle(new Vector2(-64, -128), new Vector2(Math.SQRT1_2, Math.SQRT1_2), new Vector2(0, 0), 64));
-    return { world, player, m3Pool, v2Pool, v2Pool2, oRectPool, spearPool, spears: [] };
+    return { world, player, m3Pool, v2Pool, v2Pool2, oRectPool, spearPool, spears: [], meteoritePool, meteorites: [] };
 }
 
 /**
@@ -166,6 +173,11 @@ export function attack(target: Vector2, player: Player, world: PartitionStrategy
     // world.insert(spear);
     v2Pool.free(p_velocity);
     // TODO: lifetime, reuse spear instance on lifetime end
+}
+
+export function launchMeteorite(target: Vector2, origin: Vector2, meteoritePool: Pool<Meteorite>, meteorites: Meteorite[]) {
+    const meteorite = meteoritePool.alloc(target.x, target.y, origin.x, origin.y, METEROTE_RADIUS, METEORITE_LIFETIME);
+    meteorites.push(meteorite);
 }
 
 export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game, elapsedTime: number, deltaTime: number) {
@@ -217,7 +229,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         }
     }
 
-    
+
 
     // TODO: how to iterate over all shapes in the world, use an Iterator for spatial partiioning or separate arrays, or just over partitions
     const allShapes = gameState.world.all();
@@ -252,6 +264,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         if (spear.lifetime <= 0) {
             gameState.spears.splice(gameState.spears.indexOf(spear), 1);
             gameState.spearPool.free(spear);
+            // TODO: remove from world
             continue;
         }
         p_previousCenter.copy(spear.center);
@@ -262,6 +275,8 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         v[1].add(p_velocity);
         v[2].add(p_velocity);
         v[3].add(p_velocity);
+        // TODO: collision checks and stuff after every object position is updated
+        // TODO: only draw if in view
         ctx.beginPath();
         ctx.moveTo(v[0].x, v[0].y);
         ctx.lineTo(v[1].x, v[1].y);
@@ -271,6 +286,37 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     }
     gameState.v2Pool.free(p_previousCenter);
     gameState.v2Pool.free(p_velocity);
+
+    // Move all meteorites
+    for (const meteorite of gameState.meteorites) {
+        meteorite.lifetime -= deltaTime;
+        if (meteorite.lifetime <= 0) {
+            gameState.meteorites.splice(gameState.meteorites.indexOf(meteorite), 1);
+            gameState.meteoritePool.free(meteorite);
+            // TODO: remove from world
+            // TODO: explode
+            continue;
+        }
+        
+        let t = 1 - (meteorite.lifetime / meteorite.duration); // Normalize to [0, 1] range where 1 = target
+        t = t * t; // Ease in with a quadratic time factor, cheaper than true physics simulation
+        meteorite.center.lerpVectors(meteorite.origin, meteorite.target, t);
+        meteorite.displayRadius = _Math.lerp(0.2, 1, t) * meteorite.radius;
+
+        ctx.beginPath();
+        ctx.strokeStyle = '#ffffff';
+        ctx.moveTo(meteorite.origin.x, meteorite.origin.y);
+        ctx.lineTo(meteorite.center.x, meteorite.center.y);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.fillStyle = '#ff7b00';
+        ctx.arc(meteorite.center.x, meteorite.center.y, meteorite.displayRadius, 0, _Math.TAU);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.strokeStyle = '#ff0000';
+        ctx.arc(meteorite.target.x, meteorite.target.y, meteorite.radius, 0, _Math.TAU);
+        ctx.stroke();
+    }
 
 
     for (const thing of thingsToRender) {

@@ -11,6 +11,9 @@ export interface _Math {
     /** The conversion factor from radians to degrees as the mathemetical constant 180/π (180 over pi). */
     readonly RAD_TO_DEG: number;
 
+    /** The gravitational constant (G). */
+    readonly GRAVITY: number;
+
     /** 
      * Returns the angle of the numeric argument in radians.
      * 
@@ -74,6 +77,7 @@ export const _Math: _Math = {
     HALF_PI: Math.PI / 2,
     DEG_TO_RAD: Math.PI / 180,
     RAD_TO_DEG: 180 / Math.PI,
+    GRAVITY: 9.81,
     degToRad(degrees: number): number {
         return degrees * this.DEG_TO_RAD;
     },

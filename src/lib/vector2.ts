@@ -239,6 +239,19 @@ export class Vector2 implements Resettable {
         return this;
     }
 
+    /** 
+     * Incremental linear interpolation, resulting in a vector between v1 and v2 at the given time, unclamped.
+     * 
+     * @param v1 The first vector where t = 0.
+     * @param v2 The second vector to interpolate towards where t = 1.
+     * @param t The time value or scalar, between 0 and 1, representing the interpolation progress.
+     */
+    lerpVectors(v1: Vector2, v2: Vector2, t: number): this {
+        this.x = v1.x + (v2.x - v1.x) * t;
+        this.y = v1.y + (v2.y - v1.y) * t;
+        return this;
+    }
+
     /** Squared magnitude or Euclidean distance from the origin (Pythagorean theorem). */
     magnitudeSqr(): number {
         return this.x * this.x + this.y * this.y;
