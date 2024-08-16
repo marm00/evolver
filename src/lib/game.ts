@@ -31,11 +31,13 @@ const SPEAR_WIDTH = HUMAN_WIDTH * 0.11;
 const SPEAR_HALF_WIDTH = SPEAR_WIDTH / 2;
 
 const METEORITE_RADIUS = 64;
+const METEORITE_DISPLAY_RADIUS = METEORITE_RADIUS * 0.5;
 const METEORITE_LIFETIME = 2;
 
 // TODO: pickup radius should be stored on the player not resources
 /** Pick-up radius of an obsidian. */
 const OBSIDIAN_RADIUS = 32;
+const OBSIDIAN_DISPLAY_RADIUS = OBSIDIAN_RADIUS;
 /** In pixels per second. */
 const OBSIDIAN_VELOCITY = 12;
 const OBSIDIAN_ACCELERATION = 1 + (6 / 100);
@@ -138,9 +140,10 @@ export async function createGame(strategy: string): Promise<Game> {
     const oRectPool = new Pool2<OrientedRect>(OrientedRect.zero, 5);
     const spearPool = new Pool<Spear>((cx = 0, cy = 0, halfWidth = 0, halfHeight = 0,
         rotation = 0, vx = 0, vy = 0, lifetime = 0) => new Spear(cx, cy, halfWidth, halfHeight, rotation, vx, vy, lifetime), 0);
-    const meteoritePool = new Pool<Meteorite>((ox = 0, oy = 0, tx = 0, ty = 0, radius = 0,
-        lifetime = 0) => new Meteorite(ox, oy, tx, ty, radius, lifetime), 0);
-    const obsidianPool = new Pool<Obsidian>((cx = 0, cy = 0, radius = 0, velocityScalar = 0) => new Obsidian(cx, cy, radius, velocityScalar), 0);
+    const meteoritePool = new Pool<Meteorite>((ox = 0, oy = 0, tx = 0, ty = 0, radius = 0, lifetime = 0, displayRadius = 0) =>
+        new Meteorite(ox, oy, tx, ty, radius, lifetime, displayRadius), 0);
+    const obsidianPool = new Pool<Obsidian>((cx = 0, cy = 0, radius = 0, velocityScalar = 0, displayRadius = 0) =>
+        new Obsidian(cx, cy, radius, velocityScalar, displayRadius), 0);
 
     const world = new SingleCell();
     const player = new Player();
@@ -193,12 +196,12 @@ export function attack(target: Vector2, player: Player, world: PartitionStrategy
 }
 
 export function launchMeteorite(target: Vector2, origin: Vector2, meteoritePool: Pool<Meteorite>, meteorites: Meteorite[]) {
-    const meteorite = meteoritePool.alloc(target.x, target.y, origin.x, origin.y, METEORITE_RADIUS, METEORITE_LIFETIME);
+    const meteorite = meteoritePool.alloc(target.x, target.y, origin.x, origin.y, METEORITE_RADIUS, METEORITE_LIFETIME, METEORITE_DISPLAY_RADIUS);
     meteorites.push(meteorite);
 }
 
 export function dropObsidian(target: Vector2, obsidianPool: Pool<Obsidian>, obisidians: Obsidian[]) {
-    const obsidian = obsidianPool.alloc(target.x, target.y, OBSIDIAN_RADIUS, OBSIDIAN_VELOCITY);
+    const obsidian = obsidianPool.alloc(target.x, target.y, OBSIDIAN_RADIUS, OBSIDIAN_VELOCITY, OBSIDIAN_DISPLAY_RADIUS);
     obisidians.push(obsidian);
 }
 
@@ -365,7 +368,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         let t = 1 - (meteorite.lifetime / meteorite.duration); // Normalize to [0, 1] range where 1 = target
         t = t * t; // Ease in with a quadratic time factor, cheaper than true physics simulation
         meteorite.center.lerpVectors(meteorite.origin, meteorite.target, t);
-        const displayRadius = _Math.lerp(0.2, 1, t) * meteorite.radius;
+        // const displayRadius = _Math.lerp(0.2, 1, t) * meteorite.radius
 
         ctx.beginPath();
         ctx.strokeStyle = '#ffffff';
@@ -374,7 +377,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         ctx.stroke();
         ctx.beginPath();
         ctx.fillStyle = '#ff7b00';
-        ctx.arc(meteorite.center.x, meteorite.center.y, displayRadius, 0, _Math.TAU);
+        ctx.arc(meteorite.center.x, meteorite.center.y, METEORITE_DISPLAY_RADIUS, 0, _Math.TAU);
         ctx.fill();
         ctx.beginPath();
         ctx.strokeStyle = '#ff0000';

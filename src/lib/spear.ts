@@ -74,32 +74,32 @@ export class Meteorite {
     origin: Vector2;
     target: Vector2;
     radius: number;
-    // displayRadius: number;
     // radiusSqr: number;
-
+    
     duration: number;
     lifetime: number;
+    displayRadius: number;
 
-    constructor(ox: number, oy: number, tx: number, ty: number, radius: number, duration: number) {
+    constructor(ox: number, oy: number, tx: number, ty: number, radius: number, duration: number, displayRadius: number) {
         this.center = new Vector2(ox, oy);
         this.origin = new Vector2(ox, oy);
         this.target = new Vector2(tx, ty);
         this.radius = radius;
-        // this.displayRadius = 0;
         // this.radiusSqr = radius * radius;
         this.duration = duration;
         this.lifetime = duration;
+        this.displayRadius = displayRadius;
     }
 
-    set(ox: number, oy: number, tx: number, ty: number, radius: number, duration: number): this {
+    set(ox: number, oy: number, tx: number, ty: number, radius: number, duration: number, displayRadius: number): this {
         this.center.set(ox, oy);
         this.origin.set(ox, oy);
         this.target.set(tx, ty);
         this.radius = radius;
-        // this.displayRadius = 0;
         // this.radiusSqr = radius * radius;
         this.duration = duration;
         this.lifetime = duration;
+        this.displayRadius = displayRadius;
         return this;
     }
 
@@ -128,21 +128,21 @@ export class Obsidian {
     jump: Vector2;
     velocityScalar: number;
 
-    constructor(cx: number, cy: number, radius: number, velocityScalar: number) {
+    constructor(cx: number, cy: number, radius: number, velocityScalar: number, displayRadius: number) {
         this.center = new Vector2(cx, cy);
         this.radius = radius;
         this.radiusSqr = radius * radius;
-        this.displayRadius = radius;
+        this.displayRadius = displayRadius;
         this.resourceState = RESOURCE_STATE.Uncollected;
         this.jump = new Vector2(0, 0);
         this.velocityScalar = velocityScalar;
     }
 
-    set(cx: number, cy: number, radius: number, velocityScalar: number): this {
+    set(cx: number, cy: number, radius: number, velocityScalar: number, displayRadius: number): this {
         this.center.set(cx, cy);
         this.radius = radius;
         this.radiusSqr = radius * radius;
-        this.displayRadius = radius;
+        this.displayRadius = displayRadius;
         this.resourceState = RESOURCE_STATE.Uncollected;
         this.jump.set(0, 0);
         this.velocityScalar = velocityScalar;
