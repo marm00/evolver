@@ -150,7 +150,7 @@ export class Obsidian {
     }
 }
 
-export class Spirit {
+export class Thunderstorm {
     center: Vector2;
     radius: number;
     radiusSqr: number;

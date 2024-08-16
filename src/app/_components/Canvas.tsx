@@ -52,7 +52,7 @@ export function Canvas() {
                 game.attack(gameState.player.mousePosition, gameState.player, gameState.world, gameState.oRectPool, gameState.v2Pool2, gameState.v2Pool, gameState.spearPool, gameState.spears);
                 game.launchMeteorite(gameState.player.mousePosition, gameState.player.center, gameState.meteoritePool, gameState.meteorites);
                 game.dropObsidian(gameState.player.mousePosition, gameState.obsidianPool, gameState.obsidians);
-                game.spawnSpirit(gameState.player.mousePosition, gameState.spirit);
+                game.spawnThunderstorm(gameState.player.mousePosition, gameState.thunderstorm);
             }
 
             const handleMouseUp = (_: MouseEvent) => {
