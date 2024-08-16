@@ -145,7 +145,7 @@ export async function createGame(strategy: string): Promise<Game> {
 
     const world = new SingleCell();
     const player = new Player();
-    world.insert(player);
+    // world.insert(player); // TODO: player to world?
 
     const angle = _Math.TAU * .33;
     const tor0 = OrientedRect.zero().setDimensions(32, 64, angle);
@@ -251,8 +251,6 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         }
     }
 
-
-
     // TODO: how to iterate over all shapes in the world, use an Iterator for spatial partiioning or separate arrays, or just over partitions
     const allShapes = gameState.world.all();
     for (const thing of allShapes) {
@@ -268,15 +266,51 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     }
 
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    ctx.drawImage(sprite, 128 * imageOffset[0]!, 128 * imageOffset[1]!, gameState.player.displayWidth, gameState.player.displayHeight, dx, dy, gameState.player.displayWidth, gameState.player.displayHeight);
+    // ctx.drawImage(sprite, 128 * imageOffset[0]!, 128 * imageOffset[1]!, gameState.player.displayWidth, gameState.player.displayHeight, dx, dy - gameState.player.displayHeight/2, gameState.player.displayWidth, gameState.player.displayHeight);
+
     ctx.save();
     ctx.transform(
-        1, 0,                           // Horizontal scaling and skewing
-        0, -1,                          // Vertical scaling and skewing
+        1, 0,      // Horizontal scaling and skewing
+        0, -1,     // Vertical scaling and skewing
         cx - pp.x, // Horizontal translation to center player x
         cy + pp.y  // Vertical translation to center player y
     );
     // TODO: use off screen canvas/ctx for rendering even the dev mode elements
+
+    // Move player
+    const p_pv = gameState.v2Pool.alloc(pv.x, pv.y);
+    pp.add(p_pv.scale(deltaTime));
+    ctx.beginPath();
+    ctx.strokeStyle = '#00ccff';
+    ctx.arc(pp.x, pp.y, gameState.player.radius, 0, _Math.TAU);
+    ctx.stroke();
+    ctx.strokeStyle = '#ffffff';
+
+    if (true) {
+        // TODO: replace this with image data manipulation and backImageData putting
+        ctx.translate(pp.x, pp.y + gameState.player.displayHeight / 2);
+        ctx.scale(1, -1);
+        ctx.drawImage(
+            sprite,
+            (128 * imageOffset[0]!),
+            (128 * imageOffset[1]!),
+            gameState.player.displayWidth,
+            gameState.player.displayHeight,
+            -gameState.player.displayWidth / 2,
+            -gameState.player.displayHeight / 2 + 10,
+            gameState.player.displayWidth,
+            gameState.player.displayHeight
+        );
+        ctx.restore();
+        ctx.save();
+        ctx.transform(
+            1, 0,      // Horizontal scaling and skewing
+            0, -1,     // Vertical scaling and skewing
+            cx - pp.x, // Horizontal translation to center player x
+            cy + pp.y  // Vertical translation to center player y
+        );
+    }
+
 
     // Move all spears
     const p_previousCenter = gameState.v2Pool.alloc(0, 0);
@@ -347,7 +381,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         switch (obsidian.resourceState) {
             case RESOURCE_STATE.Uncollected: {
                 if (c.distanceToSqr(pp) <= obsidian.radiusSqr) {
-                    jump.copy(c).sub(pp).normalize().scale(OBSIDIAN_JUMP_DISTANCE).add(c);  
+                    jump.copy(c).sub(pp).normalize().scale(OBSIDIAN_JUMP_DISTANCE).add(c);
                     obsidian.resourceState = RESOURCE_STATE.Jumping;
                 }
                 break;
@@ -386,7 +420,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     }
 
 
-    for (const thing of thingsToRender) {
+    for (const thing of [...thingsToRender, gameState.player]) {
         // TODO: obviously dont update velocity here, but rather in the game loop
         // thing.center.add(thing.velocity.setLength(HUMAN_VELOCITY).clone().scale(deltaTime));
         const direction = thing.center.clone().add(thing.velocity);
@@ -478,7 +512,13 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
 
 
 /** Represents the player (main character) in the game. */
-class Player extends Rect {
+class Player {
+    center = new Vector2(150, 300);
+    velocity = new Vector2(0, 0);
+    acceleration = new Vector2(0, 0);
+    radius = 25;
+    radiusSqr = this.radius * this.radius;
+
     playerDirection: Dir9 = DIR_9.Idle;
     sprite: HTMLImageElement | null = null;
     displayWidth = 128;
@@ -500,7 +540,7 @@ class Player extends Rect {
     idle = () => this.playerDirection === DIR_9.Idle;
 
     constructor() {
-        super(new Vector2(128, 128), new Vector2(0, 0), new Vector2(0, 0), 64, 128);
+        // super(new Vector2(128, 128), new Vector2(0, 0), new Vector2(0, 0), 64, 128);
         void this.loadSprite();
     }
 
