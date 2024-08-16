@@ -3,7 +3,7 @@ import { Shape, Circle, OrientedRect, Rect } from "./shape";
 import { Pool, Pool2 } from "./pool";
 import { _Math } from "./mathUtils";
 import { Matrix3 } from "./matrix3";
-import { Meteorite, Spear } from "./spear";
+import { Meteorite, Obsidian, RESOURCE_STATE, Spear } from "./spear";
 
 const GAME_WIDTH = 6400;
 const GAME_HEIGHT = 6400;
@@ -30,8 +30,21 @@ const SPEAR_HALF_HEIGHT = SPEAR_HEIGHT / 2;
 const SPEAR_WIDTH = HUMAN_WIDTH * 0.11;
 const SPEAR_HALF_WIDTH = SPEAR_WIDTH / 2;
 
-const METEROTE_RADIUS = 64;
+const METEORITE_RADIUS = 64;
 const METEORITE_LIFETIME = 2;
+
+// TODO: pickup radius should be stored on the player not resources
+/** Pick-up radius of an obsidian. */
+const OBSIDIAN_RADIUS = 32;
+/** In pixels per second. */
+const OBSIDIAN_VELOCITY = 5;
+const OBSIDIAN_ACCELERATION = 1 + (OBSIDIAN_VELOCITY / 100);
+/** Threshold for finishing a lerp to a target in pixels. */
+const OBSIDIAN_THRESHOLD = 4;
+const OBSIDIAN_JUMP_DISTANCE = OBSIDIAN_RADIUS * 5;
+// const OBSIDIAN_MAX_JUMP = OBSIDIAN_RADIUS * 6;
+// const OBSIDIAN_MIN_JUMP = -OBSIDIAN_MAX_JUMP;
+// const OBSIDIAN_JUMP_RANGE = OBSIDIAN_MAX_JUMP - OBSIDIAN_MIN_JUMP;
 
 
 
@@ -47,6 +60,8 @@ interface Game {
     spears: Spear[] // TODO: different data structure?
     meteoritePool: Pool<Meteorite>;
     meteorites: Meteorite[]; // TODO: different data structure?
+    obsidianPool: Pool<Obsidian>;
+    obsidians: Obsidian[]; // TODO: different data structure?
 }
 
 /**
@@ -63,6 +78,7 @@ interface PartitionStrategy {
     query(minX: number, minY: number, maxX: number, maxY: number): Shape[];
     all(): Shape[]; // TODO: use an iterator for spatial partiioning or memory references (like array for spears)
     // TODO: perhaps an AABB tree per partition
+    // TODO: duplicate partitions once the player is close to the edge of the world
 }
 
 /** 0b0001 = Up Direction */
@@ -125,6 +141,7 @@ export async function createGame(strategy: string): Promise<Game> {
         rotation = 0, vx = 0, vy = 0, lifetime = 0) => new Spear(cx, cy, halfWidth, halfHeight, rotation, vx, vy, lifetime), 0);
     const meteoritePool = new Pool<Meteorite>((ox = 0, oy = 0, tx = 0, ty = 0, radius = 0,
         lifetime = 0) => new Meteorite(ox, oy, tx, ty, radius, lifetime), 0);
+    const obsidianPool = new Pool<Obsidian>((cx = 0, cy = 0, radius = 0, velocityScalar = 0) => new Obsidian(cx, cy, radius, velocityScalar), 0);
 
     const world = new SingleCell();
     const player = new Player();
@@ -151,7 +168,7 @@ export async function createGame(strategy: string): Promise<Game> {
     world.insert(new Rect(new Vector2(128, 128), new Vector2(0, 0), new Vector2(0, 0), 128, 128));
     world.insert(new Rect(new Vector2(0, 256), new Vector2(0, 0), new Vector2(0, 0), 512, 512));
     world.insert(new Circle(new Vector2(-64, -128), new Vector2(Math.SQRT1_2, Math.SQRT1_2), new Vector2(0, 0), 64));
-    return { world, player, m3Pool, v2Pool, v2Pool2, oRectPool, spearPool, spears: [], meteoritePool, meteorites: [] };
+    return { world, player, m3Pool, v2Pool, v2Pool2, oRectPool, spearPool, spears: [], meteoritePool, meteorites: [], obsidianPool, obsidians: [] };
 }
 
 /**
@@ -176,8 +193,13 @@ export function attack(target: Vector2, player: Player, world: PartitionStrategy
 }
 
 export function launchMeteorite(target: Vector2, origin: Vector2, meteoritePool: Pool<Meteorite>, meteorites: Meteorite[]) {
-    const meteorite = meteoritePool.alloc(target.x, target.y, origin.x, origin.y, METEROTE_RADIUS, METEORITE_LIFETIME);
+    const meteorite = meteoritePool.alloc(target.x, target.y, origin.x, origin.y, METEORITE_RADIUS, METEORITE_LIFETIME);
     meteorites.push(meteorite);
+}
+
+export function dropObsidian(target: Vector2, obsidianPool: Pool<Obsidian>, obisidians: Obsidian[]) {
+    const obsidian = obsidianPool.alloc(target.x, target.y, OBSIDIAN_RADIUS, OBSIDIAN_VELOCITY);
+    obisidians.push(obsidian);
 }
 
 export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game, elapsedTime: number, deltaTime: number) {
@@ -297,25 +319,70 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             // TODO: explode
             continue;
         }
-        
+
         let t = 1 - (meteorite.lifetime / meteorite.duration); // Normalize to [0, 1] range where 1 = target
         t = t * t; // Ease in with a quadratic time factor, cheaper than true physics simulation
         meteorite.center.lerpVectors(meteorite.origin, meteorite.target, t);
-        meteorite.displayRadius = _Math.lerp(0.2, 1, t) * meteorite.radius;
+        const displayRadius = _Math.lerp(0.2, 1, t) * meteorite.radius;
 
         ctx.beginPath();
         ctx.strokeStyle = '#ffffff';
         ctx.moveTo(meteorite.origin.x, meteorite.origin.y);
-        ctx.lineTo(meteorite.center.x, meteorite.center.y);
+        ctx.lineTo(meteorite.target.x, meteorite.target.y);
         ctx.stroke();
         ctx.beginPath();
         ctx.fillStyle = '#ff7b00';
-        ctx.arc(meteorite.center.x, meteorite.center.y, meteorite.displayRadius, 0, _Math.TAU);
+        ctx.arc(meteorite.center.x, meteorite.center.y, displayRadius, 0, _Math.TAU);
         ctx.fill();
         ctx.beginPath();
         ctx.strokeStyle = '#ff0000';
         ctx.arc(meteorite.target.x, meteorite.target.y, meteorite.radius, 0, _Math.TAU);
         ctx.stroke();
+    }
+
+    // Collect/move obsidians
+    // TODO: only jump if in view, and use partition system for uncollected obsidians
+    for (const obsidian of gameState.obsidians) {
+        const c = obsidian.center, jump = obsidian.jump;
+        switch (obsidian.resourceState) {
+            case RESOURCE_STATE.Uncollected: {
+                if (c.distanceToSqr(pp) <= obsidian.radiusSqr) {
+                    jump.copy(c).sub(pp).normalize().scale(OBSIDIAN_JUMP_DISTANCE).add(c);  
+                    obsidian.resourceState = RESOURCE_STATE.Jumping;
+                }
+                break;
+            }
+            case RESOURCE_STATE.Jumping: {
+                c.lerp(jump, _Math.clamp(OBSIDIAN_VELOCITY * deltaTime, 0, 1));
+                if (c.distanceToSqr(jump) < OBSIDIAN_THRESHOLD) {
+                    obsidian.resourceState = RESOURCE_STATE.Collecting;
+                }
+                ctx.strokeStyle = '#47ff5f';
+                ctx.beginPath();
+                ctx.arc(jump.x, jump.y, obsidian.displayRadius, 0, _Math.TAU);
+                ctx.stroke();
+                ctx.closePath();
+                ctx.strokeStyle = '#ffffff';
+                break;
+            }
+            case RESOURCE_STATE.Collecting: {
+                // There could be a cheaper way to move while still not visually overshooting the target
+                obsidian.velocityScalar *= OBSIDIAN_ACCELERATION;
+                c.lerp(pp, _Math.clamp(obsidian.velocityScalar * deltaTime * deltaTime, 0, 1));
+                if (c.distanceToSqr(pp) < OBSIDIAN_THRESHOLD) {
+                    gameState.obsidians.splice(gameState.obsidians.indexOf(obsidian), 1);
+                    gameState.obsidianPool.free(obsidian);
+                    // TODO: add resource to player
+                }
+                ctx.strokeStyle = '#bc75ff';
+                break;
+            }
+        }
+        ctx.beginPath();
+        ctx.moveTo(c.x, c.y);
+        ctx.arc(c.x, c.y, obsidian.displayRadius, 0, _Math.TAU);
+        ctx.stroke();
+        ctx.strokeStyle = '#ffffff';
     }
 
 
@@ -438,6 +505,7 @@ class Player extends Rect {
     }
 
     async loadSprite() {
+        // TODO: webp vs avif (vs png?)
         this.sprite = await loadImage('Nomad_Atlas.webp');
     }
 }

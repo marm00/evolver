@@ -65,39 +65,38 @@ export class Spear {
 
 }
 
-// TODO: circular object: meteorite
 export class Meteorite {
     // The meteor pathing should be straight and origin should be randomized
     // Acceleration should be used (gravity)
     // The size of the sprite should be the distance between the center and the target (higher distance = smaller)
-    // The sprite should innately rotate around its center
-    origin: Vector2;
+    // TODO: The sprite should innately rotate around its center
     center: Vector2;
+    origin: Vector2;
     target: Vector2;
     radius: number;
-    displayRadius: number;
+    // displayRadius: number;
     // radiusSqr: number;
 
     duration: number;
-    lifetime: number; 
+    lifetime: number;
 
     constructor(ox: number, oy: number, tx: number, ty: number, radius: number, duration: number) {
-        this.origin = new Vector2(ox, oy);
         this.center = new Vector2(ox, oy);
+        this.origin = new Vector2(ox, oy);
         this.target = new Vector2(tx, ty);
         this.radius = radius;
-        this.displayRadius = radius;
+        // this.displayRadius = 0;
         // this.radiusSqr = radius * radius;
         this.duration = duration;
         this.lifetime = duration;
     }
 
     set(ox: number, oy: number, tx: number, ty: number, radius: number, duration: number): this {
-        this.origin.set(ox, oy);
         this.center.set(ox, oy);
+        this.origin.set(ox, oy);
         this.target.set(tx, ty);
         this.radius = radius;
-        this.displayRadius = radius;
+        // this.displayRadius = 0;
         // this.radiusSqr = radius * radius;
         this.duration = duration;
         this.lifetime = duration;
@@ -106,10 +105,60 @@ export class Meteorite {
 
 }
 
-// TODO: AABB object: icicle
-// class Icicle {
-//     center: Vector2;
-//     halfWidth: number;
-//     halfHeight: number;
+export const RESOURCE_STATE = {
+    /** The resource is not collected and checks the distance to the player. */
+    Uncollected: 0,
+    /** The resource is in an isotropic (rotation-invariant duration) jumping animation before moving towards the player. */ 
+    Jumping: 1,
+    /** The resource is moving towards the player with acceleration. */
+    Collecting: 2,
+} as const;
 
-// }
+type ObjectValues<T> = T[keyof T];
+
+type ResourceState = ObjectValues<typeof RESOURCE_STATE>;
+
+export class Obsidian {
+    center: Vector2;
+    radius: number;
+    radiusSqr: number;
+    displayRadius: number;
+    resourceState: ResourceState;
+    /** The target to jump to for an animation, before moving towards the player. */
+    jump: Vector2;
+    velocityScalar: number;
+
+    constructor(cx: number, cy: number, radius: number, velocityScalar: number) {
+        this.center = new Vector2(cx, cy);
+        this.radius = radius;
+        this.radiusSqr = radius * radius;
+        this.displayRadius = radius;
+        this.resourceState = RESOURCE_STATE.Uncollected;
+        this.jump = new Vector2(0, 0);
+        this.velocityScalar = velocityScalar;
+    }
+
+    set(cx: number, cy: number, radius: number, velocityScalar: number): this {
+        this.center.set(cx, cy);
+        this.radius = radius;
+        this.radiusSqr = radius * radius;
+        this.displayRadius = radius;
+        this.resourceState = RESOURCE_STATE.Uncollected;
+        this.jump.set(0, 0);
+        this.velocityScalar = velocityScalar;
+        return this;
+    }
+}
+
+interface Tree {
+    center: Vector2;
+    radius: number;
+    // image: HTMLImageElement | null;
+}
+
+function createTree(cx: number, cy: number, radius: number): Tree {
+    return {
+        center: new Vector2(cx, cy),
+        radius
+    };
+};

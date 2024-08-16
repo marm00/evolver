@@ -209,6 +209,14 @@ export class Vector2 implements Resettable {
         return this;
     }
 
+    /** Rotates the vector 180 degrees counterclockwise. */
+    rotate180Deg(): this {
+        const x = this.x;
+        this.x = -this.y;
+        this.y = x;
+        return this;
+    }
+
     /** Squared magnitude from this to the given vector. */
     distanceToSqr(v: Vector2): number {
         const dx = this.x - v.x;

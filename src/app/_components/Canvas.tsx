@@ -51,6 +51,7 @@ export function Canvas() {
                 console.log('Clicked at :', gameState.player.mousePosition.x, gameState.player.mousePosition.y);
                 game.attack(gameState.player.mousePosition, gameState.player, gameState.world, gameState.oRectPool, gameState.v2Pool2, gameState.v2Pool, gameState.spearPool, gameState.spears);
                 game.launchMeteorite(gameState.player.mousePosition, gameState.player.center, gameState.meteoritePool, gameState.meteorites);
+                game.dropObsidian(gameState.player.mousePosition, gameState.obsidianPool, gameState.obsidians);
             }
 
             const handleMouseUp = (_: MouseEvent) => {

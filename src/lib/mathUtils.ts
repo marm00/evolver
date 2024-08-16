@@ -45,7 +45,7 @@ export interface _Math {
      * @param t The interpolation factor or time value, between 0 and 1.
      * @returns The interpolated value between `a` and `b`.
      */
-    lerp(a: number, by: number, t: number): number;
+    lerp(a: number, b: number, t: number): number;
 
     /**
      * Inversely linearly interpolates ({@link _Math.lerp}) the given value between the given start and end values, unclamped.

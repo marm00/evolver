@@ -253,6 +253,8 @@ export class Circle extends Shape {
     }
 
     radialContains(point: Vector2): boolean {
+        // Edge-to-edge is more accurate, but this radial trigger can be more useful
+        // No need to sum the distances, and the precompued radiusSqr can be used
         return this.center.distanceToSqr(point) <= this.radiusSqr;
     }
 
