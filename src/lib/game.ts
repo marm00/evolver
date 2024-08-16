@@ -3,7 +3,7 @@ import { Shape, Circle, OrientedRect, Rect } from "./shape";
 import { Pool, Pool2 } from "./pool";
 import { _Math } from "./mathUtils";
 import { Matrix3 } from "./matrix3";
-import { Meteorite, Obsidian, RESOURCE_STATE, Spear } from "./spear";
+import { Meteorite, Obsidian, RESOURCE_STATE, Spear, Spirit } from "./spear";
 
 const GAME_WIDTH = 6400;
 const GAME_HEIGHT = 6400;
@@ -37,16 +37,14 @@ const METEORITE_LIFETIME = 2;
 /** Pick-up radius of an obsidian. */
 const OBSIDIAN_RADIUS = 32;
 /** In pixels per second. */
-const OBSIDIAN_VELOCITY = 5;
-const OBSIDIAN_ACCELERATION = 1 + (OBSIDIAN_VELOCITY / 100);
+const OBSIDIAN_VELOCITY = 12;
+const OBSIDIAN_ACCELERATION = 1 + (6 / 100);
 /** Threshold for finishing a lerp to a target in pixels. */
 const OBSIDIAN_THRESHOLD = 4;
 const OBSIDIAN_JUMP_DISTANCE = OBSIDIAN_RADIUS * 5;
-// const OBSIDIAN_MAX_JUMP = OBSIDIAN_RADIUS * 6;
-// const OBSIDIAN_MIN_JUMP = -OBSIDIAN_MAX_JUMP;
-// const OBSIDIAN_JUMP_RANGE = OBSIDIAN_MAX_JUMP - OBSIDIAN_MIN_JUMP;
 
-
+const SPIRIT_RADIUS = 26;
+const SPIRIT_VELOCITY = HUMAN_VELOCITY * 0.9;
 
 // TODO: the game contains lists for different things (like spears), pools, and the partinioning contains references
 interface Game {
@@ -62,6 +60,7 @@ interface Game {
     meteorites: Meteorite[]; // TODO: different data structure?
     obsidianPool: Pool<Obsidian>;
     obsidians: Obsidian[]; // TODO: different data structure?
+    spirit: Spirit;
 }
 
 /**
@@ -146,6 +145,7 @@ export async function createGame(strategy: string): Promise<Game> {
     const world = new SingleCell();
     const player = new Player();
     // world.insert(player); // TODO: player to world?
+    const spirit = new Spirit(0, 0, SPIRIT_RADIUS);
 
     const angle = _Math.TAU * .33;
     const tor0 = OrientedRect.zero().setDimensions(32, 64, angle);
@@ -168,7 +168,7 @@ export async function createGame(strategy: string): Promise<Game> {
     world.insert(new Rect(new Vector2(128, 128), new Vector2(0, 0), new Vector2(0, 0), 128, 128));
     world.insert(new Rect(new Vector2(0, 256), new Vector2(0, 0), new Vector2(0, 0), 512, 512));
     world.insert(new Circle(new Vector2(-64, -128), new Vector2(Math.SQRT1_2, Math.SQRT1_2), new Vector2(0, 0), 64));
-    return { world, player, m3Pool, v2Pool, v2Pool2, oRectPool, spearPool, spears: [], meteoritePool, meteorites: [], obsidianPool, obsidians: [] };
+    return { world, player, m3Pool, v2Pool, v2Pool2, oRectPool, spearPool, spears: [], meteoritePool, meteorites: [], obsidianPool, obsidians: [], spirit };
 }
 
 /**
@@ -200,6 +200,13 @@ export function launchMeteorite(target: Vector2, origin: Vector2, meteoritePool:
 export function dropObsidian(target: Vector2, obsidianPool: Pool<Obsidian>, obisidians: Obsidian[]) {
     const obsidian = obsidianPool.alloc(target.x, target.y, OBSIDIAN_RADIUS, OBSIDIAN_VELOCITY);
     obisidians.push(obsidian);
+}
+
+export function spawnSpirit(target: Vector2, spirit: Spirit) {
+    if (!spirit.active) {
+        spirit.center.copy(target);
+        spirit.active = true;
+    }
 }
 
 export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game, elapsedTime: number, deltaTime: number) {
@@ -288,6 +295,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
 
     if (true) {
         // TODO: replace this with image data manipulation and backImageData putting
+        // TODO: replace player sprites with 3D ones
         ctx.translate(pp.x, pp.y + gameState.player.displayHeight / 2);
         ctx.scale(1, -1);
         ctx.drawImage(
@@ -419,6 +427,18 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         ctx.strokeStyle = '#ffffff';
     }
 
+    // Move spirit
+    const spirit = gameState.spirit;
+    if (spirit.active) {
+        const sc = spirit.center;
+        const p_sv = gameState.v2Pool.alloc(pp.x, pp.y);
+        sc.add(p_sv.sub(sc).normalize().scale(SPIRIT_VELOCITY * deltaTime));
+        ctx.beginPath();
+        ctx.strokeStyle = '#ffffff44';
+        ctx.arc(spirit.center.x, spirit.center.y, spirit.radius, 0, _Math.TAU);
+        ctx.stroke();
+        ctx.strokeStyle = '#ffffff';
+    }
 
     for (const thing of [...thingsToRender, gameState.player]) {
         // TODO: obviously dont update velocity here, but rather in the game loop
@@ -506,10 +526,6 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
 
     ctx.restore();
 }
-
-
-
-
 
 /** Represents the player (main character) in the game. */
 class Player {

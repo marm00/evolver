@@ -150,6 +150,19 @@ export class Obsidian {
     }
 }
 
+export class Spirit {
+    center: Vector2;
+    radius: number;
+    radiusSqr: number;
+    active = false;
+
+    constructor(cx: number, cy: number, radius: number) {
+        this.center = new Vector2(cx, cy);
+        this.radius = radius;
+        this.radiusSqr = radius * radius;
+    }
+}
+
 interface Tree {
     center: Vector2;
     radius: number;
