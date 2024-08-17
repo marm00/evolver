@@ -154,6 +154,7 @@ export class Thunderstorm {
     // The thunderstorm has 2 distinct positions: the center (shadow circle on the ground) and a Y offset (cloud)
     // The cloud exists for visual purposes only, and is the origin for lightning strikes onto the shadow circle or center
     // The center chases the player
+    // TODO: periodically make it stand still and strike lightning faster
     center: Vector2;
     velocity: Vector2;
     radius: number;

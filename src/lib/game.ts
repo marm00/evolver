@@ -373,9 +373,9 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         }
 
         let t = 1 - (meteorite.lifetime / meteorite.duration); // Normalize to [0, 1] range where 1 = target
-        t *= t; // Ease in with a quadratic time factor, cheaper than true physics simulation
+        t = _Math.easeOutQuad(t); // Ease out with a cubic time factor
         meteorite.center.lerpVectors(meteorite.origin, meteorite.target, t);
-        const displayRadius = _Math.lerp(0.2, 1, t) * METEORITE_DISPLAY_RADIUS;
+        const displayRadius = _Math.lerp(0.5, 1, t) * METEORITE_DISPLAY_RADIUS;
 
         ctx.beginPath();
         ctx.strokeStyle = '#ffffff';

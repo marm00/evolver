@@ -85,6 +85,8 @@ export interface _Math {
     easeOutQuart(x: number): number;
     /** Back ease-out function. */
     easeOutBack(x: number): number;
+    /** Exponential ease-in function. */
+    easeInExpo(x: number): number;
     /** Cubic ease-in-out function. */
     easeInOutCubic(x: number): number;
 }
@@ -137,6 +139,9 @@ export const _Math: _Math = {
         const c3 = c1 + 1;
 
         return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
+    },
+    easeInExpo(x: number): number {
+        return x === 0 ? 0 : Math.pow(2, 10 * x - 10);
     },
     easeInOutCubic(x: number): number {
         return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
