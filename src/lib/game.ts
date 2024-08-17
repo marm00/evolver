@@ -45,8 +45,14 @@ const OBSIDIAN_ACCELERATION = 1 + (6 / 100);
 const OBSIDIAN_THRESHOLD = 4;
 const OBSIDIAN_JUMP_DISTANCE = OBSIDIAN_RADIUS * 5;
 
-const THUNDERSTORM_RADIUS = 26;
-const THUNDERSTORM_VELOCITY = HUMAN_VELOCITY * 0.9;
+const THUNDERSTORM_RADIUS = 96;
+/** Y-axis offset for the center of the cloud above the shadow. */
+const THUNDERSTORM_OFFSET = THUNDERSTORM_RADIUS * 3;
+/** Factor for when easing starts, where `n * collision distance` is the starting point. */
+const THUNDERSTORM_VELOCITY = HUMAN_VELOCITY * 1.5;
+const THUNDERSTORM_EASING_FACTOR = _Math.pow2(2);
+/** Threshold for stopping storm movement in pixels (edge-to-edge collision). */
+const THUNDERSTORM_THRESHOLD = 1;
 
 // TODO: the game contains lists for different things (like spears), pools, and the partinioning contains references
 interface Game {
@@ -148,7 +154,7 @@ export async function createGame(strategy: string): Promise<Game> {
     const world = new SingleCell();
     const player = new Player();
     // world.insert(player); // TODO: player to world?
-    const thunderstorm = new Thunderstorm(0, 0, THUNDERSTORM_RADIUS);
+    const thunderstorm = new Thunderstorm(0, 0, THUNDERSTORM_RADIUS, THUNDERSTORM_OFFSET);
 
     const angle = _Math.TAU * .33;
     const tor0 = OrientedRect.zero().setDimensions(32, 64, angle);
@@ -171,7 +177,7 @@ export async function createGame(strategy: string): Promise<Game> {
     world.insert(new Rect(new Vector2(128, 128), new Vector2(0, 0), new Vector2(0, 0), 128, 128));
     world.insert(new Rect(new Vector2(0, 256), new Vector2(0, 0), new Vector2(0, 0), 512, 512));
     world.insert(new Circle(new Vector2(-64, -128), new Vector2(Math.SQRT1_2, Math.SQRT1_2), new Vector2(0, 0), 64));
-    return { world, player, m3Pool, v2Pool, v2Pool2, oRectPool, spearPool, spears: [], meteoritePool, meteorites: [], obsidianPool, obsidians: [], thunderstorm: thunderstorm };
+    return { world, player, m3Pool, v2Pool, v2Pool2, oRectPool, spearPool, spears: [], meteoritePool, meteorites: [], obsidianPool, obsidians: [], thunderstorm };
 }
 
 /**
@@ -215,6 +221,7 @@ export function spawnThunderstorm(target: Vector2, thunderstorm: Thunderstorm) {
 export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game, elapsedTime: number, deltaTime: number) {
     const cx = gameState.player.canvasCenterX, cy = gameState.player.canvasCenterY;
     const pp = gameState.player.center, pv = gameState.player.velocity;
+    const pr = gameState.player.radius, prSqr = gameState.player.radiusSqr;
     const mp = gameState.player.mousePosition;
     // TODO: maybe floor/round mouse position when the canvas center is not an integer (but ends on .5)
     // Project the canvas mouse position to the world coordinate system
@@ -366,9 +373,9 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         }
 
         let t = 1 - (meteorite.lifetime / meteorite.duration); // Normalize to [0, 1] range where 1 = target
-        t = t * t; // Ease in with a quadratic time factor, cheaper than true physics simulation
+        t *= t; // Ease in with a quadratic time factor, cheaper than true physics simulation
         meteorite.center.lerpVectors(meteorite.origin, meteorite.target, t);
-        // const displayRadius = _Math.lerp(0.2, 1, t) * meteorite.radius
+        const displayRadius = _Math.lerp(0.2, 1, t) * METEORITE_DISPLAY_RADIUS;
 
         ctx.beginPath();
         ctx.strokeStyle = '#ffffff';
@@ -377,7 +384,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         ctx.stroke();
         ctx.beginPath();
         ctx.fillStyle = '#ff7b00';
-        ctx.arc(meteorite.center.x, meteorite.center.y, METEORITE_DISPLAY_RADIUS, 0, _Math.TAU);
+        ctx.arc(meteorite.center.x, meteorite.center.y, displayRadius, 0, _Math.TAU);
         ctx.fill();
         ctx.beginPath();
         ctx.strokeStyle = '#ff0000';
@@ -412,8 +419,8 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             }
             case RESOURCE_STATE.Collecting: {
                 // There could be a cheaper way to move while still not visually overshooting the target
-                obsidian.velocityScalar *= OBSIDIAN_ACCELERATION;
-                c.lerp(pp, _Math.clamp(obsidian.velocityScalar * deltaTime * deltaTime, 0, 1));
+                obsidian.acceleration *= OBSIDIAN_ACCELERATION;
+                c.lerp(pp, _Math.clamp(obsidian.acceleration * deltaTime * deltaTime, 0, 1));
                 if (c.distanceToSqr(pp) < OBSIDIAN_THRESHOLD) {
                     gameState.obsidians.splice(gameState.obsidians.indexOf(obsidian), 1);
                     gameState.obsidianPool.free(obsidian);
@@ -431,14 +438,24 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     }
 
     // Move thunderstorm
-    const thunderstorm = gameState.thunderstorm;
-    if (thunderstorm.active) {
-        const sc = thunderstorm.center;
-        const p_sv = gameState.v2Pool.alloc(pp.x, pp.y);
-        sc.add(p_sv.sub(sc).normalize().scale(THUNDERSTORM_VELOCITY * deltaTime));
+    if (gameState.thunderstorm.active) {
+        const storm = gameState.thunderstorm;
+        const c = storm.center, v = storm.velocity;
+        const dist = c.distanceTo(pp);
+        const radii = storm.radius + pr;
+        if (dist > radii + THUNDERSTORM_THRESHOLD) {
+            const easingStart = radii * THUNDERSTORM_EASING_FACTOR;
+            let deceleration = _Math.clamp((dist - radii) / (easingStart - radii), 0, 1);
+            deceleration = _Math.easeOutQuad(deceleration);
+            c.add(v.copy(pp).sub(c).normalize().scale(THUNDERSTORM_VELOCITY * deceleration * deltaTime));
+        }
         ctx.beginPath();
+        ctx.strokeStyle = '#141313f8';
+        ctx.arc(c.x, c.y, storm.radius, 0, _Math.TAU);
+        ctx.stroke();
         ctx.strokeStyle = '#ffffff44';
-        ctx.arc(sc.x, sc.y, thunderstorm.radius, 0, _Math.TAU);
+        ctx.beginPath();
+        ctx.arc(c.x, c.y + storm.offset, storm.radius, 0, _Math.TAU);
         ctx.stroke();
         ctx.strokeStyle = '#ffffff';
     }

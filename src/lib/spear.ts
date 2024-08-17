@@ -126,40 +126,47 @@ export class Obsidian {
     resourceState: ResourceState;
     /** The target to jump to for an animation, before moving towards the player. */
     jump: Vector2;
-    velocityScalar: number;
+    acceleration: number;
 
-    constructor(cx: number, cy: number, radius: number, velocityScalar: number, displayRadius: number) {
+    constructor(cx: number, cy: number, radius: number, acceleration: number, displayRadius: number) {
         this.center = new Vector2(cx, cy);
         this.radius = radius;
         this.radiusSqr = radius * radius;
         this.displayRadius = displayRadius;
         this.resourceState = RESOURCE_STATE.Uncollected;
         this.jump = new Vector2(0, 0);
-        this.velocityScalar = velocityScalar;
+        this.acceleration = acceleration;
     }
 
-    set(cx: number, cy: number, radius: number, velocityScalar: number, displayRadius: number): this {
+    set(cx: number, cy: number, radius: number, acceleration: number, displayRadius: number): this {
         this.center.set(cx, cy);
         this.radius = radius;
         this.radiusSqr = radius * radius;
         this.displayRadius = displayRadius;
         this.resourceState = RESOURCE_STATE.Uncollected;
         this.jump.set(0, 0);
-        this.velocityScalar = velocityScalar;
+        this.acceleration = acceleration;
         return this;
     }
 }
 
 export class Thunderstorm {
+    // The thunderstorm has 2 distinct positions: the center (shadow circle on the ground) and a Y offset (cloud)
+    // The cloud exists for visual purposes only, and is the origin for lightning strikes onto the shadow circle or center
+    // The center chases the player
     center: Vector2;
+    velocity: Vector2;
     radius: number;
     radiusSqr: number;
+    offset: number;
     active = false;
 
-    constructor(cx: number, cy: number, radius: number) {
+    constructor(cx: number, cy: number, radius: number, offset: number) {
         this.center = new Vector2(cx, cy);
+        this.velocity = new Vector2();
         this.radius = radius;
         this.radiusSqr = radius * radius;
+        this.offset = offset;
     }
 }
 

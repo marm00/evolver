@@ -23,7 +23,7 @@ type SetArgs<T extends Settable<T>> = Parameters<T["set"]>;
  * ```
  * 
  * @example
- * Usage with a Square object
+ * Usage with a Square object (likely memory inefficient without a prototype)
  * ```typescript
  * interface Square { size: number; set: (size: number) => this; }
  * const squarePool = new Pool<Square>((size = 10) => ({
