@@ -56,8 +56,9 @@ const THUNDERSTORM_THRESHOLD = 1;
 
 const ORB_RADIUS = 16;
 const ORB_OFFSET = 256;
-const ORB_VELOCITY = 3;
-const ORB_ANGLE_STEP = _Math.TAU / (360 - 32);
+const ORB_CIRCUMFERENCE = ORB_OFFSET * _Math.TAU;
+/** Pixels per second. */
+const ORB_VELOCITY = 730;
 
 // TODO: the game contains lists for different things (like spears), pools, and the partinioning contains references
 interface Game {
@@ -228,11 +229,8 @@ export function spawnThunderstorm(target: Vector2, thunderstorm: Thunderstorm) {
     }
 }
 
-export function spawnOrb(target: Vector2, orb: Orb) {
+export function spawnOrb(orb: Orb) {
     if (!orb.active) {
-        // console.log
-        orb.center.x = target.x + orb.offset * Math.cos(_Math.TAU);
-        orb.center.y = target.y + orb.offset * Math.sin(_Math.TAU);
         orb.active = true;
     }
 }
@@ -482,9 +480,10 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     // Move orb
     if (gameState.orb.active) {
         const orb = gameState.orb;
-        const c = orb.center, o = orb.offset;
-        orb.angle += orb.velocity * deltaTime;
-        const a = orb.angle;
+        const step = _Math.TAU / (ORB_CIRCUMFERENCE / orb.velocity);
+        orb.angle += step * deltaTime;
+        orb.angle %= _Math.TAU; // Normalize radians to range [0, 2π)
+        const c = orb.center, a = orb.angle, o = orb.offset;
         c.set(Math.cos(a), Math.sin(a)).scale(o).add(pp);
 
         ctx.strokeStyle = '#b3ff00';
@@ -492,29 +491,9 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         ctx.arc(c.x, c.y, orb.radius, 0, _Math.TAU);
         ctx.stroke();
         ctx.beginPath();
-        ctx.arc(pp.x, pp.y, ORB_OFFSET, 0, _Math.TAU);
+        ctx.arc(pp.x, pp.y, o, 0, _Math.TAU);
         ctx.stroke();
         ctx.strokeStyle = '#ffffff';
-
-        // This is cheaper (trig calls for steps once on init) but not framerate-independent
-        // const orb = gameState.orb;
-        // const dx = orb.dx, dy = orb.dy;
-        // const dCos = orb.dCos, dSin = orb.dSin;
-        // orb.dx = dx * dCos - dy * dSin;
-        // orb.dy = dx * dSin + dy * dCos;
-        // orb.center.x = pp.x + orb.dx;
-        // orb.center.y = pp.y + orb.dy;
-        // ctx.beginPath();
-        // ctx.strokeStyle = '#ffffff';
-        // ctx.moveTo(orb.center.x, orb.center.y);
-        // ctx.lineTo(pp.x, pp.y);
-        // ctx.stroke();
-        // ctx.beginPath();
-        // ctx.arc(orb.center.x, orb.center.y, orb.radius, 0, _Math.TAU);
-        // ctx.stroke();
-        // ctx.beginPath();
-        // ctx.arc(pp.x, pp.y, orb.radius + orb.offset, 0, _Math.TAU);
-        // ctx.stroke();
     }
 
     for (const thing of [...thingsToRender, gameState.player]) {

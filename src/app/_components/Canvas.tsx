@@ -53,7 +53,7 @@ export function Canvas() {
                 game.launchMeteorite(gameState.player.mousePosition, gameState.player.center, gameState.meteoritePool, gameState.meteorites);
                 game.dropObsidian(gameState.player.mousePosition, gameState.obsidianPool, gameState.obsidians);
                 game.spawnThunderstorm(gameState.player.mousePosition, gameState.thunderstorm);
-                game.spawnOrb(gameState.player.center, gameState.orb);
+                game.spawnOrb(gameState.orb);
             }
 
             const handleMouseUp = (_: MouseEvent) => {
