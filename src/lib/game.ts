@@ -58,7 +58,7 @@ const ORB_RADIUS = 16;
 const ORB_OFFSET = 256;
 const ORB_CIRCUMFERENCE = ORB_OFFSET * _Math.TAU;
 /** Pixels per second. */
-const ORB_VELOCITY = 730;
+const ORB_VELOCITY = ORB_CIRCUMFERENCE / 6;
 
 // TODO: the game contains lists for different things (like spears), pools, and the partinioning contains references
 interface Game {
@@ -232,6 +232,8 @@ export function spawnThunderstorm(target: Vector2, thunderstorm: Thunderstorm) {
 export function spawnOrb(orb: Orb) {
     if (!orb.active) {
         orb.active = true;
+    } else {
+        orb.centers.push(new Vector2());
     }
 }
 
@@ -480,16 +482,19 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     // Move orb
     if (gameState.orb.active) {
         const orb = gameState.orb;
-        const step = _Math.TAU / (ORB_CIRCUMFERENCE / orb.velocity);
+        const step = orb.velocity / orb.offset;
         orb.angle += step * deltaTime;
+        const o = orb.offset;
+        const tauStep = _Math.TAU / orb.centers.length;
+        for (const c of orb.centers) {
+            orb.angle += tauStep;
+            c.set(Math.cos(orb.angle), Math.sin(orb.angle)).scale(o).add(pp);
+            ctx.strokeStyle = '#b3ff00';
+            ctx.beginPath();
+            ctx.arc(c.x, c.y, orb.radius, 0, _Math.TAU);
+            ctx.stroke();
+        }
         orb.angle %= _Math.TAU; // Normalize radians to range [0, 2π)
-        const c = orb.center, a = orb.angle, o = orb.offset;
-        c.set(Math.cos(a), Math.sin(a)).scale(o).add(pp);
-
-        ctx.strokeStyle = '#b3ff00';
-        ctx.beginPath();
-        ctx.arc(c.x, c.y, orb.radius, 0, _Math.TAU);
-        ctx.stroke();
         ctx.beginPath();
         ctx.arc(pp.x, pp.y, o, 0, _Math.TAU);
         ctx.stroke();

@@ -173,7 +173,7 @@ export class Thunderstorm {
 
 
 export class Orb {
-    center: Vector2;
+    centers: Vector2[];
     radius: number;
     radiusSqr: number;
     offset: number;
@@ -182,7 +182,7 @@ export class Orb {
     active = false;
 
     constructor(px: number, py: number, radius: number, offset: number, velocity: number) {
-        this.center = new Vector2(px, py);
+        this.centers = [new Vector2(px, py)];
         this.radius = radius;
         this.radiusSqr = radius * radius;
         this.offset = offset;
