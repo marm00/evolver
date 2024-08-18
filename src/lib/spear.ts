@@ -75,7 +75,7 @@ export class Meteorite {
     target: Vector2;
     radius: number;
     // radiusSqr: number;
-    
+
     duration: number;
     lifetime: number;
     displayRadius: number;
@@ -108,7 +108,7 @@ export class Meteorite {
 export const RESOURCE_STATE = {
     /** The resource is not collected and checks the distance to the player. */
     Uncollected: 0,
-    /** The resource is in an isotropic (rotation-invariant duration) jumping animation before moving towards the player. */ 
+    /** The resource is in an isotropic (rotation-invariant duration) jumping animation before moving towards the player. */
     Jumping: 1,
     /** The resource is moving towards the player with acceleration. */
     Collecting: 2,
@@ -168,6 +168,25 @@ export class Thunderstorm {
         this.radius = radius;
         this.radiusSqr = radius * radius;
         this.offset = offset;
+    }
+}
+
+
+export class Orb {
+    center: Vector2;
+    radius: number;
+    radiusSqr: number;
+    offset: number;
+    velocity: number;
+    angle = _Math.TAU;
+    active = false;
+
+    constructor(px: number, py: number, radius: number, offset: number, velocity: number) {
+        this.center = new Vector2(px, py);
+        this.radius = radius;
+        this.radiusSqr = radius * radius;
+        this.offset = offset;
+        this.velocity = velocity;
     }
 }
 

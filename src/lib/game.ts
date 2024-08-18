@@ -3,7 +3,7 @@ import { Shape, Circle, OrientedRect, Rect } from "./shape";
 import { Pool, Pool2 } from "./pool";
 import { _Math } from "./mathUtils";
 import { Matrix3 } from "./matrix3";
-import { Meteorite, Obsidian, RESOURCE_STATE, Spear, Thunderstorm } from "./spear";
+import { Meteorite, Obsidian, Orb, RESOURCE_STATE, Spear, Thunderstorm } from "./spear";
 
 const GAME_WIDTH = 6400;
 const GAME_HEIGHT = 6400;
@@ -54,6 +54,11 @@ const THUNDERSTORM_EASING_FACTOR = _Math.pow2(2);
 /** Threshold for stopping storm movement in pixels (edge-to-edge collision). */
 const THUNDERSTORM_THRESHOLD = 1;
 
+const ORB_RADIUS = 16;
+const ORB_OFFSET = 256;
+const ORB_VELOCITY = 3;
+const ORB_ANGLE_STEP = _Math.TAU / (360 - 32);
+
 // TODO: the game contains lists for different things (like spears), pools, and the partinioning contains references
 interface Game {
     world: PartitionStrategy;
@@ -69,6 +74,7 @@ interface Game {
     obsidianPool: Pool<Obsidian>;
     obsidians: Obsidian[]; // TODO: different data structure?
     thunderstorm: Thunderstorm;
+    orb: Orb;
 }
 
 /**
@@ -155,6 +161,7 @@ export async function createGame(strategy: string): Promise<Game> {
     const player = new Player();
     // world.insert(player); // TODO: player to world?
     const thunderstorm = new Thunderstorm(0, 0, THUNDERSTORM_RADIUS, THUNDERSTORM_OFFSET);
+    const orb = new Orb(0, 0, ORB_RADIUS, ORB_OFFSET, ORB_VELOCITY);
 
     const angle = _Math.TAU * .33;
     const tor0 = OrientedRect.zero().setDimensions(32, 64, angle);
@@ -177,7 +184,10 @@ export async function createGame(strategy: string): Promise<Game> {
     world.insert(new Rect(new Vector2(128, 128), new Vector2(0, 0), new Vector2(0, 0), 128, 128));
     world.insert(new Rect(new Vector2(0, 256), new Vector2(0, 0), new Vector2(0, 0), 512, 512));
     world.insert(new Circle(new Vector2(-64, -128), new Vector2(Math.SQRT1_2, Math.SQRT1_2), new Vector2(0, 0), 64));
-    return { world, player, m3Pool, v2Pool, v2Pool2, oRectPool, spearPool, spears: [], meteoritePool, meteorites: [], obsidianPool, obsidians: [], thunderstorm };
+    return {
+        world, player, m3Pool, v2Pool, v2Pool2, oRectPool, spearPool, spears: [],
+        meteoritePool, meteorites: [], obsidianPool, obsidians: [], thunderstorm, orb
+    };
 }
 
 /**
@@ -215,6 +225,15 @@ export function spawnThunderstorm(target: Vector2, thunderstorm: Thunderstorm) {
     if (!thunderstorm.active) {
         thunderstorm.center.copy(target);
         thunderstorm.active = true;
+    }
+}
+
+export function spawnOrb(target: Vector2, orb: Orb) {
+    if (!orb.active) {
+        // console.log
+        orb.center.x = target.x + orb.offset * Math.cos(_Math.TAU);
+        orb.center.y = target.y + orb.offset * Math.sin(_Math.TAU);
+        orb.active = true;
     }
 }
 
@@ -373,7 +392,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         }
 
         let t = 1 - (meteorite.lifetime / meteorite.duration); // Normalize to [0, 1] range where 1 = target
-        t = _Math.easeOutQuad(t); // Ease out with a cubic time factor
+        t = _Math.easeOutQuad(t);
         meteorite.center.lerpVectors(meteorite.origin, meteorite.target, t);
         const displayRadius = _Math.lerp(0.5, 1, t) * METEORITE_DISPLAY_RADIUS;
 
@@ -440,9 +459,9 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     // Move thunderstorm
     if (gameState.thunderstorm.active) {
         const storm = gameState.thunderstorm;
-        const c = storm.center, v = storm.velocity;
+        const c = storm.center, v = storm.velocity, r = storm.radius;
         const dist = c.distanceTo(pp);
-        const radii = storm.radius + pr;
+        const radii = r + pr;
         if (dist > radii + THUNDERSTORM_THRESHOLD) {
             const easingStart = radii * THUNDERSTORM_EASING_FACTOR;
             let deceleration = _Math.clamp((dist - radii) / (easingStart - radii), 0, 1);
@@ -451,13 +470,51 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         }
         ctx.beginPath();
         ctx.strokeStyle = '#141313f8';
-        ctx.arc(c.x, c.y, storm.radius, 0, _Math.TAU);
+        ctx.arc(c.x, c.y, r, 0, _Math.TAU);
         ctx.stroke();
         ctx.strokeStyle = '#ffffff44';
         ctx.beginPath();
-        ctx.arc(c.x, c.y + storm.offset, storm.radius, 0, _Math.TAU);
+        ctx.arc(c.x, c.y + storm.offset, r, 0, _Math.TAU);
         ctx.stroke();
         ctx.strokeStyle = '#ffffff';
+    }
+
+    // Move orb
+    if (gameState.orb.active) {
+        const orb = gameState.orb;
+        const c = orb.center, o = orb.offset;
+        orb.angle += orb.velocity * deltaTime;
+        const a = orb.angle;
+        c.set(Math.cos(a), Math.sin(a)).scale(o).add(pp);
+
+        ctx.strokeStyle = '#b3ff00';
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, orb.radius, 0, _Math.TAU);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(pp.x, pp.y, ORB_OFFSET, 0, _Math.TAU);
+        ctx.stroke();
+        ctx.strokeStyle = '#ffffff';
+
+        // This is cheaper (trig calls for steps once on init) but not framerate-independent
+        // const orb = gameState.orb;
+        // const dx = orb.dx, dy = orb.dy;
+        // const dCos = orb.dCos, dSin = orb.dSin;
+        // orb.dx = dx * dCos - dy * dSin;
+        // orb.dy = dx * dSin + dy * dCos;
+        // orb.center.x = pp.x + orb.dx;
+        // orb.center.y = pp.y + orb.dy;
+        // ctx.beginPath();
+        // ctx.strokeStyle = '#ffffff';
+        // ctx.moveTo(orb.center.x, orb.center.y);
+        // ctx.lineTo(pp.x, pp.y);
+        // ctx.stroke();
+        // ctx.beginPath();
+        // ctx.arc(orb.center.x, orb.center.y, orb.radius, 0, _Math.TAU);
+        // ctx.stroke();
+        // ctx.beginPath();
+        // ctx.arc(pp.x, pp.y, orb.radius + orb.offset, 0, _Math.TAU);
+        // ctx.stroke();
     }
 
     for (const thing of [...thingsToRender, gameState.player]) {

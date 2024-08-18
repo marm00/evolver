@@ -53,6 +53,7 @@ export function Canvas() {
                 game.launchMeteorite(gameState.player.mousePosition, gameState.player.center, gameState.meteoritePool, gameState.meteorites);
                 game.dropObsidian(gameState.player.mousePosition, gameState.obsidianPool, gameState.obsidians);
                 game.spawnThunderstorm(gameState.player.mousePosition, gameState.thunderstorm);
+                game.spawnOrb(gameState.player.center, gameState.orb);
             }
 
             const handleMouseUp = (_: MouseEvent) => {
@@ -114,6 +115,7 @@ export function Canvas() {
                 const deltaAvg = deltas.reduce((a, b) => a + b, 0) / deltas.length;
                 const fps = Math.floor(1 / deltaAvg);
                 // console.log('FPS:', fps);
+                // console.log(deltaTime);
 
                 game.updateGame(ctx, gameState, elapsedTime, deltaTime).then().catch(console.error);
                 window.requestAnimationFrame(frame);
