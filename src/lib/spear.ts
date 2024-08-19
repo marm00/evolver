@@ -37,7 +37,7 @@ export class Spear {
         ];
         this.axes = [
             new Vector2(cos, sin),
-            new Vector2(cos + _Math.HALF_PI, sin + _Math.HALF_PI)
+            new Vector2(sin, -cos)
         ];
     }
 
@@ -60,7 +60,7 @@ export class Spear {
         v[3].set(-halfWidth, -halfHeight).matmul2(m).add(center);
         const a = this.axes;
         a[0].set(cos, sin);
-        a[1].set(cos + _Math.HALF_PI, sin + _Math.HALF_PI);
+        a[1].set(sin, -cos);
         return this;
     }
 
@@ -88,7 +88,7 @@ export class Wall {
         }
         this.axes = [
             new Vector2(cos, sin),
-            new Vector2(cos + _Math.HALF_PI, sin + _Math.HALF_PI)
+            new Vector2(sin, -cos)
         ];
     }
 }

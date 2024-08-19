@@ -516,11 +516,23 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             ctx.moveTo(vertices[i]!.x, vertices[i]!.y);
             ctx.arc(vertices[i]!.x, vertices[i]!.y, 4, 0, _Math.TAU);
             ctx.fill();
+            ctx.closePath();
             ctx.lineTo(vertices[(i + 1) % 4]!.x, vertices[(i + 1) % 4]!.y);
             ctx.stroke();
         }
-        ctx.stroke();
+        const p_axis = gameState.v2Pool.alloc(0,0);
+        for (let i = 0; i < 2; i++) {
+            const a = wall.axes[i]!;
+            p_axis.copy(a).scale(40).add(wall.center);
+            ctx.strokeStyle = colorArray[i]!;
+            ctx.beginPath();
+            ctx.moveTo(wall.center.x, wall.center.y);
+            ctx.lineTo(p_axis.x, p_axis.y);
+            ctx.stroke();
+        }
+        gameState.v2Pool.free(p_axis);
     }
+    ctx.strokeStyle = '#ffffff';
 
     for (const thing of [...thingsToRender, gameState.player]) {
         // TODO: obviously dont update velocity here, but rather in the game loop
