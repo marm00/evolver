@@ -3,7 +3,7 @@ import { Shape, Circle, OrientedRect, Rect } from "./shape";
 import { Pool, Pool2 } from "./pool";
 import { _Math } from "./mathUtils";
 import { Matrix3 } from "./matrix3";
-import { Meteorite, Obsidian, Orb, RESOURCE_STATE, Spear, Thunderstorm } from "./spear";
+import { Meteorite, Obsidian, Orb, RESOURCE_STATE, Spear, Thunderstorm, Wall } from "./spear";
 
 const GAME_WIDTH = 6400;
 const GAME_HEIGHT = 6400;
@@ -76,6 +76,7 @@ interface Game {
     obsidians: Obsidian[]; // TODO: different data structure?
     thunderstorm: Thunderstorm;
     orb: Orb;
+    walls: Wall[];
 }
 
 /**
@@ -163,6 +164,7 @@ export async function createGame(strategy: string): Promise<Game> {
     // world.insert(player); // TODO: player to world?
     const thunderstorm = new Thunderstorm(0, 0, THUNDERSTORM_RADIUS, THUNDERSTORM_OFFSET);
     const orb = new Orb(0, 0, ORB_RADIUS, ORB_OFFSET, ORB_VELOCITY);
+    const walls = [new Wall(300, 300, 50, 100, _Math.TAU*(2/3))];
 
     const angle = _Math.TAU * .33;
     const tor0 = OrientedRect.zero().setDimensions(32, 64, angle);
@@ -187,7 +189,7 @@ export async function createGame(strategy: string): Promise<Game> {
     world.insert(new Circle(new Vector2(-64, -128), new Vector2(Math.SQRT1_2, Math.SQRT1_2), new Vector2(0, 0), 64));
     return {
         world, player, m3Pool, v2Pool, v2Pool2, oRectPool, spearPool, spears: [],
-        meteoritePool, meteorites: [], obsidianPool, obsidians: [], thunderstorm, orb
+        meteoritePool, meteorites: [], obsidianPool, obsidians: [], thunderstorm, orb, walls
     };
 }
 
@@ -479,7 +481,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         ctx.strokeStyle = '#ffffff';
     }
 
-    // Move orb
+    // Move orbs
     if (gameState.orb.active) {
         const orb = gameState.orb;
         const step = orb.velocity / orb.offset;
@@ -487,6 +489,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         const o = orb.offset;
         const tauStep = _Math.TAU / orb.centers.length;
         for (const c of orb.centers) {
+            // TODO: probably some optimization possible (reduce trig?)
             orb.angle += tauStep;
             c.set(Math.cos(orb.angle), Math.sin(orb.angle)).scale(o).add(pp);
             ctx.strokeStyle = '#b3ff00';
@@ -499,6 +502,24 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         ctx.arc(pp.x, pp.y, o, 0, _Math.TAU);
         ctx.stroke();
         ctx.strokeStyle = '#ffffff';
+    }
+
+    // Check walls
+    for (const wall of gameState.walls) {
+        ctx.beginPath();
+        ctx.strokeStyle = '#fa8585';
+        const vertices = wall.vertices;
+        const colorArray = ['#ff0000', '#00ff00', '#0000ff', '#ffff00'];
+        for (let i = 0; i < 4; i++) {
+            ctx.fillStyle = colorArray[i % 4]!;
+            ctx.beginPath();
+            ctx.moveTo(vertices[i]!.x, vertices[i]!.y);
+            ctx.arc(vertices[i]!.x, vertices[i]!.y, 4, 0, _Math.TAU);
+            ctx.fill();
+            ctx.lineTo(vertices[(i + 1) % 4]!.x, vertices[(i + 1) % 4]!.y);
+            ctx.stroke();
+        }
+        ctx.stroke();
     }
 
     for (const thing of [...thingsToRender, gameState.player]) {
@@ -563,6 +584,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             // thing.updateVertices();
             const vertices = thing.vertices;
             const colorArray = ['#ff0000', '#00ff00', '#0000ff', '#ffff00'];
+
             for (let i = 0; i < 4; i++) {
                 ctx.beginPath();
                 ctx.moveTo(vertices[i]!.x, vertices[i]!.y);

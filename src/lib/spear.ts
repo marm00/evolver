@@ -3,6 +3,7 @@ import { Matrix2 } from "./matrix2";
 import { Vector2 } from "./vector2";
 
 // Using classes over objects for better memory management (*n* method definitions vs prototype)
+// TODO: transform unsettable classes to objects?
 
 
 export class Spear {
@@ -30,9 +31,9 @@ export class Spear {
         const m = this.rotationMatrix;
         this.vertices = [
             new Vector2(-halfWidth, halfHeight).matmul2(m).add(center),
-            new Vector2(halfWidth, -halfHeight).matmul2(m).add(center),
             new Vector2(halfWidth, halfHeight).matmul2(m).add(center),
-            new Vector2(-halfWidth, halfHeight).matmul2(m).add(center)
+            new Vector2(halfWidth, -halfHeight).matmul2(m).add(center),
+            new Vector2(-halfWidth, -halfHeight).matmul2(m).add(center)
         ];
         this.axes = [
             new Vector2(cos, sin),
@@ -54,15 +55,42 @@ export class Spear {
         );
         const v = this.vertices;
         v[0].set(-halfWidth, halfHeight).matmul2(m).add(center);
-        v[1].set(halfWidth, -halfHeight).matmul2(m).add(center);
-        v[2].set(halfWidth, halfHeight).matmul2(m).add(center);
-        v[3].set(-halfWidth, halfHeight).matmul2(m).add(center);
+        v[1].set(halfWidth, halfHeight).matmul2(m).add(center);
+        v[2].set(halfWidth, -halfHeight).matmul2(m).add(center);
+        v[3].set(-halfWidth, -halfHeight).matmul2(m).add(center);
         const a = this.axes;
         a[0].set(cos, sin);
         a[1].set(cos + _Math.HALF_PI, sin + _Math.HALF_PI);
         return this;
     }
 
+}
+
+export class Wall {
+    center: Vector2;
+    vertices: [Vector2, Vector2, Vector2, Vector2];
+    axes: [Vector2, Vector2];
+
+    constructor(cx: number, cy: number, halfWidth: number, halfHeight: number, rotation: number) {
+        this.center = new Vector2(cx, cy);
+        const cos = Math.cos(rotation);
+        const sin = Math.sin(rotation);
+        this.vertices = [
+            new Vector2(-halfWidth, halfHeight),
+            new Vector2(halfWidth, halfHeight),
+            new Vector2(halfWidth, -halfHeight),
+            new Vector2(-halfWidth, -halfHeight)
+        ];
+        for (const v of this.vertices) {
+            const x = v.x, y = v.y;
+            v.x = cx + x * cos + y * -sin;
+            v.y = cy + x * sin + y * cos;
+        }
+        this.axes = [
+            new Vector2(cos, sin),
+            new Vector2(cos + _Math.HALF_PI, sin + _Math.HALF_PI)
+        ];
+    }
 }
 
 export class Meteorite {
