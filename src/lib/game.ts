@@ -3,7 +3,7 @@ import { Shape, Circle, OrientedRect, Rect } from "./shape";
 import { Pool, Pool2 } from "./pool";
 import { _Math } from "./mathUtils";
 import { Matrix3 } from "./matrix3";
-import { Meteorite, Obsidian, Orb, RESOURCE_STATE, Spear, Thunderstorm, Wall } from "./spear";
+import { Lion, Meteorite, Obsidian, Orb, RESOURCE_STATE, Spear, Thunderstorm, Wall } from "./spear";
 
 const GAME_WIDTH = 6400;
 const GAME_HEIGHT = 6400;
@@ -60,6 +60,8 @@ const ORB_CIRCUMFERENCE = ORB_OFFSET * _Math.TAU;
 /** Pixels per second. */
 const ORB_VELOCITY = ORB_CIRCUMFERENCE / 6;
 
+const LION_RADIUS = 16;
+
 // TODO: the game contains lists for different things (like spears), pools, and the partinioning contains references
 interface Game {
     world: PartitionStrategy;
@@ -76,7 +78,9 @@ interface Game {
     obsidians: Obsidian[]; // TODO: different data structure?
     thunderstorm: Thunderstorm;
     orb: Orb;
-    walls: Wall[];
+    walls: Wall[]; // TODO: different data structure?
+    lionPool: Pool<Lion>;
+    lions: Lion[]; // TODO: different data structure?
 }
 
 /**
@@ -158,6 +162,7 @@ export async function createGame(strategy: string): Promise<Game> {
         new Meteorite(ox, oy, tx, ty, radius, lifetime, displayRadius), 0);
     const obsidianPool = new Pool<Obsidian>((cx = 0, cy = 0, radius = 0, velocityScalar = 0, displayRadius = 0) =>
         new Obsidian(cx, cy, radius, velocityScalar, displayRadius), 0);
+    const lionPool = new Pool<Lion>((cx = 0, cy = 0, radius = 0) => new Lion(cx, cy, radius), 0);
 
     const world = new SingleCell();
     const player = new Player();
@@ -189,7 +194,8 @@ export async function createGame(strategy: string): Promise<Game> {
     world.insert(new Circle(new Vector2(-64, -128), new Vector2(Math.SQRT1_2, Math.SQRT1_2), new Vector2(0, 0), 64));
     return {
         world, player, m3Pool, v2Pool, v2Pool2, oRectPool, spearPool, spears: [],
-        meteoritePool, meteorites: [], obsidianPool, obsidians: [], thunderstorm, orb, walls
+        meteoritePool, meteorites: [], obsidianPool, obsidians: [], thunderstorm, orb, walls,
+        lionPool, lions: []
     };
 }
 
@@ -237,6 +243,11 @@ export function spawnOrb(orb: Orb) {
     } else {
         orb.centers.push(new Vector2());
     }
+}
+
+export function spawnLion(target: Vector2, lionPool: Pool<Lion>, lions: Lion[]) {
+    const lion = lionPool.alloc(target.x, target.y, LION_RADIUS);
+    lions.push(lion);
 }
 
 export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game, elapsedTime: number, deltaTime: number) {
@@ -533,6 +544,19 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         gameState.v2Pool.free(p_axis);
     }
     ctx.strokeStyle = '#ffffff';
+
+    // Move lions
+    for (const lion of gameState.lions) {
+        const c = lion.center, v = lion.velocity, a = lion.acceleration;
+        v.copy(c).sub(pp).normalize();
+
+        const wall = gameState.walls[0]!;
+        const vertices = wall.vertices;
+        const dv1 = c.distanceToSqr(vertices[0]);
+        const dv2 = c.distanceToSqr(vertices[1]);
+        const dv3 = c.distanceToSqr(vertices[2]);
+        const dv4 = c.distanceToSqr(vertices[3]);
+    }
 
     for (const thing of [...thingsToRender, gameState.player]) {
         // TODO: obviously dont update velocity here, but rather in the game loop

@@ -93,6 +93,29 @@ export class Wall {
     }
 }
 
+export class Lion {
+    center: Vector2;
+    velocity: Vector2;
+    acceleration: Vector2;
+    radius: number;
+    radiusSqr: number;
+
+    constructor(cx: number, cy: number, radius: number) {
+        this.center = new Vector2(cx, cy);
+        this.velocity = new Vector2();
+        this.acceleration = new Vector2();
+        this.radius = radius;
+        this.radiusSqr = radius * radius;
+    }
+
+    set(cx: number, cy: number, radius: number): this {
+        this.center.set(cx, cy);
+        this.radius = radius;
+        this.radiusSqr = radius * radius;
+        return this;
+    }
+}
+
 export class Meteorite {
     // The meteor pathing should be straight and origin should be randomized
     // Acceleration should be used (gravity)

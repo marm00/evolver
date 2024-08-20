@@ -54,6 +54,7 @@ export function Canvas() {
                 game.dropObsidian(gameState.player.mousePosition, gameState.obsidianPool, gameState.obsidians);
                 game.spawnThunderstorm(gameState.player.mousePosition, gameState.thunderstorm);
                 game.spawnOrb(gameState.orb);
+                game.spawnLion(gameState.player.mousePosition, gameState.lionPool, gameState.lions);
             }
 
             const handleMouseUp = (_: MouseEvent) => {
