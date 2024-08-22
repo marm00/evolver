@@ -70,11 +70,17 @@ export class Wall {
     center: Vector2;
     vertices: [Vector2, Vector2, Vector2, Vector2];
     axes: [Vector2, Vector2];
+    halfExtents: Vector2;
+    cos: number;
+    sin: number;
 
     constructor(cx: number, cy: number, halfWidth: number, halfHeight: number, rotation: number) {
         this.center = new Vector2(cx, cy);
+        this.halfExtents = new Vector2(halfWidth, halfHeight);
         const cos = Math.cos(rotation);
         const sin = Math.sin(rotation);
+        this.cos = cos;
+        this.sin = sin;
         this.vertices = [
             new Vector2(-halfWidth, halfHeight),
             new Vector2(halfWidth, halfHeight),

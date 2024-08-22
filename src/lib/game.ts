@@ -61,6 +61,7 @@ const ORB_CIRCUMFERENCE = ORB_OFFSET * _Math.TAU;
 const ORB_VELOCITY = ORB_CIRCUMFERENCE / 6;
 
 const LION_RADIUS = 16;
+const LION_VELOCITY = HUMAN_VELOCITY / 2;
 
 // TODO: the game contains lists for different things (like spears), pools, and the partinioning contains references
 interface Game {
@@ -169,7 +170,7 @@ export async function createGame(strategy: string): Promise<Game> {
     // world.insert(player); // TODO: player to world?
     const thunderstorm = new Thunderstorm(0, 0, THUNDERSTORM_RADIUS, THUNDERSTORM_OFFSET);
     const orb = new Orb(0, 0, ORB_RADIUS, ORB_OFFSET, ORB_VELOCITY);
-    const walls = [new Wall(300, 300, 50, 100, _Math.TAU*(2/3))];
+    const walls = [new Wall(300, 300, 50, 100, _Math.TAU * (2 / 3))];
 
     const angle = _Math.TAU * .33;
     const tor0 = OrientedRect.zero().setDimensions(32, 64, angle);
@@ -374,6 +375,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             continue;
         }
         p_previousCenter.copy(spear.center);
+        // TODO: is spear.velocity needed on the class instance?
         spear.center.add(p_velocity.copy(spear.velocity).scale(deltaTime));
         p_velocity.set(spear.center.x - p_previousCenter.x, spear.center.y - p_previousCenter.y);
         const v = spear.vertices;
@@ -531,7 +533,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             ctx.lineTo(vertices[(i + 1) % 4]!.x, vertices[(i + 1) % 4]!.y);
             ctx.stroke();
         }
-        const p_axis = gameState.v2Pool.alloc(0,0);
+        const p_axis = gameState.v2Pool.alloc(0, 0);
         for (let i = 0; i < 2; i++) {
             const a = wall.axes[i]!;
             p_axis.copy(a).scale(40).add(wall.center);
@@ -546,16 +548,30 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     ctx.strokeStyle = '#ffffff';
 
     // Move lions
+    const p_local = gameState.v2Pool.alloc(0, 0);
     for (const lion of gameState.lions) {
         const c = lion.center, v = lion.velocity, a = lion.acceleration;
-        v.copy(c).sub(pp).normalize();
-
         const wall = gameState.walls[0]!;
-        const vertices = wall.vertices;
-        const dv1 = c.distanceToSqr(vertices[0]);
-        const dv2 = c.distanceToSqr(vertices[1]);
-        const dv3 = c.distanceToSqr(vertices[2]);
-        const dv4 = c.distanceToSqr(vertices[3]);
+        const wc = wall.center, vertices = wall.vertices, axes = wall.axes;
+        const cos = wall.cos, sin = wall.sin;
+
+        p_local.copy(c).sub(wc);
+        const x = p_local.x, y = p_local.y;
+        p_local.x = cos * x + sin * y;
+        p_local.y = -sin * x + cos * y;
+
+        p_local.x -= _Math.clamp(p_local.x, -wall.halfExtents.x, wall.halfExtents.x);
+        p_local.y -= _Math.clamp(p_local.y, -wall.halfExtents.y, wall.halfExtents.y);
+
+        const squaredDistance = p_local.x * p_local.x + p_local.y * p_local.y;
+        if (squaredDistance > lion.radiusSqr) {
+            v.copy(pp).sub(c).normalize();
+            c.add(v.scale(LION_VELOCITY * deltaTime));
+        }
+
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, lion.radius, 0, _Math.TAU);
+        ctx.stroke();
     }
 
     for (const thing of [...thingsToRender, gameState.player]) {
@@ -685,6 +701,7 @@ class Player {
     }
 }
 
+// TODO: flip the bits on keyboard input instead?
 /** Translates the player's 8-directional keyboard input into a {@link Dir9} using a bitmask.*/
 export function updatePlayerDirection(player: Player) {
     let bitmask = 0;
