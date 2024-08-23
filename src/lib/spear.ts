@@ -73,6 +73,8 @@ export class Wall {
     halfExtents: Vector2;
     cos: number;
     sin: number;
+    inverseRotation: Matrix2;
+    rotation: Matrix2;
 
     constructor(cx: number, cy: number, halfWidth: number, halfHeight: number, rotation: number) {
         this.center = new Vector2(cx, cy);
@@ -88,6 +90,7 @@ export class Wall {
             new Vector2(-halfWidth, -halfHeight)
         ];
         for (const v of this.vertices) {
+            // TODO: use negation/flipping over matmul for all  
             const x = v.x, y = v.y;
             v.x = cx + x * cos + y * -sin;
             v.y = cy + x * sin + y * cos;
@@ -96,6 +99,14 @@ export class Wall {
             new Vector2(cos, sin),
             new Vector2(sin, -cos)
         ];
+        this.rotation = new Matrix2(
+            cos, sin,  // col 1
+            -sin, cos, // col 2
+        );;
+        this.inverseRotation = new Matrix2(
+            cos, -sin,  // col 1
+            sin, cos, // col 2
+        );;
     }
 }
 

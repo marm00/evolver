@@ -548,31 +548,55 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     ctx.strokeStyle = '#ffffff';
 
     // Move lions
-    const p_local = gameState.v2Pool.alloc(0, 0);
+    /** Transformed circle center to obb space. */
+    const p_transformed = gameState.v2Pool.alloc(0, 0)
+    /** Closest point on obb to circle center. */
+    const p_closest = gameState.v2Pool.alloc(0, 0);
+    /** Distance from closest point to circle center. */
+    const p_offset = gameState.v2Pool.alloc(0, 0);
+    /** Transformed velocity to obb space. */
+    const p_vtransformed = gameState.v2Pool.alloc(0, 0);
+    /** Normal vector of the obb closest to the circle center */
+    const p_normal = gameState.v2Pool.alloc(0, 0);
     for (const lion of gameState.lions) {
         const c = lion.center, v = lion.velocity, a = lion.acceleration;
         const wall = gameState.walls[0]!;
         const wc = wall.center, vertices = wall.vertices, axes = wall.axes;
         const cos = wall.cos, sin = wall.sin;
-
-        p_local.copy(c).sub(wc);
-        const x = p_local.x, y = p_local.y;
-        p_local.x = cos * x + sin * y;
-        p_local.y = -sin * x + cos * y;
-
-        p_local.x -= _Math.clamp(p_local.x, -wall.halfExtents.x, wall.halfExtents.x);
-        p_local.y -= _Math.clamp(p_local.y, -wall.halfExtents.y, wall.halfExtents.y);
-
-        const squaredDistance = p_local.x * p_local.x + p_local.y * p_local.y;
-        if (squaredDistance > lion.radiusSqr) {
-            v.copy(pp).sub(c).normalize();
-            c.add(v.scale(LION_VELOCITY * deltaTime));
+        v.copy(pp).sub(c).normalize();
+        p_transformed.copy(c).sub(wc).matmul2(wall.inverseRotation);
+        p_closest.copy(p_transformed).clamp(wall.halfExtents);
+        p_offset.copy(p_transformed).sub(p_closest);
+        const squaredDistance = p_offset.magnitudeSqr();
+        if (squaredDistance <= lion.radiusSqr) {
+            // Lion is intersecting the wall
+            p_vtransformed.copy(v).matmul2(wall.inverseRotation);
+            p_normal.set(
+                Math.abs(p_offset.x) > Math.abs(p_offset.y) ? Math.sign(p_offset.x) : 0,
+                Math.abs(p_offset.y) > Math.abs(p_offset.x) ? Math.sign(p_offset.y) : 0
+            );
+            if (p_vtransformed.dot(p_normal) < 0) {
+                // Lion is facing the wall
+                v.copy(p_normal.matmul2(wall.rotation));
+                console.log(true)
+            } else {
+                console.log(false)
+                // Lion is not facing the wall
+            }
+        } else {
+            console.log(' not intersecting')
+            // Lion is not intersecting the wall
         }
-
+        c.add(v.scale(LION_VELOCITY * deltaTime));
         ctx.beginPath();
         ctx.arc(c.x, c.y, lion.radius, 0, _Math.TAU);
         ctx.stroke();
     }
+    gameState.v2Pool.free(p_transformed);
+    gameState.v2Pool.free(p_closest);
+    gameState.v2Pool.free(p_offset);
+    gameState.v2Pool.free(p_vtransformed);
+
 
     for (const thing of [...thingsToRender, gameState.player]) {
         // TODO: obviously dont update velocity here, but rather in the game loop

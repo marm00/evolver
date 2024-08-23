@@ -316,6 +316,13 @@ export class Vector2 implements Resettable {
         return this.sub(v).normalize();
     }
 
+    /** Clamps the vector to the given vector. */
+    clamp(v: Vector2): this {
+        this.x = Math.max(-v.x, Math.min(v.x, this.x));
+        this.y = Math.max(-v.y, Math.min(v.y, this.y));
+        return this;
+    }
+
     /** Reverses the direction of the vector. */
     negate() {
         this.x = -this.x;
