@@ -14,6 +14,9 @@ export interface _Math {
     /** The gravitational constant (G). */
     readonly GRAVITY: number;
 
+    /** The smallest number that can be represented by a float32 in JavaScript. */
+    readonly EPSILON: number;
+
     /** 
      * Returns the angle of the numeric argument in radians.
      * 
@@ -98,6 +101,7 @@ export const _Math: _Math = {
     DEG_TO_RAD: Math.PI / 180,
     RAD_TO_DEG: 180 / Math.PI,
     GRAVITY: 9.81,
+    EPSILON: 1e-6,
     degToRad(degrees: number): number {
         return degrees * this.DEG_TO_RAD;
     },

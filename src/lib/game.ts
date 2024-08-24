@@ -558,36 +558,75 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     const p_vtransformed = gameState.v2Pool.alloc(0, 0);
     /** Normal vector of the obb closest to the circle center */
     const p_normal = gameState.v2Pool.alloc(0, 0);
+    /** Center of lion transformed to wall local space, as raycasting origin. */
+    const p_clocal = gameState.v2Pool.alloc(0, 0);
+    /** Velocity of lion transformed to wall local space, as raycasting direction. */
+    const p_vlocal = gameState.v2Pool.alloc(0, 0);
     for (const lion of gameState.lions) {
         const c = lion.center, v = lion.velocity, a = lion.acceleration;
         const wall = gameState.walls[0]!;
         const wc = wall.center, vertices = wall.vertices, axes = wall.axes;
+        const he = wall.halfExtents;
         const cos = wall.cos, sin = wall.sin;
-        v.copy(pp).sub(c).normalize();
-        p_transformed.copy(c).sub(wc).matmul2(wall.inverseRotation);
-        p_closest.copy(p_transformed).clamp(wall.halfExtents);
-        p_offset.copy(p_transformed).sub(p_closest);
-        const squaredDistance = p_offset.magnitudeSqr();
-        if (squaredDistance <= lion.radiusSqr) {
-            // Lion is intersecting the wall
-            p_vtransformed.copy(v).matmul2(wall.inverseRotation);
-            p_normal.set(
-                Math.abs(p_offset.x) > Math.abs(p_offset.y) ? Math.sign(p_offset.x) : 0,
-                Math.abs(p_offset.y) > Math.abs(p_offset.x) ? Math.sign(p_offset.y) : 0
-            );
-            if (p_vtransformed.dot(p_normal) < 0) {
-                // Lion is facing the wall
-                v.copy(p_normal.matmul2(wall.rotation));
-                console.log(true)
-            } else {
-                console.log(false)
-                // Lion is not facing the wall
-            }
+        v.copy(pp).sub(c).normalize().scale(LION_VELOCITY);
+        // TODO: check if either point is in the aabb (after obb rotation) to simplify
+        p_clocal.copy(c).sub(wc).matmul2(wall.inverseRotation);
+        p_vlocal.copy(v).matmul2(wall.inverseRotation);
+        const vlx = p_vlocal.x, vly = p_vlocal.y;
+        const inverseVlx = vlx === 0 ? 0 : 1 / vlx;
+        const inverseVly = vly === 0 ? 0 : 1 / vly;
+        const t1 = (-he.x - p_clocal.x) * inverseVlx;
+        const t2 = (he.x - p_clocal.x) * inverseVlx;
+        const t3 = (-he.y - p_clocal.y) * inverseVly;
+        const t4 = (he.y - p_clocal.y) * inverseVly;
+        const tminx = Math.min(t1, t2), tminy = Math.min(t3, t4);
+        const tmin = Math.max(tminx, tminy);
+        const tmax = Math.min(Math.max(t1, t2), Math.max(t3, t4));
+        const t = tmin < 0 ? tmax : tmin;
+        if (tmax < 0 || tmin > tmax || tmin > 1) {
+            // Lion velocity is not facing the wall or too far away
+            c.add(v.scale(deltaTime));
         } else {
-            console.log(' not intersecting')
-            // Lion is not intersecting the wall
+            // Lion velocity is facing an edge of the wall
+            // Move to collision point defined by intersection time t
+            // Find nearest vertex in local space
+            const nearestVertex = new Vector2(
+                Math.sign(p_clocal.x) * (he.x),
+                Math.sign(p_clocal.y) * (he.y)
+            );
+            // Calculate direction to nearest vertex
+            const direction = new Vector2(
+                nearestVertex.x - p_clocal.x,
+                nearestVertex.y - p_clocal.y
+            );
+            direction.normalize().scale(LION_VELOCITY * deltaTime).matmul2(wall.rotation).scale(1.1);
+            c.add(v.scale(deltaTime).add(direction));
         }
-        c.add(v.scale(LION_VELOCITY * deltaTime));
+
+        // p_transformed.copy(c).sub(wc).matmul2(wall.inverseRotation);
+        // p_closest.copy(p_transformed).clamp(wall.halfExtents);
+        // p_offset.copy(p_transformed).sub(p_closest);
+        // const squaredDistance = p_offset.magnitudeSqr();
+        // if (squaredDistance <= lion.radiusSqr) {
+        //     // Lion is intersecting the wall
+        //     p_vtransformed.copy(v).matmul2(wall.inverseRotation);
+        //     p_normal.set(
+        //         Math.abs(p_offset.x) > Math.abs(p_offset.y) ? Math.sign(p_offset.x) : 0,
+        //         Math.abs(p_offset.y) > Math.abs(p_offset.x) ? Math.sign(p_offset.y) : 0
+        //     );
+        //     if (p_vtransformed.dot(p_normal) < 0) {
+        //         // Lion is facing the wall
+        //         v.copy(p_normal.matmul2(wall.rotation));
+        //         console.log(true)
+        //     } else {
+        //         console.log(false)
+        //         // Lion is not facing the wall
+        //     }
+        // } else {
+        //     console.log(' not intersecting')
+        //     // Lion is not intersecting the wall
+        // }
+        // c.add(v.scale(LION_VELOCITY * deltaTime));
         ctx.beginPath();
         ctx.arc(c.x, c.y, lion.radius, 0, _Math.TAU);
         ctx.stroke();
@@ -596,7 +635,9 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     gameState.v2Pool.free(p_closest);
     gameState.v2Pool.free(p_offset);
     gameState.v2Pool.free(p_vtransformed);
-
+    gameState.v2Pool.free(p_normal);
+    gameState.v2Pool.free(p_clocal);
+    gameState.v2Pool.free(p_vlocal);
 
     for (const thing of [...thingsToRender, gameState.player]) {
         // TODO: obviously dont update velocity here, but rather in the game loop
