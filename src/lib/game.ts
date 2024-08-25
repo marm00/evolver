@@ -550,56 +550,57 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
 
     // Move lions
     /** Transformed circle center to obb space. */
-    const p_transformed = gameState.v2Pool.alloc(0, 0)
+    // const p_transformed = gameState.v2Pool.alloc(0, 0)
     /** Closest point on obb to circle center. */
-    const p_closest = gameState.v2Pool.alloc(0, 0);
+    // const p_closest = gameState.v2Pool.alloc(0, 0);
     /** Distance from closest point to circle center. */
-    const p_offset = gameState.v2Pool.alloc(0, 0);
+    // const p_offset = gameState.v2Pool.alloc(0, 0);
     /** Transformed velocity to obb space. */
-    const p_vtransformed = gameState.v2Pool.alloc(0, 0);
+    // const p_vtransformed = gameState.v2Pool.alloc(0, 0);
     /** Normal vector of the obb closest to the circle center */
-    const p_normal = gameState.v2Pool.alloc(0, 0);
+    // const p_normal = gameState.v2Pool.alloc(0, 0);
     /** Center of lion transformed to wall local space, as raycasting origin. */
     const p_clocal = gameState.v2Pool.alloc(0, 0);
     /** Velocity of lion transformed to wall local space, as raycasting direction. */
     const p_vlocal = gameState.v2Pool.alloc(0, 0);
     /** The closest point on the wall to the lion. */
     const p_collision = gameState.v2Pool.alloc(0, 0);
+    /** Center of the player transformed to wall local space. */
     const p_pplocal = gameState.v2Pool.alloc(0, 0);
-    for (const lion of gameState.lions) {
-        const c = lion.center, v = lion.velocity, a = lion.acceleration;
+    for (let i = 0; i < gameState.lions.length; i++) {
+        // TODO: separate lions (collision avoidance) such that they don't collide with each other
+        const lion = gameState.lions[i]!;
+        const c = lion.center;
         const wall = gameState.walls[0]!;
-        const wc = wall.center, vertices = wall.vertices, axes = wall.axes;
-        const halfWidth = wall.halfWidth, halfHeight = wall.halfHeight;
-        const he = wall.halfExtents;
-        const cos = wall.cos, sin = wall.sin;
-
+        const wc = wall.center, halfWidth = wall.halfWidth, halfHeight = wall.halfHeight;
+        // TODO: broad phase first, maybe bounding circle for initial collision check
         p_clocal.copy(c).sub(wc).matmul2(wall.inverseRotation);
-        const lx = p_clocal.x, ly = p_clocal.y;
-        const dx = Math.max(Math.abs(lx) - halfWidth, 0);
-        const dy = Math.max(Math.abs(ly) - halfHeight, 0);
+        const clx = p_clocal.x, cly = p_clocal.y;
+        const dx = Math.max(Math.abs(clx) - halfWidth, 0);
+        const dy = Math.max(Math.abs(cly) - halfHeight, 0);
         const distSqr = dx * dx + dy * dy;
-        const dist = Math.sqrt(distSqr);
-        p_collision.set(
-            Math.min(Math.max(lx, -halfWidth), halfWidth),
-            Math.min(Math.max(ly, -halfHeight), halfHeight)
-        );
-        
+        // const dist = Math.sqrt(distSqr);
+        if (distSqr === 0) {
+            p_velocity.copy(c).sub(wc);
+        } else {
+            p_velocity.copy(pp).sub(c);
+        }
+        c.add(p_velocity.normalize().scale(LION_VELOCITY * deltaTime));
+
+        // Below is for local space visualization, functionally irrelevant
+        if (i !== 0) {
+            ctx.beginPath();
+            ctx.arc(c.x, c.y, lion.radius, 0, _Math.TAU);
+            ctx.stroke();
+            continue;
+        }
+        const vertices = wall.vertices;
         p_pplocal.copy(pp).sub(wc).matmul2(wall.inverseRotation);
         p_vlocal.copy(p_pplocal).sub(p_clocal).normalize().scale(LION_VELOCITY);
-        let steeringForce = new Vector2(0, 0);
-
-        const nv = pp.clone().sub(c).normalize().scale(LION_VELOCITY);
-        if (dist === 0) {
-            // If inside obstacle, steer away from its center
-            steeringForce = c.clone().sub(wc).normalize().scale(LION_VELOCITY);
-        } else {
-            // Otherwise, seek the target
-            steeringForce = nv;
-        }
-        c.add(steeringForce.scale(deltaTime));
-        
-        // Below is for local space visualization, functionally irrelevant
+        p_collision.set(
+            Math.min(Math.max(clx, -halfWidth), halfWidth),
+            Math.min(Math.max(cly, -halfHeight), halfHeight)
+        );
         p_vlocal.add(p_clocal); // Translate to local origin
         const colorArray = ['#ff0000', '#00ff00', '#0000ff', '#ffff00'];
         const vertices2 = [];
@@ -649,9 +650,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         ctx.strokeStyle = '#ffffff';
         ctx.fillStyle = '#ffffff';
 
-        // v.copy(pp).sub(c).normalize().scale(LION_VELOCITY);
-        // c.add(v.scale(deltaTime));
-
+        // Below is an unfinished raycasting implementation
         // v.copy(pp).sub(c).normalize().scale(LION_VELOCITY);
         // // TODO: check if either point is in the aabb (after obb rotation) to simplify
         // p_clocal.copy(c).sub(wc).matmul2(wall.inverseRotation);
@@ -687,6 +686,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         //     c.add(v.scale(deltaTime).add(direction));
         // }
 
+        // Below is an unfinished 'closest vertex' implementation
         // p_transformed.copy(c).sub(wc).matmul2(wall.inverseRotation);
         // p_closest.copy(p_transformed).clamp(wall.halfExtents);
         // p_offset.copy(p_transformed).sub(p_closest);
@@ -715,11 +715,11 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         ctx.arc(c.x, c.y, lion.radius, 0, _Math.TAU);
         ctx.stroke();
     }
-    gameState.v2Pool.free(p_transformed);
-    gameState.v2Pool.free(p_closest);
-    gameState.v2Pool.free(p_offset);
-    gameState.v2Pool.free(p_vtransformed);
-    gameState.v2Pool.free(p_normal);
+    // gameState.v2Pool.free(p_transformed);
+    // gameState.v2Pool.free(p_closest);
+    // gameState.v2Pool.free(p_offset);
+    // gameState.v2Pool.free(p_vtransformed);
+    // gameState.v2Pool.free(p_normal);
     gameState.v2Pool.free(p_clocal);
     gameState.v2Pool.free(p_vlocal);
     gameState.v2Pool.free(p_collision);
