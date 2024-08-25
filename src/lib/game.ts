@@ -170,7 +170,8 @@ export async function createGame(strategy: string): Promise<Game> {
     // world.insert(player); // TODO: player to world?
     const thunderstorm = new Thunderstorm(0, 0, THUNDERSTORM_RADIUS, THUNDERSTORM_OFFSET);
     const orb = new Orb(0, 0, ORB_RADIUS, ORB_OFFSET, ORB_VELOCITY);
-    const walls = [new Wall(300, 300, 50, 100, _Math.TAU * (2 / 3))];
+    const walls = [new Wall(300, 100, 50, 100, _Math.TAU * (2 / 3))];
+    // const walls = [new Wall(300, 100, 50, 100, _Math.TAU)];
 
     const angle = _Math.TAU * .33;
     const tor0 = OrientedRect.zero().setDimensions(32, 64, angle);
@@ -562,46 +563,129 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     const p_clocal = gameState.v2Pool.alloc(0, 0);
     /** Velocity of lion transformed to wall local space, as raycasting direction. */
     const p_vlocal = gameState.v2Pool.alloc(0, 0);
+    /** The closest point on the wall to the lion. */
+    const p_collision = gameState.v2Pool.alloc(0, 0);
+    const p_pplocal = gameState.v2Pool.alloc(0, 0);
     for (const lion of gameState.lions) {
         const c = lion.center, v = lion.velocity, a = lion.acceleration;
         const wall = gameState.walls[0]!;
         const wc = wall.center, vertices = wall.vertices, axes = wall.axes;
+        const halfWidth = wall.halfWidth, halfHeight = wall.halfHeight;
         const he = wall.halfExtents;
         const cos = wall.cos, sin = wall.sin;
-        v.copy(pp).sub(c).normalize().scale(LION_VELOCITY);
-        // TODO: check if either point is in the aabb (after obb rotation) to simplify
+
         p_clocal.copy(c).sub(wc).matmul2(wall.inverseRotation);
-        p_vlocal.copy(v).matmul2(wall.inverseRotation);
-        const vlx = p_vlocal.x, vly = p_vlocal.y;
-        const inverseVlx = vlx === 0 ? 0 : 1 / vlx;
-        const inverseVly = vly === 0 ? 0 : 1 / vly;
-        const t1 = (-he.x - p_clocal.x) * inverseVlx;
-        const t2 = (he.x - p_clocal.x) * inverseVlx;
-        const t3 = (-he.y - p_clocal.y) * inverseVly;
-        const t4 = (he.y - p_clocal.y) * inverseVly;
-        const tminx = Math.min(t1, t2), tminy = Math.min(t3, t4);
-        const tmin = Math.max(tminx, tminy);
-        const tmax = Math.min(Math.max(t1, t2), Math.max(t3, t4));
-        const t = tmin < 0 ? tmax : tmin;
-        if (tmax < 0 || tmin > tmax || tmin > 1) {
-            // Lion velocity is not facing the wall or too far away
-            c.add(v.scale(deltaTime));
+        const lx = p_clocal.x, ly = p_clocal.y;
+        const dx = Math.max(Math.abs(lx) - halfWidth, 0);
+        const dy = Math.max(Math.abs(ly) - halfHeight, 0);
+        const distSqr = dx * dx + dy * dy;
+        const dist = Math.sqrt(distSqr);
+        p_collision.set(
+            Math.min(Math.max(lx, -halfWidth), halfWidth),
+            Math.min(Math.max(ly, -halfHeight), halfHeight)
+        );
+        
+        p_pplocal.copy(pp).sub(wc).matmul2(wall.inverseRotation);
+        p_vlocal.copy(p_pplocal).sub(p_clocal).normalize().scale(LION_VELOCITY);
+        let steeringForce = new Vector2(0, 0);
+
+        const nv = pp.clone().sub(c).normalize().scale(LION_VELOCITY);
+        if (dist === 0) {
+            // If inside obstacle, steer away from its center
+            steeringForce = c.clone().sub(wc).normalize().scale(LION_VELOCITY);
         } else {
-            // Lion velocity is facing an edge of the wall
-            // Move to collision point defined by intersection time t
-            // Find nearest vertex in local space
-            const nearestVertex = new Vector2(
-                Math.sign(p_clocal.x) * (he.x),
-                Math.sign(p_clocal.y) * (he.y)
-            );
-            // Calculate direction to nearest vertex
-            const direction = new Vector2(
-                nearestVertex.x - p_clocal.x,
-                nearestVertex.y - p_clocal.y
-            );
-            direction.normalize().scale(LION_VELOCITY * deltaTime).matmul2(wall.rotation).scale(1.1);
-            c.add(v.scale(deltaTime).add(direction));
+            // Otherwise, seek the target
+            steeringForce = nv;
         }
+        c.add(steeringForce.scale(deltaTime));
+        
+        // Below is for local space visualization, functionally irrelevant
+        p_vlocal.add(p_clocal); // Translate to local origin
+        const colorArray = ['#ff0000', '#00ff00', '#0000ff', '#ffff00'];
+        const vertices2 = [];
+        for (let i = 0; i < 4; i++) {
+            vertices2[i] = vertices[i]!.clone().sub(wc).matmul2(wall.inverseRotation);
+        }
+        for (let i = 0; i < 4; i++) {
+            ctx.fillStyle = colorArray[i % 4]!;
+            ctx.beginPath();
+            ctx.moveTo(vertices2[i]!.x, vertices2[i]!.y);
+            ctx.arc(vertices2[i]!.x, vertices2[i]!.y, 4, 0, _Math.TAU);
+            ctx.fill();
+            ctx.closePath();
+            ctx.lineTo(vertices2[(i + 1) % 4]!.x, vertices2[(i + 1) % 4]!.y);
+            ctx.stroke();
+        }
+        ctx.beginPath();
+        ctx.fillStyle = '#000000';
+        ctx.arc(0, 0, 10, 0, _Math.TAU);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.fillStyle = '#b46b0b';
+        ctx.arc(p_clocal.x, p_clocal.y, 10, 0, _Math.TAU);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.fillStyle = '#00ff00';
+        ctx.arc(p_collision.x, p_collision.y, 10, 0, _Math.TAU);
+        ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.fillStyle = '#ff0000';
+        ctx.strokeStyle = '#ff0000';
+        ctx.moveTo(p_clocal.x, p_clocal.y);
+        ctx.lineTo(p_vlocal.x, p_vlocal.y);
+        ctx.stroke();
+        ctx.arc(p_vlocal.x, p_vlocal.y, 10, 0, _Math.TAU);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.strokeStyle = '#91ff00';
+        ctx.moveTo(p_clocal.x, p_clocal.y);
+        ctx.lineTo(p_pplocal.x, p_pplocal.y);
+        ctx.stroke();
+        ctx.fillStyle = '#00ffd5';
+        ctx.beginPath();
+        ctx.arc(p_pplocal.x, p_pplocal.y, 10, 0, _Math.TAU);
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.fillStyle = '#ffffff';
+
+        // v.copy(pp).sub(c).normalize().scale(LION_VELOCITY);
+        // c.add(v.scale(deltaTime));
+
+        // v.copy(pp).sub(c).normalize().scale(LION_VELOCITY);
+        // // TODO: check if either point is in the aabb (after obb rotation) to simplify
+        // p_clocal.copy(c).sub(wc).matmul2(wall.inverseRotation);
+        // p_vlocal.copy(v).matmul2(wall.inverseRotation);
+        // const vlx = p_vlocal.x, vly = p_vlocal.y;
+        // const inverseVlx = vlx === 0 ? 0 : 1 / vlx;
+        // const inverseVly = vly === 0 ? 0 : 1 / vly;
+        // const t1 = (-he.x - p_clocal.x) * inverseVlx;
+        // const t2 = (he.x - p_clocal.x) * inverseVlx;
+        // const t3 = (-he.y - p_clocal.y) * inverseVly;
+        // const t4 = (he.y - p_clocal.y) * inverseVly;
+        // const tminx = Math.min(t1, t2), tminy = Math.min(t3, t4);
+        // const tmin = Math.max(tminx, tminy);
+        // const tmax = Math.min(Math.max(t1, t2), Math.max(t3, t4));
+        // const t = tmin < 0 ? tmax : tmin;
+        // if (tmax < 0 || tmin > tmax || tmin > 1) {
+        //     // Lion velocity is not facing the wall or too far away
+        //     c.add(v.scale(deltaTime));
+        // } else {
+        //     // Lion velocity is facing an edge of the wall
+        //     // Move to collision point defined by intersection time t
+        //     // Find nearest vertex in local space
+        //     const nearestVertex = new Vector2(
+        //         Math.sign(p_clocal.x) * (he.x),
+        //         Math.sign(p_clocal.y) * (he.y)
+        //     );
+        //     // Calculate direction to nearest vertex
+        //     const direction = new Vector2(
+        //         nearestVertex.x - p_clocal.x,
+        //         nearestVertex.y - p_clocal.y
+        //     );
+        //     direction.normalize().scale(LION_VELOCITY * deltaTime).matmul2(wall.rotation);
+        //     c.add(v.scale(deltaTime).add(direction));
+        // }
 
         // p_transformed.copy(c).sub(wc).matmul2(wall.inverseRotation);
         // p_closest.copy(p_transformed).clamp(wall.halfExtents);
@@ -638,6 +722,8 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     gameState.v2Pool.free(p_normal);
     gameState.v2Pool.free(p_clocal);
     gameState.v2Pool.free(p_vlocal);
+    gameState.v2Pool.free(p_collision);
+    gameState.v2Pool.free(p_pplocal);
 
     for (const thing of [...thingsToRender, gameState.player]) {
         // TODO: obviously dont update velocity here, but rather in the game loop

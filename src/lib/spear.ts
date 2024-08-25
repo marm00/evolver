@@ -75,8 +75,12 @@ export class Wall {
     sin: number;
     inverseRotation: Matrix2;
     rotation: Matrix2;
+    halfWidth: number;
+    halfHeight: number;
 
     constructor(cx: number, cy: number, halfWidth: number, halfHeight: number, rotation: number) {
+        this.halfWidth = halfWidth;
+        this.halfHeight = halfHeight;
         this.center = new Vector2(cx, cy);
         this.halfExtents = new Vector2(halfWidth, halfHeight);
         const cos = Math.cos(rotation);
