@@ -567,6 +567,9 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     const p_collision = gameState.v2Pool.alloc(0, 0);
     /** Center of the player transformed to wall local space. */
     const p_pplocal = gameState.v2Pool.alloc(0, 0);
+    const p_repulsion = gameState.v2Pool.alloc(0, 0);
+    const p_neighbor = gameState.v2Pool.alloc(0, 0);
+    const p_obstacle = gameState.v2Pool.alloc(0, 0);
     for (let i = 0; i < gameState.lions.length; i++) {
         // TODO: separate lions (collision avoidance) such that they don't collide with each other
         const lion = gameState.lions[i]!;
@@ -576,15 +579,38 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         // TODO: broad phase first, maybe bounding circle for initial collision check
         p_clocal.copy(c).sub(wc).matmul2(wall.inverseRotation);
         const clx = p_clocal.x, cly = p_clocal.y;
+        // TODO: reduce max call?
         const dx = Math.max(Math.abs(clx) - halfWidth, 0);
         const dy = Math.max(Math.abs(cly) - halfHeight, 0);
-        const distSqr = dx * dx + dy * dy;
+        // const distSqr = dx * dx + dy * dy;
         // const dist = Math.sqrt(distSqr);
-        if (distSqr === 0) {
+
+        if (dx === 0 && dy === 0) {
+            // p_obstacle.copy(c).sub(wc);
+            // p_obstacle.scale(1);
+            // p_velocity.add(p_obstacle);
             p_velocity.copy(c).sub(wc);
         } else {
+            p_repulsion.set(0, 0);
+            for (let j = 0; j < gameState.lions.length; j++) {
+                if (i === j) continue;
+                const lion2 = gameState.lions[j]!;
+                const c2 = lion2.center;
+                const rdistSqr = c.distanceToSqr(c2);
+                /** Approximate condition summing precomputed squared radii. */
+                // const rradiiSqr = lion.radiusSqr + lion2.radiusSqr;
+                const rradiiSqr = (lion.radius + lion2.radius) ** 2;
+                // const rradiiSqr = lion.radiusSqr + 2 * lion.radius + lion2.radius + lion2.radiusSqr;
+                if (rdistSqr > rradiiSqr) continue;
+                p_neighbor.copy(c).sub(c2);
+                p_repulsion.add(p_neighbor);
+            }
+            p_repulsion.scale(1.6);
             p_velocity.copy(pp).sub(c);
+            p_velocity.scale(0.4);
+            p_velocity.add(p_repulsion);
         }
+
         c.add(p_velocity.normalize().scale(LION_VELOCITY * deltaTime));
 
         // Below is for local space visualization, functionally irrelevant
@@ -724,6 +750,9 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     gameState.v2Pool.free(p_vlocal);
     gameState.v2Pool.free(p_collision);
     gameState.v2Pool.free(p_pplocal);
+    gameState.v2Pool.free(p_repulsion);
+    gameState.v2Pool.free(p_neighbor);
+    gameState.v2Pool.free(p_obstacle);
 
     for (const thing of [...thingsToRender, gameState.player]) {
         // TODO: obviously dont update velocity here, but rather in the game loop
