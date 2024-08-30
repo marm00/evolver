@@ -584,30 +584,33 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         const dy = Math.max(Math.abs(cly) - halfHeight, 0);
         // const distSqr = dx * dx + dy * dy;
         // const dist = Math.sqrt(distSqr);
+        p_repulsion.set(0, 0);
+        for (let j = 0; j < gameState.lions.length; j++) {
+            if (i === j) continue;
+            const lion2 = gameState.lions[j]!;
+            const c2 = lion2.center;
+            const rdistSqr = c.distanceToSqr(c2);
+            /** Approximate condition summing precomputed squared radii. */
+            // const rradiiSqr = lion.radiusSqr + lion2.radiusSqr;
+            const rradiiSqr = (lion.radius + lion2.radius) ** 2;
+            // const rradiiSqr = lion.radiusSqr + 2 * lion.radius + lion2.radius + lion2.radiusSqr;
+            if (rdistSqr > rradiiSqr) continue;
+            p_neighbor.copy(c).sub(c2);
+            p_repulsion.add(p_neighbor);
+        }
+        p_repulsion.scale(10);
 
         if (dx === 0 && dy === 0) {
             // p_obstacle.copy(c).sub(wc);
             // p_obstacle.scale(1);
             // p_velocity.add(p_obstacle);
+            // TODO: combine obstacle and repulsion without overthrowing
             p_velocity.copy(c).sub(wc);
+            p_velocity.scale(1);
+            p_velocity.add(p_repulsion);
         } else {
-            p_repulsion.set(0, 0);
-            for (let j = 0; j < gameState.lions.length; j++) {
-                if (i === j) continue;
-                const lion2 = gameState.lions[j]!;
-                const c2 = lion2.center;
-                const rdistSqr = c.distanceToSqr(c2);
-                /** Approximate condition summing precomputed squared radii. */
-                // const rradiiSqr = lion.radiusSqr + lion2.radiusSqr;
-                const rradiiSqr = (lion.radius + lion2.radius) ** 2;
-                // const rradiiSqr = lion.radiusSqr + 2 * lion.radius + lion2.radius + lion2.radiusSqr;
-                if (rdistSqr > rradiiSqr) continue;
-                p_neighbor.copy(c).sub(c2);
-                p_repulsion.add(p_neighbor);
-            }
-            p_repulsion.scale(1.6);
             p_velocity.copy(pp).sub(c);
-            p_velocity.scale(0.4);
+            p_velocity.scale(1);
             p_velocity.add(p_repulsion);
         }
 
