@@ -598,20 +598,22 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             p_neighbor.copy(c).sub(c2);
             p_repulsion.add(p_neighbor);
         }
-        p_repulsion.scale(10);
+        p_repulsion.scale(1);
+        p_velocity.copy(pp).sub(c);
+            p_velocity.scale(1);
+            p_velocity.add(p_repulsion);
 
         if (dx === 0 && dy === 0) {
-            // p_obstacle.copy(c).sub(wc);
-            // p_obstacle.scale(1);
-            // p_velocity.add(p_obstacle);
+            p_obstacle.copy(c).sub(wc);
+            p_obstacle.scale(1);
+            p_velocity.add(p_obstacle);
+            // TODO: instantly stop velocity and different repulsion?
             // TODO: combine obstacle and repulsion without overthrowing
-            p_velocity.copy(c).sub(wc);
-            p_velocity.scale(1);
-            p_velocity.add(p_repulsion);
+            // p_velocity.copy(c).sub(wc);
+            // p_velocity.scale(1);
+            // p_velocity.add(p_repulsion);
         } else {
-            p_velocity.copy(pp).sub(c);
-            p_velocity.scale(1);
-            p_velocity.add(p_repulsion);
+            
         }
 
         c.add(p_velocity.normalize().scale(LION_VELOCITY * deltaTime));
