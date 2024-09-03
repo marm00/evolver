@@ -574,6 +574,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         // TODO: separate lions (collision avoidance) such that they don't collide with each other
         const lion = gameState.lions[i]!;
         const c = lion.center;
+        // if (c.distanceToSqr(pp) <= lion.radiusSqr) continue;
         const wall = gameState.walls[0]!;
         const wc = wall.center, halfWidth = wall.halfWidth, halfHeight = wall.halfHeight;
         // TODO: broad phase first, maybe bounding circle for initial collision check
