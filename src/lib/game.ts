@@ -163,7 +163,7 @@ export async function createGame(strategy: string): Promise<Game> {
         new Meteorite(ox, oy, tx, ty, radius, lifetime, displayRadius), 0);
     const obsidianPool = new Pool<Obsidian>((cx = 0, cy = 0, radius = 0, velocityScalar = 0, displayRadius = 0) =>
         new Obsidian(cx, cy, radius, velocityScalar, displayRadius), 0);
-    const lionPool = new Pool<Lion>((cx = 0, cy = 0, radius = 0) => new Lion(cx, cy, radius), 0);
+    const lionPool = new Pool<Lion>((cx = 0, cy = 0, radius = 0, velocity = 0) => new Lion(cx, cy, radius, velocity), 0);
 
     const world = new SingleCell();
     const player = new Player();
@@ -248,7 +248,8 @@ export function spawnOrb(orb: Orb) {
 }
 
 export function spawnLion(target: Vector2, lionPool: Pool<Lion>, lions: Lion[]) {
-    const lion = lionPool.alloc(target.x, target.y, LION_RADIUS);
+    const randVelocty = Math.random() * (LION_VELOCITY * 0.5) + (LION_VELOCITY * 1.5);
+    const lion = lionPool.alloc(target.x, target.y, LION_RADIUS, randVelocty);
     lions.push(lion);
 }
 
@@ -570,6 +571,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     const p_repulsion = gameState.v2Pool.alloc(0, 0);
     const p_neighbor = gameState.v2Pool.alloc(0, 0);
     const p_obstacle = gameState.v2Pool.alloc(0, 0);
+    // Obstacle Reciprocal Collision Avoidance inspired by https://gamma.cs.unc.edu/ORCA/publications/ORCA.pdf 
     for (let i = 0; i < gameState.lions.length; i++) {
         // TODO: separate lions (collision avoidance) such that they don't collide with each other
         const lion = gameState.lions[i]!;
@@ -617,7 +619,8 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             
         }
 
-        c.add(p_velocity.normalize().scale(LION_VELOCITY * deltaTime));
+        // Random between 0.5 lion velocity and 1.5 lion velocity
+        c.add(p_velocity.normalize().scale(lion.velocityScalar * deltaTime));
 
         // Below is for local space visualization, functionally irrelevant
         if (i !== 0) {
@@ -628,7 +631,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         }
         const vertices = wall.vertices;
         p_pplocal.copy(pp).sub(wc).matmul2(wall.inverseRotation);
-        p_vlocal.copy(p_pplocal).sub(p_clocal).normalize().scale(LION_VELOCITY);
+        p_vlocal.copy(p_pplocal).sub(p_clocal).normalize().scale(lion.velocityScalar);
         p_collision.set(
             Math.min(Math.max(clx, -halfWidth), halfWidth),
             Math.min(Math.max(cly, -halfHeight), halfHeight)
