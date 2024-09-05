@@ -121,7 +121,7 @@ export class Lion {
     radius: number;
     radiusSqr: number;
     velocityScalar: number;
-    // TODO: maximum speed and preferred velocity
+    // TODO: maximum speed and preferred velocity (not a velocity scalar)
 
     constructor(cx: number, cy: number, radius: number, velocityScalar: number) {
         this.center = new Vector2(cx, cy);
