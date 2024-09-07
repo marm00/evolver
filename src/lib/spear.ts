@@ -121,6 +121,7 @@ export class Lion {
     radius: number;
     radiusSqr: number;
     velocityScalar: number;
+    preferredVelocity: Vector2;
     // TODO: maximum speed and preferred velocity (not a velocity scalar)
 
     constructor(cx: number, cy: number, radius: number, velocityScalar: number) {
@@ -130,9 +131,10 @@ export class Lion {
         this.radius = radius;
         this.radiusSqr = radius * radius;
         this.velocityScalar = velocityScalar;
+        this.preferredVelocity = new Vector2();
     }
 
-    set(cx: number, cy: number, radius: number, velocityScalar: number): this {
+    set(cx: number, cy: number, radius: number, velocityScalar: number,): this {
         this.center.set(cx, cy);
         this.radius = radius;
         this.radiusSqr = radius * radius;
