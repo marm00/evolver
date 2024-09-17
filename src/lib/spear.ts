@@ -124,6 +124,9 @@ export class Lion {
     maximumSpeed: number;
     preferredVelocity: Vector2;
     // TODO: maximum speed and preferred velocity (not a velocity scalar)
+    // ORCA wants position, radius, preferred velocity
+    // Where the optimal of each disc is generally its current velocity,
+    // with the exception of high density areas (estimates have to be made)
 
     constructor(cx: number, cy: number, radius: number, velocityScalar: number, maximumSpeed: number) {
         this.center = new Vector2(cx, cy);
