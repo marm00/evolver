@@ -123,6 +123,7 @@ export class Lion {
     velocityScalar: number;
     maximumSpeed: number;
     preferredVelocity: Vector2;
+    optimalVelocity: Vector2;
     // TODO: maximum speed and preferred velocity (not a velocity scalar)
     // ORCA wants position, radius, preferred velocity
     // Where the optimal of each disc is generally its current velocity,
@@ -137,6 +138,7 @@ export class Lion {
         this.velocityScalar = velocityScalar;
         this.preferredVelocity = new Vector2();
         this.maximumSpeed = maximumSpeed;
+        this.optimalVelocity = new Vector2();
     }
 
     set(cx: number, cy: number, radius: number, velocityScalar: number, maximumSpeed: number): this {

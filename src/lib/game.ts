@@ -549,219 +549,246 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     }
     ctx.strokeStyle = '#ffffff';
 
-    // Move lions
-    /** Transformed circle center to obb space. */
-    // const p_transformed = gameState.v2Pool.alloc(0, 0)
-    /** Closest point on obb to circle center. */
-    // const p_closest = gameState.v2Pool.alloc(0, 0);
-    /** Distance from closest point to circle center. */
-    // const p_offset = gameState.v2Pool.alloc(0, 0);
-    /** Transformed velocity to obb space. */
-    // const p_vtransformed = gameState.v2Pool.alloc(0, 0);
-    /** Normal vector of the obb closest to the circle center */
-    // const p_normal = gameState.v2Pool.alloc(0, 0);
-    /** Center of lion transformed to wall local space, as raycasting origin. */
-    const p_clocal = gameState.v2Pool.alloc(0, 0);
-    /** Velocity of lion transformed to wall local space, as raycasting direction. */
-    const p_vlocal = gameState.v2Pool.alloc(0, 0);
-    /** The closest point on the wall to the lion. */
-    const p_collision = gameState.v2Pool.alloc(0, 0);
-    /** Center of the player transformed to wall local space. */
-    const p_pplocal = gameState.v2Pool.alloc(0, 0);
-    const p_repulsion = gameState.v2Pool.alloc(0, 0);
-    const p_neighbor = gameState.v2Pool.alloc(0, 0);
-    const p_obstacle = gameState.v2Pool.alloc(0, 0);
-    // Obstacle Reciprocal Collision Avoidance inspired by https://gamma.cs.unc.edu/ORCA/publications/ORCA.pdf 
-    for (let i = 0; i < gameState.lions.length; i++) {
-        // TODO: separate lions (collision avoidance) such that they don't collide with each other
-        const lion = gameState.lions[i]!;
-        const c = lion.center;
-        // if (c.distanceToSqr(pp) <= lion.radiusSqr) continue;
-        const wall = gameState.walls[0]!;
-        const wc = wall.center, halfWidth = wall.halfWidth, halfHeight = wall.halfHeight;
-        // TODO: broad phase first, maybe bounding circle for initial collision check
-        p_clocal.copy(c).sub(wc).matmul2(wall.inverseRotation);
-        const clx = p_clocal.x, cly = p_clocal.y;
-        // TODO: reduce max call?
-        const dx = Math.max(Math.abs(clx) - halfWidth, 0);
-        const dy = Math.max(Math.abs(cly) - halfHeight, 0);
-        // const distSqr = dx * dx + dy * dy;
-        // const dist = Math.sqrt(distSqr);
-        p_repulsion.set(0, 0);
-        for (let j = 0; j < gameState.lions.length; j++) {
-            if (i === j) continue;
-            const lion2 = gameState.lions[j]!;
-            const c2 = lion2.center;
-            const rdistSqr = c.distanceToSqr(c2);
-            /** Approximate condition summing precomputed squared radii. */
-            // const rradiiSqr = lion.radiusSqr + lion2.radiusSqr;
-            const rradiiSqr = (lion.radius + lion2.radius) ** 2;
-            // const rradiiSqr = lion.radiusSqr + 2 * lion.radius + lion2.radius + lion2.radiusSqr;
-            if (rdistSqr > rradiiSqr) continue;
-            p_neighbor.copy(c).sub(c2);
-            p_repulsion.add(p_neighbor);
-        }
-        p_repulsion.scale(1);
-        p_velocity.copy(pp).sub(c);
-            p_velocity.scale(1);
-            p_velocity.add(p_repulsion);
+    // // Move lions
+    // /** Transformed circle center to obb space. */
+    // // const p_transformed = gameState.v2Pool.alloc(0, 0)
+    // /** Closest point on obb to circle center. */
+    // // const p_closest = gameState.v2Pool.alloc(0, 0);
+    // /** Distance from closest point to circle center. */
+    // // const p_offset = gameState.v2Pool.alloc(0, 0);
+    // /** Transformed velocity to obb space. */
+    // // const p_vtransformed = gameState.v2Pool.alloc(0, 0);
+    // /** Normal vector of the obb closest to the circle center */
+    // // const p_normal = gameState.v2Pool.alloc(0, 0);
+    // /** Center of lion transformed to wall local space, as raycasting origin. */
+    // const p_clocal = gameState.v2Pool.alloc(0, 0);
+    // /** Velocity of lion transformed to wall local space, as raycasting direction. */
+    // const p_vlocal = gameState.v2Pool.alloc(0, 0);
+    // /** The closest point on the wall to the lion. */
+    // const p_collision = gameState.v2Pool.alloc(0, 0);
+    // /** Center of the player transformed to wall local space. */
+    // const p_pplocal = gameState.v2Pool.alloc(0, 0);
+    // const p_repulsion = gameState.v2Pool.alloc(0, 0);
+    // const p_neighbor = gameState.v2Pool.alloc(0, 0);
+    // const p_obstacle = gameState.v2Pool.alloc(0, 0);
+    // for (let i = 0; i < gameState.lions.length; i++) {
+    //     // TODO: separate lions (collision avoidance) such that they don't collide with each other
+    //     const lion = gameState.lions[i]!;
+    //     const c = lion.center;
+    //     // if (c.distanceToSqr(pp) <= lion.radiusSqr) continue;
+    //     const wall = gameState.walls[0]!;
+    //     const wc = wall.center, halfWidth = wall.halfWidth, halfHeight = wall.halfHeight;
+    //     // TODO: broad phase first, maybe bounding circle for initial collision check
+    //     p_clocal.copy(c).sub(wc).matmul2(wall.inverseRotation);
+    //     const clx = p_clocal.x, cly = p_clocal.y;
+    //     // TODO: reduce max call?
+    //     const dx = Math.max(Math.abs(clx) - halfWidth, 0);
+    //     const dy = Math.max(Math.abs(cly) - halfHeight, 0);
+    //     // const distSqr = dx * dx + dy * dy;
+    //     // const dist = Math.sqrt(distSqr);
+    //     p_repulsion.set(0, 0);
+    //     for (let j = 0; j < gameState.lions.length; j++) {
+    //         if (i === j) continue;
+    //         const lion2 = gameState.lions[j]!;
+    //         const c2 = lion2.center;
+    //         const rdistSqr = c.distanceToSqr(c2);
+    //         /** Approximate condition summing precomputed squared radii. */
+    //         // const rradiiSqr = lion.radiusSqr + lion2.radiusSqr;
+    //         const rradiiSqr = (lion.radius + lion2.radius) ** 2;
+    //         // const rradiiSqr = lion.radiusSqr + 2 * lion.radius + lion2.radius + lion2.radiusSqr;
+    //         if (rdistSqr > rradiiSqr) continue;
+    //         p_neighbor.copy(c).sub(c2);
+    //         p_repulsion.add(p_neighbor);
+    //     }
+    //     p_repulsion.scale(1);
+    //     p_velocity.copy(pp).sub(c);
+    //         p_velocity.scale(1);
+    //         p_velocity.add(p_repulsion);
 
-        if (dx === 0 && dy === 0) {
-            p_obstacle.copy(c).sub(wc);
-            p_obstacle.scale(1);
-            p_velocity.add(p_obstacle);
-            // TODO: instantly stop velocity and different repulsion?
-            // TODO: combine obstacle and repulsion without overthrowing
-            // p_velocity.copy(c).sub(wc);
-            // p_velocity.scale(1);
-            // p_velocity.add(p_repulsion);
-        } else {
+    //     if (dx === 0 && dy === 0) {
+    //         p_obstacle.copy(c).sub(wc);
+    //         p_obstacle.scale(1);
+    //         p_velocity.add(p_obstacle);
+    //         // TODO: instantly stop velocity and different repulsion?
+    //         // TODO: combine obstacle and repulsion without overthrowing
+    //         // p_velocity.copy(c).sub(wc);
+    //         // p_velocity.scale(1);
+    //         // p_velocity.add(p_repulsion);
+    //     } else {
             
-        }
+    //     }
 
-        // Random between 0.5 lion velocity and 1.5 lion velocity
-        c.add(p_velocity.normalize().scale(lion.velocityScalar * deltaTime));
+    //     // Random between 0.5 lion velocity and 1.5 lion velocity
+    //     c.add(p_velocity.normalize().scale(lion.velocityScalar * deltaTime));
 
-        // Below is for local space visualization, functionally irrelevant
-        if (i !== 0) {
-            ctx.beginPath();
-            ctx.arc(c.x, c.y, lion.radius, 0, _Math.TAU);
-            ctx.stroke();
-            continue;
-        }
-        const vertices = wall.vertices;
-        p_pplocal.copy(pp).sub(wc).matmul2(wall.inverseRotation);
-        p_vlocal.copy(p_pplocal).sub(p_clocal).normalize().scale(lion.velocityScalar);
-        p_collision.set(
-            Math.min(Math.max(clx, -halfWidth), halfWidth),
-            Math.min(Math.max(cly, -halfHeight), halfHeight)
-        );
-        p_vlocal.add(p_clocal); // Translate to local origin
-        const colorArray = ['#ff0000', '#00ff00', '#0000ff', '#ffff00'];
-        const vertices2 = [];
-        for (let i = 0; i < 4; i++) {
-            vertices2[i] = vertices[i]!.clone().sub(wc).matmul2(wall.inverseRotation);
-        }
-        for (let i = 0; i < 4; i++) {
-            ctx.fillStyle = colorArray[i % 4]!;
-            ctx.beginPath();
-            ctx.moveTo(vertices2[i]!.x, vertices2[i]!.y);
-            ctx.arc(vertices2[i]!.x, vertices2[i]!.y, 4, 0, _Math.TAU);
-            ctx.fill();
-            ctx.closePath();
-            ctx.lineTo(vertices2[(i + 1) % 4]!.x, vertices2[(i + 1) % 4]!.y);
-            ctx.stroke();
-        }
-        ctx.beginPath();
-        ctx.fillStyle = '#000000';
-        ctx.arc(0, 0, 10, 0, _Math.TAU);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.fillStyle = '#b46b0b';
-        ctx.arc(p_clocal.x, p_clocal.y, 10, 0, _Math.TAU);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.fillStyle = '#00ff00';
-        ctx.arc(p_collision.x, p_collision.y, 10, 0, _Math.TAU);
-        ctx.fill();
-        ctx.fillStyle = '#ffffff';
-        ctx.beginPath();
-        ctx.fillStyle = '#ff0000';
-        ctx.strokeStyle = '#ff0000';
-        ctx.moveTo(p_clocal.x, p_clocal.y);
-        ctx.lineTo(p_vlocal.x, p_vlocal.y);
-        ctx.stroke();
-        ctx.arc(p_vlocal.x, p_vlocal.y, 10, 0, _Math.TAU);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.strokeStyle = '#91ff00';
-        ctx.moveTo(p_clocal.x, p_clocal.y);
-        ctx.lineTo(p_pplocal.x, p_pplocal.y);
-        ctx.stroke();
-        ctx.fillStyle = '#00ffd5';
-        ctx.beginPath();
-        ctx.arc(p_pplocal.x, p_pplocal.y, 10, 0, _Math.TAU);
-        ctx.fill();
-        ctx.strokeStyle = '#ffffff';
-        ctx.fillStyle = '#ffffff';
+    //     // Below is for local space visualization, functionally irrelevant
+    //     if (i !== 0) {
+    //         ctx.beginPath();
+    //         ctx.arc(c.x, c.y, lion.radius, 0, _Math.TAU);
+    //         ctx.stroke();
+    //         continue;
+    //     }
+    //     const vertices = wall.vertices;
+    //     p_pplocal.copy(pp).sub(wc).matmul2(wall.inverseRotation);
+    //     p_vlocal.copy(p_pplocal).sub(p_clocal).normalize().scale(lion.velocityScalar);
+    //     p_collision.set(
+    //         Math.min(Math.max(clx, -halfWidth), halfWidth),
+    //         Math.min(Math.max(cly, -halfHeight), halfHeight)
+    //     );
+    //     p_vlocal.add(p_clocal); // Translate to local origin
+    //     const colorArray = ['#ff0000', '#00ff00', '#0000ff', '#ffff00'];
+    //     const vertices2 = [];
+    //     for (let i = 0; i < 4; i++) {
+    //         vertices2[i] = vertices[i]!.clone().sub(wc).matmul2(wall.inverseRotation);
+    //     }
+    //     for (let i = 0; i < 4; i++) {
+    //         ctx.fillStyle = colorArray[i % 4]!;
+    //         ctx.beginPath();
+    //         ctx.moveTo(vertices2[i]!.x, vertices2[i]!.y);
+    //         ctx.arc(vertices2[i]!.x, vertices2[i]!.y, 4, 0, _Math.TAU);
+    //         ctx.fill();
+    //         ctx.closePath();
+    //         ctx.lineTo(vertices2[(i + 1) % 4]!.x, vertices2[(i + 1) % 4]!.y);
+    //         ctx.stroke();
+    //     }
+    //     ctx.beginPath();
+    //     ctx.fillStyle = '#000000';
+    //     ctx.arc(0, 0, 10, 0, _Math.TAU);
+    //     ctx.fill();
+    //     ctx.beginPath();
+    //     ctx.fillStyle = '#b46b0b';
+    //     ctx.arc(p_clocal.x, p_clocal.y, 10, 0, _Math.TAU);
+    //     ctx.fill();
+    //     ctx.beginPath();
+    //     ctx.fillStyle = '#00ff00';
+    //     ctx.arc(p_collision.x, p_collision.y, 10, 0, _Math.TAU);
+    //     ctx.fill();
+    //     ctx.fillStyle = '#ffffff';
+    //     ctx.beginPath();
+    //     ctx.fillStyle = '#ff0000';
+    //     ctx.strokeStyle = '#ff0000';
+    //     ctx.moveTo(p_clocal.x, p_clocal.y);
+    //     ctx.lineTo(p_vlocal.x, p_vlocal.y);
+    //     ctx.stroke();
+    //     ctx.arc(p_vlocal.x, p_vlocal.y, 10, 0, _Math.TAU);
+    //     ctx.fill();
+    //     ctx.beginPath();
+    //     ctx.strokeStyle = '#91ff00';
+    //     ctx.moveTo(p_clocal.x, p_clocal.y);
+    //     ctx.lineTo(p_pplocal.x, p_pplocal.y);
+    //     ctx.stroke();
+    //     ctx.fillStyle = '#00ffd5';
+    //     ctx.beginPath();
+    //     ctx.arc(p_pplocal.x, p_pplocal.y, 10, 0, _Math.TAU);
+    //     ctx.fill();
+    //     ctx.strokeStyle = '#ffffff';
+    //     ctx.fillStyle = '#ffffff';
 
-        // Below is an unfinished raycasting implementation
-        // v.copy(pp).sub(c).normalize().scale(LION_VELOCITY);
-        // // TODO: check if either point is in the aabb (after obb rotation) to simplify
-        // p_clocal.copy(c).sub(wc).matmul2(wall.inverseRotation);
-        // p_vlocal.copy(v).matmul2(wall.inverseRotation);
-        // const vlx = p_vlocal.x, vly = p_vlocal.y;
-        // const inverseVlx = vlx === 0 ? 0 : 1 / vlx;
-        // const inverseVly = vly === 0 ? 0 : 1 / vly;
-        // const t1 = (-he.x - p_clocal.x) * inverseVlx;
-        // const t2 = (he.x - p_clocal.x) * inverseVlx;
-        // const t3 = (-he.y - p_clocal.y) * inverseVly;
-        // const t4 = (he.y - p_clocal.y) * inverseVly;
-        // const tminx = Math.min(t1, t2), tminy = Math.min(t3, t4);
-        // const tmin = Math.max(tminx, tminy);
-        // const tmax = Math.min(Math.max(t1, t2), Math.max(t3, t4));
-        // const t = tmin < 0 ? tmax : tmin;
-        // if (tmax < 0 || tmin > tmax || tmin > 1) {
-        //     // Lion velocity is not facing the wall or too far away
-        //     c.add(v.scale(deltaTime));
-        // } else {
-        //     // Lion velocity is facing an edge of the wall
-        //     // Move to collision point defined by intersection time t
-        //     // Find nearest vertex in local space
-        //     const nearestVertex = new Vector2(
-        //         Math.sign(p_clocal.x) * (he.x),
-        //         Math.sign(p_clocal.y) * (he.y)
-        //     );
-        //     // Calculate direction to nearest vertex
-        //     const direction = new Vector2(
-        //         nearestVertex.x - p_clocal.x,
-        //         nearestVertex.y - p_clocal.y
-        //     );
-        //     direction.normalize().scale(LION_VELOCITY * deltaTime).matmul2(wall.rotation);
-        //     c.add(v.scale(deltaTime).add(direction));
-        // }
+    //     // Below is an unfinished raycasting implementation
+    //     // v.copy(pp).sub(c).normalize().scale(LION_VELOCITY);
+    //     // // TODO: check if either point is in the aabb (after obb rotation) to simplify
+    //     // p_clocal.copy(c).sub(wc).matmul2(wall.inverseRotation);
+    //     // p_vlocal.copy(v).matmul2(wall.inverseRotation);
+    //     // const vlx = p_vlocal.x, vly = p_vlocal.y;
+    //     // const inverseVlx = vlx === 0 ? 0 : 1 / vlx;
+    //     // const inverseVly = vly === 0 ? 0 : 1 / vly;
+    //     // const t1 = (-he.x - p_clocal.x) * inverseVlx;
+    //     // const t2 = (he.x - p_clocal.x) * inverseVlx;
+    //     // const t3 = (-he.y - p_clocal.y) * inverseVly;
+    //     // const t4 = (he.y - p_clocal.y) * inverseVly;
+    //     // const tminx = Math.min(t1, t2), tminy = Math.min(t3, t4);
+    //     // const tmin = Math.max(tminx, tminy);
+    //     // const tmax = Math.min(Math.max(t1, t2), Math.max(t3, t4));
+    //     // const t = tmin < 0 ? tmax : tmin;
+    //     // if (tmax < 0 || tmin > tmax || tmin > 1) {
+    //     //     // Lion velocity is not facing the wall or too far away
+    //     //     c.add(v.scale(deltaTime));
+    //     // } else {
+    //     //     // Lion velocity is facing an edge of the wall
+    //     //     // Move to collision point defined by intersection time t
+    //     //     // Find nearest vertex in local space
+    //     //     const nearestVertex = new Vector2(
+    //     //         Math.sign(p_clocal.x) * (he.x),
+    //     //         Math.sign(p_clocal.y) * (he.y)
+    //     //     );
+    //     //     // Calculate direction to nearest vertex
+    //     //     const direction = new Vector2(
+    //     //         nearestVertex.x - p_clocal.x,
+    //     //         nearestVertex.y - p_clocal.y
+    //     //     );
+    //     //     direction.normalize().scale(LION_VELOCITY * deltaTime).matmul2(wall.rotation);
+    //     //     c.add(v.scale(deltaTime).add(direction));
+    //     // }
 
-        // Below is an unfinished 'closest vertex' implementation
-        // p_transformed.copy(c).sub(wc).matmul2(wall.inverseRotation);
-        // p_closest.copy(p_transformed).clamp(wall.halfExtents);
-        // p_offset.copy(p_transformed).sub(p_closest);
-        // const squaredDistance = p_offset.magnitudeSqr();
-        // if (squaredDistance <= lion.radiusSqr) {
-        //     // Lion is intersecting the wall
-        //     p_vtransformed.copy(v).matmul2(wall.inverseRotation);
-        //     p_normal.set(
-        //         Math.abs(p_offset.x) > Math.abs(p_offset.y) ? Math.sign(p_offset.x) : 0,
-        //         Math.abs(p_offset.y) > Math.abs(p_offset.x) ? Math.sign(p_offset.y) : 0
-        //     );
-        //     if (p_vtransformed.dot(p_normal) < 0) {
-        //         // Lion is facing the wall
-        //         v.copy(p_normal.matmul2(wall.rotation));
-        //         console.log(true)
-        //     } else {
-        //         console.log(false)
-        //         // Lion is not facing the wall
-        //     }
-        // } else {
-        //     console.log(' not intersecting')
-        //     // Lion is not intersecting the wall
-        // }
-        // c.add(v.scale(LION_VELOCITY * deltaTime));
-        ctx.beginPath();
-        ctx.arc(c.x, c.y, lion.radius, 0, _Math.TAU);
-        ctx.stroke();
+    //     // Below is an unfinished 'closest vertex' implementation
+    //     // p_transformed.copy(c).sub(wc).matmul2(wall.inverseRotation);
+    //     // p_closest.copy(p_transformed).clamp(wall.halfExtents);
+    //     // p_offset.copy(p_transformed).sub(p_closest);
+    //     // const squaredDistance = p_offset.magnitudeSqr();
+    //     // if (squaredDistance <= lion.radiusSqr) {
+    //     //     // Lion is intersecting the wall
+    //     //     p_vtransformed.copy(v).matmul2(wall.inverseRotation);
+    //     //     p_normal.set(
+    //     //         Math.abs(p_offset.x) > Math.abs(p_offset.y) ? Math.sign(p_offset.x) : 0,
+    //     //         Math.abs(p_offset.y) > Math.abs(p_offset.x) ? Math.sign(p_offset.y) : 0
+    //     //     );
+    //     //     if (p_vtransformed.dot(p_normal) < 0) {
+    //     //         // Lion is facing the wall
+    //     //         v.copy(p_normal.matmul2(wall.rotation));
+    //     //         console.log(true)
+    //     //     } else {
+    //     //         console.log(false)
+    //     //         // Lion is not facing the wall
+    //     //     }
+    //     // } else {
+    //     //     console.log(' not intersecting')
+    //     //     // Lion is not intersecting the wall
+    //     // }
+    //     // c.add(v.scale(LION_VELOCITY * deltaTime));
+    //     ctx.beginPath();
+    //     ctx.arc(c.x, c.y, lion.radius, 0, _Math.TAU);
+    //     ctx.stroke();
+    // }
+    // // gameState.v2Pool.free(p_transformed);
+    // // gameState.v2Pool.free(p_closest);
+    // // gameState.v2Pool.free(p_offset);
+    // // gameState.v2Pool.free(p_vtransformed);
+    // // gameState.v2Pool.free(p_normal);
+    // gameState.v2Pool.free(p_clocal);
+    // gameState.v2Pool.free(p_vlocal);
+    // gameState.v2Pool.free(p_collision);
+    // gameState.v2Pool.free(p_pplocal);
+    // gameState.v2Pool.free(p_repulsion);
+    // gameState.v2Pool.free(p_neighbor);
+    // gameState.v2Pool.free(p_obstacle);
+
+    // ORCA Move Lions
+    // Obstacle Reciprocal Collision Avoidance inspired by https://gamma.cs.unc.edu/ORCA/publications/ORCA.pdf
+    /** Time horizon (steps) for the ORCA algorithm. */
+    const timeHorizon = 5;
+    // eslint-disable-next-line @typescript-eslint/prefer-for-of
+    for (let i = 0; i < gameState.lions.length - 1; i++) {
+        const lionA = gameState.lions[i]!;
+        const pA = lionA.center, rA = lionA.radius, vA = lionA.velocity;
+        // TODO: compute k-nearest neighbors, naive = compare distances of all neighbors less than sensing radius
+        const kNN = gameState.lions.length - 1;
+        for (let j = i + 1; j < gameState.lions.length; j++) {
+            const lionB = gameState.lions[j]!;
+            const pB = lionB.center, rB = lionB.radius, vB = lionB.velocity;
+            const pRel = pB.clone().sub(pA);
+            const vRel = vA.clone().sub(vB);
+            const r = rA + rB;
+            const rSqr = r * r;
+
+            // Compute velocity obstacle VO
+
+
+            /** The smallest change in relative velocity required to resolve the collision. */
+            const u = new Vector2();
+            /** Reciprocal (shared half effort) of the smallest change. */
+            const halfU = u.clone().scale(0.5);
+        }
     }
-    // gameState.v2Pool.free(p_transformed);
-    // gameState.v2Pool.free(p_closest);
-    // gameState.v2Pool.free(p_offset);
-    // gameState.v2Pool.free(p_vtransformed);
-    // gameState.v2Pool.free(p_normal);
-    gameState.v2Pool.free(p_clocal);
-    gameState.v2Pool.free(p_vlocal);
-    gameState.v2Pool.free(p_collision);
-    gameState.v2Pool.free(p_pplocal);
-    gameState.v2Pool.free(p_repulsion);
-    gameState.v2Pool.free(p_neighbor);
-    gameState.v2Pool.free(p_obstacle);
 
     for (const thing of [...thingsToRender, gameState.player]) {
         // TODO: obviously dont update velocity here, but rather in the game loop
