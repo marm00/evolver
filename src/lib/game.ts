@@ -764,6 +764,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
 
     // ORCA Move Lions
     // Obstacle Reciprocal Collision Avoidance inspired by https://gamma.cs.unc.edu/ORCA/publications/ORCA.pdf
+    // TODO: parallelize
     /** Time horizon (steps) for the ORCA algorithm. */
     const timeHorizon = 5;
     // eslint-disable-next-line @typescript-eslint/prefer-for-of
@@ -778,7 +779,15 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             const pRel = pB.clone().sub(pA);
             const vRel = vA.clone().sub(vB);
             const r = rA + rB;
+            /** Apex of the VO cone. */
+            const w = pRel.clone().scale(1 / timeHorizon);
+            const distSqr = pRel.magnitudeSqr();
             const rSqr = r * r;
+
+            if (distSqr < _Math.EPSILON) {
+                // Lions are on top of each other, define VO as entire plane 
+            }
+
 
             // Compute velocity obstacle VO
 
