@@ -615,7 +615,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     //         // p_velocity.scale(1);
     //         // p_velocity.add(p_repulsion);
     //     } else {
-            
+
     //     }
 
     //     // Random between 0.5 lion velocity and 1.5 lion velocity
@@ -772,30 +772,47 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         const lionA = gameState.lions[i]!;
         const pA = lionA.center, rA = lionA.radius, vA = lionA.velocity;
         // TODO: compute k-nearest neighbors, naive = compare distances of all neighbors less than sensing radius
+        // TODO: actually compute optimal velocities instead of using current velocities using linear program
         const kNN = gameState.lions.length - 1;
         for (let j = i + 1; j < gameState.lions.length; j++) {
             const lionB = gameState.lions[j]!;
             const pB = lionB.center, rB = lionB.radius, vB = lionB.velocity;
             const pRel = pB.clone().sub(pA);
-            const vRel = vA.clone().sub(vB);
-            const r = rA + rB;
-            /** Apex of the VO cone. */
-            const w = pRel.clone().scale(1 / timeHorizon);
             const distSqr = pRel.magnitudeSqr();
-            const rSqr = r * r;
-
-            if (distSqr < _Math.EPSILON) {
+            /** Apex of the VO (truncated) cone. */
+            const apex = new Vector2();
+            const leftLeg = new Vector2();
+            const rightLeg = new Vector2();
+            if (distSqr >= _Math.EPSILON) {
+                /** Minimum separation to avoid collision. */
+                const r = rA + rB;
+                apex.copy(pRel).scale(1 / timeHorizon);
+                const apexLength = Math.sqrt(distSqr);
+                const theta = Math.asin(r / apexLength);
+                const direction = pRel.clone().normalize();
+                leftLeg.copy(direction).rotate(-theta);
+                rightLeg.copy(direction).rotate(theta);
+                // VOa|b^t is now defined with apex, leftLeg, and rightLeg
+                const rSqr = r * r;
+                const vRel = vA.clone().sub(vB);
+                const course = vRel.clone().sub(apex);
+                const collision = course.detUnchecked(leftLeg) >= 0 && course.detUnchecked(rightLeg) <= 0;
+                if (collision) {
+                    // Collision is imminent, calculate u by scalar projections
+                    const tLeft = pRel.clone().sub(apex).dot(leftLeg);
+                    const tRight = pRel.clone().sub(apex).dot(rightLeg);
+                    const projLeft = apex.clone().add(leftLeg.clone().scale(tLeft));
+                    const projRight = apex.clone().add(rightLeg.clone().scale(tRight));
+                    const distSqrLeft = pRel.clone().sub(projLeft).magnitudeSqr();
+                    const distSqrRight = pRel.clone().sub(projRight).magnitudeSqr();
+                    /** The smallest change in relative velocity required to resolve the collision. */
+                    const u = new Vector2().copy(distSqrLeft < distSqrRight ? projLeft.sub(pRel) : projRight.sub(pRel));
+                    /** Reciprocal (shared half effort) of the smallest change. */
+                    const halfU = u.clone().scale(0.5);
+                }
+            } else {
                 // Lions are on top of each other, define VO as entire plane 
             }
-
-
-            // Compute velocity obstacle VO
-
-
-            /** The smallest change in relative velocity required to resolve the collision. */
-            const u = new Vector2();
-            /** Reciprocal (shared half effort) of the smallest change. */
-            const halfU = u.clone().scale(0.5);
         }
     }
 
