@@ -807,8 +807,13 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
                     const distSqrRight = pRel.clone().sub(projRight).magnitudeSqr();
                     /** The smallest change in relative velocity required to resolve the collision. */
                     const u = new Vector2().copy(distSqrLeft < distSqrRight ? projLeft.sub(pRel) : projRight.sub(pRel));
+                    /** Normal vector of minimal change. */
+                    const n = u.clone().normalize();
                     /** Reciprocal (shared half effort) of the smallest change. */
                     const halfU = u.clone().scale(0.5);
+                    vA.add(halfU);
+                    // ORCA constraint (half-plane) is now defined by n and vA
+                    // TODO: linear program to find optimal new velocity satisfying contraints
                 }
             } else {
                 // Lions are on top of each other, define VO as entire plane 
