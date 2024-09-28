@@ -234,7 +234,6 @@ export class Vector2 implements Resettable {
         return Math.abs(this.x - v.x) + Math.abs(this.y - v.y);
     }
 
-    // TODO: Easing functions
     /** 
      * Incremental linear interpolation, resulting in a vector between this and the given vector at the given time, unclamped.
      * 

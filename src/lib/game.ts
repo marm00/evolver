@@ -764,9 +764,10 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
 
     // ORCA Move Lions
     // Obstacle Reciprocal Collision Avoidance inspired by https://gamma.cs.unc.edu/ORCA/publications/ORCA.pdf
-    // TODO: parallelize
+    // TODO: parallelize and obviously different data structure (k-d tree partitioning, etc.)
     /** Time horizon (steps) for the ORCA algorithm. */
     const timeHorizon = 5;
+    const inverseTimeHorizon = 1 / timeHorizon;
     // eslint-disable-next-line @typescript-eslint/prefer-for-of
     for (let i = 0; i < gameState.lions.length - 1; i++) {
         const lionA = gameState.lions[i]!;
@@ -786,7 +787,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             if (distSqr >= _Math.EPSILON) {
                 /** Minimum separation to avoid collision. */
                 const r = rA + rB;
-                apex.copy(pRel).scale(1 / timeHorizon);
+                apex.copy(pRel).scale(inverseTimeHorizon);
                 const apexLength = Math.sqrt(distSqr);
                 const theta = Math.asin(r / apexLength);
                 const direction = pRel.clone().normalize();
