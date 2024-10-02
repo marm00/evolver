@@ -775,6 +775,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         // TODO: compute k-nearest neighbors, naive = compare distances of all neighbors less than sensing radius
         // TODO: actually compute optimal velocities instead of using current velocities using linear program
         const kNN = gameState.lions.length - 1;
+        const constraints: {direction: Vector2, point: Vector2}[] = []; 
         for (let j = i + 1; j < gameState.lions.length; j++) {
             const lionB = gameState.lions[j]!;
             const pB = lionB.center, rB = lionB.radius, vB = lionB.velocity;
@@ -808,13 +809,20 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
                     const distSqrRight = pRel.clone().sub(projRight).magnitudeSqr();
                     /** The smallest change in relative velocity required to resolve the collision. */
                     const u = new Vector2().copy(distSqrLeft < distSqrRight ? projLeft.sub(pRel) : projRight.sub(pRel));
-                    /** Normal vector of minimal change. */
-                    const n = u.clone().normalize();
+                    /** Normal vector n (or direction) of minimal change. */
+                    const direction = u.clone().normalize();
                     /** Reciprocal (shared half effort) of the smallest change. */
                     const halfU = u.clone().scale(0.5);
-                    vA.add(halfU);
+                    const point = vA.clone().add(halfU);
+                    constraints.push({ direction, point });
                     // ORCA constraint (half-plane) is now defined by n and vA
                     // TODO: linear program to find optimal new velocity satisfying contraints
+                    for (const constraint of constraints) {
+                        // Minimize f(v) = ||v - vPref||^2
+                        // (v-vPref) * n >= 0
+                        // ||v|| <= vMax 
+                        const n = constraint.direction, v = constraint.point;
+                    }
                 }
             } else {
                 // Lions are on top of each other, define VO as entire plane 
