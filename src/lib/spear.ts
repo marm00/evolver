@@ -121,7 +121,8 @@ export class Lion {
     radius: number;
     radiusSq: number;
     velocityScalar: number;
-    maximumSpeed: number;
+    maxSpeed: number;
+    maxSpeedSq: number;
     preferredVelocity: Vector2;
     optimalVelocity: Vector2;
     // TODO: maximum speed and preferred velocity (not a velocity scalar)
@@ -129,7 +130,7 @@ export class Lion {
     // Where the optimal of each disc is generally its current velocity,
     // with the exception of high density areas (estimates have to be made)
 
-    constructor(cx: number, cy: number, radius: number, velocityScalar: number, maximumSpeed: number) {
+    constructor(cx: number, cy: number, radius: number, velocityScalar: number, maxSpeed: number) {
         this.center = new Vector2(cx, cy);
         this.velocity = new Vector2();
         this.acceleration = new Vector2();
@@ -137,16 +138,18 @@ export class Lion {
         this.radiusSq = radius * radius;
         this.velocityScalar = velocityScalar;
         this.preferredVelocity = new Vector2();
-        this.maximumSpeed = maximumSpeed;
+        this.maxSpeed = maxSpeed;
+        this.maxSpeedSq = maxSpeed * maxSpeed;
         this.optimalVelocity = new Vector2();
     }
 
-    set(cx: number, cy: number, radius: number, velocityScalar: number, maximumSpeed: number): this {
+    set(cx: number, cy: number, radius: number, velocityScalar: number, maxSpeed: number): this {
         this.center.set(cx, cy);
         this.radius = radius;
         this.radiusSq = radius * radius;
         this.velocityScalar = velocityScalar;
-        this.maximumSpeed = maximumSpeed;
+        this.maxSpeed = maxSpeed;
+        this.maxSpeedSq = maxSpeed * maxSpeed;
         return this;
     }
 }
