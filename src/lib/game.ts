@@ -775,28 +775,34 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         // TODO: compute k-nearest neighbors, naive = compare distances of all neighbors less than sensing radius
         // TODO: actually compute optimal velocities instead of using current velocities using linear program
         const kNN = gameState.lions.length - 1;
-        const constraints: {direction: Vector2, point: Vector2}[] = []; 
+        const constraints: { direction: Vector2, point: Vector2 }[] = [];
         for (let j = i + 1; j < gameState.lions.length; j++) {
             const lionB = gameState.lions[j]!;
             const pB = lionB.center, rB = lionB.radius, vB = lionB.velocity;
             const pRel = pB.clone().sub(pA);
+            const vRel = vA.clone().sub(vB);
             const distSqr = pRel.magnitudeSqr();
-            /** Apex of the VO (truncated) cone. */
+            const r = rA + rB;
+            const rSqr = r * r;
+            /** Apex of the VO (truncated) cone or origin of relative velocity space. */
             const apex = new Vector2();
             const leftLeg = new Vector2();
             const rightLeg = new Vector2();
-            if (distSqr >= _Math.EPSILON) {
+            /** The smallest change in relative velocity required to resolve the collision. */
+            const u = new Vector2();
+            /** Normal vector n (or direction) of minimal change. */
+            const direction = new Vector2();
+            /** Represents the line on which to adjust velocity for reciprocal avoidance. */
+            const point = new Vector2();
+            if (distSqr > rSqr) { // TODO: _Math.EPSILON or combined squared radius?
                 /** Minimum separation to avoid collision. */
-                const r = rA + rB;
                 apex.copy(pRel).scale(inverseTimeHorizon);
                 const apexLength = Math.sqrt(distSqr);
                 const theta = Math.asin(r / apexLength);
-                const direction = pRel.clone().normalize();
-                leftLeg.copy(direction).rotate(-theta);
-                rightLeg.copy(direction).rotate(theta);
+                const pDirection = pRel.clone().normalize();
+                leftLeg.copy(pDirection).rotate(-theta);
+                rightLeg.copy(pDirection).rotate(theta);
                 // VOa|b^t is now defined with apex, leftLeg, and rightLeg
-                const rSqr = r * r;
-                const vRel = vA.clone().sub(vB);
                 const course = vRel.clone().sub(apex);
                 const collision = course.detUnchecked(leftLeg) >= 0 && course.detUnchecked(rightLeg) <= 0;
                 if (collision) {
@@ -807,26 +813,28 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
                     const projRight = apex.clone().add(rightLeg.clone().scale(tRight));
                     const distSqrLeft = pRel.clone().sub(projLeft).magnitudeSqr();
                     const distSqrRight = pRel.clone().sub(projRight).magnitudeSqr();
-                    /** The smallest change in relative velocity required to resolve the collision. */
-                    const u = new Vector2().copy(distSqrLeft < distSqrRight ? projLeft.sub(pRel) : projRight.sub(pRel));
-                    /** Normal vector n (or direction) of minimal change. */
-                    const direction = u.clone().normalize();
-                    /** Reciprocal (shared half effort) of the smallest change. */
-                    const halfU = u.clone().scale(0.5);
-                    const point = vA.clone().add(halfU);
-                    constraints.push({ direction, point });
-                    // ORCA constraint (half-plane) is now defined by n and vA
-                    // TODO: linear program to find optimal new velocity satisfying contraints
-                    for (const constraint of constraints) {
-                        // Minimize f(v) = ||v - vPref||^2
-                        // (v-vPref) * n >= 0
-                        // ||v|| <= vMax 
-                        const n = constraint.direction, v = constraint.point;
-                    }
+                    u.copy(distSqrLeft < distSqrRight ? projLeft.sub(pRel) : projRight.sub(pRel));
+                    direction.copy(u).normalize();
                 }
             } else {
-                // Lions are on top of each other, define VO as entire plane 
+                // Lions are on top of each other, define VO as entire plane
+                apex.copy(vRel).sub(pRel.clone().scale(inverseTimeHorizon));
+                // Apex is now defined as the cutoff center to relative velocity
+                const apexLength = apex.magnitude();
+                direction.copy(apex).scale(1 / apexLength).rotate90Deg();
+                u.copy(direction).scale(r * inverseTimeHorizon - apexLength);
             }
+            point.copy(vA).add(u.clone().scale(0.5));
+            constraints.push({ direction, point });
+            // ORCA constraint (half-plane) is now defined by n (direction) and vA+halfU (point)
+            // Where halfU is the reciprocal (shared half effort) of the smallest change
+        }
+        // TODO: linear program to find optimal new velocity satisfying contraints
+        for (const constraint of constraints) {
+            // Minimize f(v) = ||v - vPref||^2
+            // (v-vPref) * n >= 0
+            // ||v|| <= vMax 
+            const n = constraint.direction, v = constraint.point;
         }
     }
 
