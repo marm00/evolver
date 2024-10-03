@@ -119,7 +119,7 @@ export class Lion {
     velocity: Vector2;
     acceleration: Vector2;
     radius: number;
-    radiusSqr: number;
+    radiusSq: number;
     velocityScalar: number;
     maximumSpeed: number;
     preferredVelocity: Vector2;
@@ -134,7 +134,7 @@ export class Lion {
         this.velocity = new Vector2();
         this.acceleration = new Vector2();
         this.radius = radius;
-        this.radiusSqr = radius * radius;
+        this.radiusSq = radius * radius;
         this.velocityScalar = velocityScalar;
         this.preferredVelocity = new Vector2();
         this.maximumSpeed = maximumSpeed;
@@ -144,7 +144,7 @@ export class Lion {
     set(cx: number, cy: number, radius: number, velocityScalar: number, maximumSpeed: number): this {
         this.center.set(cx, cy);
         this.radius = radius;
-        this.radiusSqr = radius * radius;
+        this.radiusSq = radius * radius;
         this.velocityScalar = velocityScalar;
         this.maximumSpeed = maximumSpeed;
         return this;
@@ -160,7 +160,7 @@ export class Meteorite {
     origin: Vector2;
     target: Vector2;
     radius: number;
-    // radiusSqr: number;
+    // radiusSq: number;
 
     duration: number;
     lifetime: number;
@@ -171,7 +171,7 @@ export class Meteorite {
         this.origin = new Vector2(ox, oy);
         this.target = new Vector2(tx, ty);
         this.radius = radius;
-        // this.radiusSqr = radius * radius;
+        // this.radiusSq = radius * radius;
         this.duration = duration;
         this.lifetime = duration;
         this.displayRadius = displayRadius;
@@ -182,7 +182,7 @@ export class Meteorite {
         this.origin.set(ox, oy);
         this.target.set(tx, ty);
         this.radius = radius;
-        // this.radiusSqr = radius * radius;
+        // this.radiusSq = radius * radius;
         this.duration = duration;
         this.lifetime = duration;
         this.displayRadius = displayRadius;
@@ -207,7 +207,7 @@ type ResourceState = ObjectValues<typeof RESOURCE_STATE>;
 export class Obsidian {
     center: Vector2;
     radius: number;
-    radiusSqr: number;
+    radiusSq: number;
     displayRadius: number;
     resourceState: ResourceState;
     /** The target to jump to for an animation, before moving towards the player. */
@@ -217,7 +217,7 @@ export class Obsidian {
     constructor(cx: number, cy: number, radius: number, acceleration: number, displayRadius: number) {
         this.center = new Vector2(cx, cy);
         this.radius = radius;
-        this.radiusSqr = radius * radius;
+        this.radiusSq = radius * radius;
         this.displayRadius = displayRadius;
         this.resourceState = RESOURCE_STATE.Uncollected;
         this.jump = new Vector2(0, 0);
@@ -227,7 +227,7 @@ export class Obsidian {
     set(cx: number, cy: number, radius: number, acceleration: number, displayRadius: number): this {
         this.center.set(cx, cy);
         this.radius = radius;
-        this.radiusSqr = radius * radius;
+        this.radiusSq = radius * radius;
         this.displayRadius = displayRadius;
         this.resourceState = RESOURCE_STATE.Uncollected;
         this.jump.set(0, 0);
@@ -244,7 +244,7 @@ export class Thunderstorm {
     center: Vector2;
     velocity: Vector2;
     radius: number;
-    radiusSqr: number;
+    radiusSq: number;
     offset: number;
     active = false;
 
@@ -252,7 +252,7 @@ export class Thunderstorm {
         this.center = new Vector2(cx, cy);
         this.velocity = new Vector2();
         this.radius = radius;
-        this.radiusSqr = radius * radius;
+        this.radiusSq = radius * radius;
         this.offset = offset;
     }
 }
@@ -261,7 +261,7 @@ export class Thunderstorm {
 export class Orb {
     centers: Vector2[];
     radius: number;
-    radiusSqr: number;
+    radiusSq: number;
     offset: number;
     velocity: number;
     angle = _Math.TAU;
@@ -270,7 +270,7 @@ export class Orb {
     constructor(px: number, py: number, radius: number, offset: number, velocity: number) {
         this.centers = [new Vector2(px, py)];
         this.radius = radius;
-        this.radiusSqr = radius * radius;
+        this.radiusSq = radius * radius;
         this.offset = offset;
         this.velocity = velocity;
     }

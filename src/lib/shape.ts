@@ -221,12 +221,12 @@ export class OrientedRect extends Shape {
 
 export class Circle extends Shape {
     radius: number;
-    radiusSqr: number;
+    radiusSq: number;
 
     constructor(center: Vector2, velocity: Vector2, acceleration: Vector2, radius: number) {
         super(center, new Vector2(radius, radius), velocity, acceleration);
         this.radius = radius;
-        this.radiusSqr = radius * radius;
+        this.radiusSq = radius * radius;
     }
 
     static zero(this: void): Circle {
@@ -236,7 +236,7 @@ export class Circle extends Shape {
     reset(): void {
         super.reset();
         this.radius = 0;
-        this.radiusSqr = 0;
+        this.radiusSq = 0;
     }
 
     setMatrix3(m: Matrix3): void {
@@ -248,14 +248,14 @@ export class Circle extends Shape {
     setDimensions(radius: number): this {
         this.extents.set(radius, radius);
         this.radius = radius;
-        this.radiusSqr = radius * radius;
+        this.radiusSq = radius * radius;
         return this;
     }
 
     radialContains(point: Vector2): boolean {
         // Edge-to-edge is more accurate, but this radial trigger can be more useful
-        // No need to sum the distances, and the precompued radiusSqr can be used
-        return this.center.distanceToSqr(point) <= this.radiusSqr;
+        // No need to sum the distances, and the precompued radiusSq can be used
+        return this.center.distanceToSq(point) <= this.radiusSq;
     }
 
 }

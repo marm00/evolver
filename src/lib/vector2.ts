@@ -218,7 +218,7 @@ export class Vector2 implements Resettable {
     }
 
     /** Squared magnitude from this to the given vector. */
-    distanceToSqr(v: Vector2): number {
+    distanceToSq(v: Vector2): number {
         const dx = this.x - v.x;
         const dy = this.y - v.y;
         return dx * dx + dy * dy;
@@ -226,7 +226,7 @@ export class Vector2 implements Resettable {
 
     /** Magnitude from this to the given vector. */
     distanceTo(v: Vector2): number {
-        return Math.sqrt(this.distanceToSqr(v));
+        return Math.sqrt(this.distanceToSq(v));
     }
 
     /** Manhatten magnitude from this to the given vector. */

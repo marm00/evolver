@@ -256,7 +256,7 @@ export function spawnLion(target: Vector2, lionPool: Pool<Lion>, lions: Lion[]) 
 export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game, elapsedTime: number, deltaTime: number) {
     const cx = gameState.player.canvasCenterX, cy = gameState.player.canvasCenterY;
     const pp = gameState.player.center, pv = gameState.player.velocity;
-    const pr = gameState.player.radius, prSqr = gameState.player.radiusSqr;
+    const pr = gameState.player.radius, prSq = gameState.player.radiusSq;
     const mp = gameState.player.mousePosition;
     // TODO: maybe floor/round mouse position when the canvas center is not an integer (but ends on .5)
     // Project the canvas mouse position to the world coordinate system
@@ -434,7 +434,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         const c = obsidian.center, jump = obsidian.jump;
         switch (obsidian.resourceState) {
             case RESOURCE_STATE.Uncollected: {
-                if (c.distanceToSqr(pp) <= obsidian.radiusSqr) {
+                if (c.distanceToSq(pp) <= obsidian.radiusSq) {
                     jump.copy(c).sub(pp).normalize().scale(OBSIDIAN_JUMP_DISTANCE).add(c);
                     obsidian.resourceState = RESOURCE_STATE.Jumping;
                 }
@@ -442,7 +442,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             }
             case RESOURCE_STATE.Jumping: {
                 c.lerp(jump, _Math.clamp(OBSIDIAN_VELOCITY * deltaTime, 0, 1));
-                if (c.distanceToSqr(jump) < OBSIDIAN_THRESHOLD) {
+                if (c.distanceToSq(jump) < OBSIDIAN_THRESHOLD) {
                     obsidian.resourceState = RESOURCE_STATE.Collecting;
                 }
                 ctx.strokeStyle = '#47ff5f';
@@ -457,7 +457,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
                 // There could be a cheaper way to move while still not visually overshooting the target
                 obsidian.acceleration *= OBSIDIAN_ACCELERATION;
                 c.lerp(pp, _Math.clamp(obsidian.acceleration * deltaTime * deltaTime, 0, 1));
-                if (c.distanceToSqr(pp) < OBSIDIAN_THRESHOLD) {
+                if (c.distanceToSq(pp) < OBSIDIAN_THRESHOLD) {
                     gameState.obsidians.splice(gameState.obsidians.indexOf(obsidian), 1);
                     gameState.obsidianPool.free(obsidian);
                     // TODO: add resource to player
@@ -575,7 +575,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     //     // TODO: separate lions (collision avoidance) such that they don't collide with each other
     //     const lion = gameState.lions[i]!;
     //     const c = lion.center;
-    //     // if (c.distanceToSqr(pp) <= lion.radiusSqr) continue;
+    //     // if (c.distanceToSq(pp) <= lion.radiusSq) continue;
     //     const wall = gameState.walls[0]!;
     //     const wc = wall.center, halfWidth = wall.halfWidth, halfHeight = wall.halfHeight;
     //     // TODO: broad phase first, maybe bounding circle for initial collision check
@@ -584,19 +584,19 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     //     // TODO: reduce max call?
     //     const dx = Math.max(Math.abs(clx) - halfWidth, 0);
     //     const dy = Math.max(Math.abs(cly) - halfHeight, 0);
-    //     // const distSqr = dx * dx + dy * dy;
-    //     // const dist = Math.sqrt(distSqr);
+    //     // const distSq = dx * dx + dy * dy;
+    //     // const dist = Math.sqrt(distSq);
     //     p_repulsion.set(0, 0);
     //     for (let j = 0; j < gameState.lions.length; j++) {
     //         if (i === j) continue;
     //         const lion2 = gameState.lions[j]!;
     //         const c2 = lion2.center;
-    //         const rdistSqr = c.distanceToSqr(c2);
+    //         const rdistSq = c.distanceToSq(c2);
     //         /** Approximate condition summing precomputed squared radii. */
-    //         // const rradiiSqr = lion.radiusSqr + lion2.radiusSqr;
-    //         const rradiiSqr = (lion.radius + lion2.radius) ** 2;
-    //         // const rradiiSqr = lion.radiusSqr + 2 * lion.radius + lion2.radius + lion2.radiusSqr;
-    //         if (rdistSqr > rradiiSqr) continue;
+    //         // const rradiiSq = lion.radiusSq + lion2.radiusSq;
+    //         const rradiiSq = (lion.radius + lion2.radius) ** 2;
+    //         // const rradiiSq = lion.radiusSq + 2 * lion.radius + lion2.radius + lion2.radiusSq;
+    //         if (rdistSq > rradiiSq) continue;
     //         p_neighbor.copy(c).sub(c2);
     //         p_repulsion.add(p_neighbor);
     //     }
@@ -724,8 +724,8 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     //     // p_transformed.copy(c).sub(wc).matmul2(wall.inverseRotation);
     //     // p_closest.copy(p_transformed).clamp(wall.halfExtents);
     //     // p_offset.copy(p_transformed).sub(p_closest);
-    //     // const squaredDistance = p_offset.magnitudeSqr();
-    //     // if (squaredDistance <= lion.radiusSqr) {
+    //     // const squaredDistance = p_offset.magnitudeSq();
+    //     // if (squaredDistance <= lion.radiusSq) {
     //     //     // Lion is intersecting the wall
     //     //     p_vtransformed.copy(v).matmul2(wall.inverseRotation);
     //     //     p_normal.set(
@@ -781,9 +781,9 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             const pB = lionB.center, rB = lionB.radius, vB = lionB.velocity;
             const pRel = pB.clone().sub(pA);
             const vRel = vA.clone().sub(vB);
-            const distSqr = pRel.magnitudeSqr();
+            const distSq = pRel.magnitudeSq();
             const r = rA + rB;
-            const rSqr = r * r;
+            const rSq = r * r;
             /** Apex of the VO (truncated) cone or origin of relative velocity space. */
             const apex = new Vector2();
             const leftLeg = new Vector2();
@@ -794,21 +794,21 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             const direction = new Vector2();
             /** Represents the line on which to adjust velocity for reciprocal avoidance. */
             const point = new Vector2();
-            if (distSqr > rSqr) { // TODO: _Math.EPSILON or combined squared radius?
+            if (distSq > rSq) { // TODO: _Math.EPSILON or combined squared radius?
                 // No observed collision or overlap, determine now
                 apex.copy(vRel).sub(pRel.clone().scale(inverseTimeHorizon));
-                const apexLengthSqr = Math.abs(apex.magnitudeSqr());
+                const apexLengthSq = Math.abs(apex.magnitudeSq());
                 const angle = apex.dot(vRel);
                 const imminentAngle = angle < 0;
-                const imminentCollision = angle * angle > rSqr * apexLengthSqr;
+                const imminentCollision = angle * angle > rSq * apexLengthSq;
                 if (imminentAngle && imminentCollision) {
                     /** Project on cut-off circle. */
-                    const apexLength = Math.sqrt(apexLengthSqr);
+                    const apexLength = Math.sqrt(apexLengthSq);
                     direction.copy(apex).scale(1 / apexLength).rotate90Deg();
                     u.copy(direction).scale(r * inverseTimeHorizon - apexLength);
                 } else {
                     /** Project on legs. */
-                    const leg = Math.sqrt(distSqr - rSqr);
+                    const leg = Math.sqrt(distSq - rSq);
 
                 }
             } else {
@@ -927,7 +927,7 @@ class Player {
     velocity = new Vector2(0, 0);
     acceleration = new Vector2(0, 0);
     radius = 25;
-    radiusSqr = this.radius * this.radius;
+    radiusSq = this.radius * this.radius;
 
     playerDirection: Dir9 = DIR_9.Idle;
     sprite: HTMLImageElement | null = null;
