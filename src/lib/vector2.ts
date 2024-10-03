@@ -133,7 +133,7 @@ export class Vector2 implements Resettable {
      */
     det(v: Vector2): number {
         /** Magnitude as the sine demonimator. */
-        const denominator = Math.sqrt(this.magnitudeSqr() * v.magnitudeSqr());
+        const denominator = Math.sqrt(this.magnitudeSq() * v.magnitudeSq());
 
         // Return 0 in case of zero vector(s).
         if (denominator === 0) {
@@ -260,13 +260,13 @@ export class Vector2 implements Resettable {
     }
 
     /** Squared magnitude or Euclidean distance from the origin (Pythagorean theorem). */
-    magnitudeSqr(): number {
+    magnitudeSq(): number {
         return this.x * this.x + this.y * this.y;
     }
 
     /** Magnitude or Euclidean distance from the origin (Pythagorean theorem). */
     magnitude(): number {
-        return Math.sqrt(this.magnitudeSqr());
+        return Math.sqrt(this.magnitudeSq());
     }
 
     /** Returns the Manhatten distance from the origin (sum of the absolute values of the coordinates). */
@@ -285,7 +285,7 @@ export class Vector2 implements Resettable {
      */
     directionTo(v: Vector2): number {
         /** Magnitude as the cosine denominator. */
-        const denominator = Math.sqrt(this.magnitudeSqr() * v.magnitudeSqr());
+        const denominator = Math.sqrt(this.magnitudeSq() * v.magnitudeSq());
 
         // Treat zero vectors as having the default direction (tau radians or 0 or 360 degrees), preventing further null checks.
         if (denominator === 0) {
