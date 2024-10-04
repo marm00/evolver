@@ -768,7 +768,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     /** Time horizon (steps) for the ORCA algorithm. */
     const timeHorizon = 5;
     const inverseTimeHorizon = 1 / timeHorizon;
-    // eslint-disable-next-line @typescript-eslint/prefer-for-of
+    // TODO: replace dot/det with unchecked versions where possible
     for (let i = 0; i < gameState.lions.length - 1; i++) {
         const lionA = gameState.lions[i]!;
         const pA = lionA.center, rA = lionA.radius, vA = lionA.velocity;
@@ -849,6 +849,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             const n = constraint.direction, v = constraint.point;
             if (n.det(v.clone().sub(optVelocity)) > 0) {
                 // Optimal velocity is on the wrong side (left) of the ORCA constraint
+                // Next linear program
                 const alignment = v.dot(n);
                 const discriminantSq = alignment * alignment + maxSpeedSq - v.magnitudeSq();
                 if (discriminantSq < 0) {
@@ -888,7 +889,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
                     }
                 }
                 // Optimize closest point
-                /** Project preferred velocity onto constraint line, value to minimize. */
+                /** Project preferred velocity onto constraint line, the value (distance) to minimize. */
                 const t = n.dot(optVelocity.clone().sub(v));
                 if (t < tLeft) {    
                     vA.copy(v).add(n.clone().scale(tLeft));
@@ -897,6 +898,16 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
                 } else {
                     vA.copy(v).add(n.clone().scale(t));
                 }
+            }
+        }
+        // Final linear program
+        const failedLine = 0; // TODO: retrieve from linear program above (when returning false)
+        let distance = 0;
+        for (let lineNo = failedLine; lineNo < constraints.length; lineNo++) {
+            const constraint = constraints[lineNo]!;
+            const n = constraint.direction, v = constraint.point;
+            if (n.det(v.clone().sub(vA)) > distance) {
+                // Velocity does not satisfy constraint of the current line
             }
         }
     }
