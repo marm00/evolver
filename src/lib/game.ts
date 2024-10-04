@@ -772,16 +772,15 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     for (let i = 0; i < gameState.lions.length - 1; i++) {
         const lionA = gameState.lions[i]!;
         const pA = lionA.center, rA = lionA.radius, vA = lionA.velocity;
+        const maxSpeed = lionA.maxSpeed, maxSpeedSq = lionA.maxSpeedSq;
         /** Initial velocity to be used in linear program. */
-        const optVelocity = new Vector2();
-        if (Math.abs(vA.magnitudeSq()) > lionA.maxSpeedSq) {
+        const optVelocity = vA.clone();
+        if (optVelocity.magnitudeSq() > maxSpeedSq) {
             // Current velocity is above maximum speed, clamping it
-            optVelocity.copy(vA).normalize().scale(lionA.maxSpeed);
-        } else {
-            optVelocity.copy(vA);
+            optVelocity.normalize().scale(maxSpeed);
         }
         // TODO: compute k-nearest neighbors, naive = compare distances of all neighbors less than sensing radius
-        // TODO: actually compute optimal velocities instead of using current velocities using linear program
+        // TODO: actually compute optimal velocities instead of using current velocities, using linear program
         const kNN = gameState.lions.length - 1;
         const constraints: { direction: Vector2, point: Vector2 }[] = [];
         for (let j = i + 1; j < gameState.lions.length; j++) {
@@ -803,7 +802,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             if (distSq > rSq) { // TODO: _Math.EPSILON or combined squared radius?
                 // No observed collision or overlap
                 apex.copy(vRel).sub(pRel.clone().scale(inverseTimeHorizon));
-                const apexLengthSq = Math.abs(apex.magnitudeSq());
+                const apexLengthSq = apex.magnitudeSq();
                 const angle = apex.dot(vRel);
                 const imminentAngle = angle < 0;
                 const imminentCollision = angle * angle > rSq * apexLengthSq;
@@ -841,14 +840,63 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         }
         // Linear programming to find new optimal velocity satisfying constraints
         vA.copy(optVelocity);
-        for (const constraint of constraints) {
+        for (let lineNo = 0; lineNo < constraints.length; lineNo++) {
             // Objective:   Minimize f(v) = ||v - vPref||^2
             // Constraints: (v-vPref) * n >= 0
             //              ||v|| <= vMax
-            //              ORCA lines 
+            //              ORCA lines
+            const constraint = constraints[lineNo]!;
             const n = constraint.direction, v = constraint.point;
             if (n.det(v.clone().sub(optVelocity)) > 0) {
                 // Optimal velocity is on the wrong side (left) of the ORCA constraint
+                const alignment = v.dot(n);
+                const discriminantSq = alignment * alignment + maxSpeedSq - v.magnitudeSq();
+                if (discriminantSq < 0) {
+                    // Failure: maximum speed does not intersect with feasible line region
+                    return false; // TODO: separate function
+                }
+                const discriminant = Math.sqrt(discriminantSq);
+                // Define the segment of the line within the maximum speed circle
+                let tLeft = -alignment - discriminant;
+                let tRight = -alignment + discriminant;
+                for (let lineNoPrev = 0; lineNoPrev < lineNo; lineNoPrev++) {
+                    // Adjust above line segment to satisfy all previous constraints
+                    const constraintPrev = constraints[lineNoPrev]!;
+                    const nPrev = constraintPrev.direction, vPrev = constraintPrev.point;
+                    const denominator = n.det(nPrev);
+                    const numerator = nPrev.det(v.clone().sub(vPrev));
+                    if (Math.abs(denominator) < _Math.EPSILON) {
+                        // Lines are parallel or nearly parallel
+                        if (numerator < 0) {
+                            // Current constraint line is on the wrong side (right) of previous
+                            return false // TODO: separate function
+                        }
+                        continue;
+                    }
+                    /** The intersection point along the current constraint line. */
+                    const t = numerator / denominator;
+                    if (denominator > 0) {
+                        // Previous line bounds current line on the right
+                        tLeft = Math.min(tRight, t);
+                    } else {
+                        // Previous line bounds current line on the left
+                        tRight = Math.max(tLeft, t);
+                    }
+                    if (tLeft > tRight) {
+                        // Feasible interval along the constraint line is empty
+                        return false; // TODO: separate function
+                    }
+                }
+                // Optimize closest point
+                /** Project preferred velocity onto constraint line, value to minimize. */
+                const t = n.dot(optVelocity.clone().sub(v));
+                if (t < tLeft) {    
+                    vA.copy(v).add(n.clone().scale(tLeft));
+                } else if (t > tRight) {
+                    vA.copy(v).add(n.clone().scale(tRight));
+                } else {
+                    vA.copy(v).add(n.clone().scale(t));
+                }
             }
         }
     }
