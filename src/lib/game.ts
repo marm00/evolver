@@ -840,7 +840,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         }
         // Linear programming to find new optimal velocity satisfying constraints
         vA.copy(optVelocity);
-        for (let lineNo = 0; lineNo < constraints.length; lineNo++) {
+        for (let lineNo = 0; lineNo < constraints.length; ++lineNo) {
             // Objective:   Minimize f(v) = ||v - vPref||^2
             // Constraints: (v-vPref) * n >= 0
             //              ||v|| <= vMax
@@ -860,7 +860,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
                 // Define the segment of the line within the maximum speed circle
                 let tLeft = -alignment - discriminant;
                 let tRight = -alignment + discriminant;
-                for (let lineNoPrev = 0; lineNoPrev < lineNo; lineNoPrev++) {
+                for (let lineNoPrev = 0; lineNoPrev < lineNo; ++lineNoPrev) {
                     // Adjust above line segment to satisfy all previous constraints
                     const constraintPrev = constraints[lineNoPrev]!;
                     const nPrev = constraintPrev.direction, vPrev = constraintPrev.point;
@@ -903,11 +903,21 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         // Final linear program
         const failedLine = 0; // TODO: retrieve from linear program above (when returning false)
         let distance = 0;
-        for (let lineNo = failedLine; lineNo < constraints.length; lineNo++) {
+        const numObstLines = 0; // TODO: solve ORCA for Obstacles (not just other Lions)
+        const projectedLines = constraints.slice(0, numObstLines);
+        for (let lineNo = failedLine; lineNo < constraints.length; ++lineNo) {
             const constraint = constraints[lineNo]!;
             const n = constraint.direction, v = constraint.point;
             if (n.det(v.clone().sub(vA)) > distance) {
                 // Velocity does not satisfy constraint of the current line
+                for (let lineNoPrev = numObstLines; lineNoPrev < lineNo; ++lineNoPrev) {
+                    const constraintPrev = projectedLines[lineNoPrev]!;
+                    const nPrev = constraintPrev.direction, vPrev = constraintPrev.point;
+                    const denominator = n.det(nPrev);
+                    if (Math.abs(denominator) <= _Math.EPSILON) {
+                        // Lines are parallel
+                    }
+                }
             }
         }
     }
