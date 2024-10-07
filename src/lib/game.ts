@@ -163,7 +163,8 @@ export async function createGame(strategy: string): Promise<Game> {
         new Meteorite(ox, oy, tx, ty, radius, lifetime, displayRadius), 0);
     const obsidianPool = new Pool<Obsidian>((cx = 0, cy = 0, radius = 0, velocityScalar = 0, displayRadius = 0) =>
         new Obsidian(cx, cy, radius, velocityScalar, displayRadius), 0);
-    const lionPool = new Pool<Lion>((cx = 0, cy = 0, radius = 0, velocity = 0) => new Lion(cx, cy, radius, velocity), 0);
+    const lionPool = new Pool<Lion>((cx = 0, cy = 0, radius = 0, velocity = 0, maxSpeed = 0) =>
+        new Lion(cx, cy, radius, velocity, maxSpeed), 0);
 
     const world = new SingleCell();
     const player = new Player();
@@ -249,7 +250,7 @@ export function spawnOrb(orb: Orb) {
 
 export function spawnLion(target: Vector2, lionPool: Pool<Lion>, lions: Lion[]) {
     const randVelocty = Math.random() * (LION_VELOCITY * 0.5) + (LION_VELOCITY * 1.5);
-    const lion = lionPool.alloc(target.x, target.y, LION_RADIUS, randVelocty);
+    const lion = lionPool.alloc(target.x, target.y, LION_RADIUS, randVelocty, 350); // TODO: manage max speed var
     lions.push(lion);
 }
 
@@ -762,6 +763,81 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     // gameState.v2Pool.free(p_neighbor);
     // gameState.v2Pool.free(p_obstacle);
 
+    type Constraint = { direction: Vector2, point: Vector2 };
+    function ORCA1(current: number, lines: Constraint[], maxSpeedSq: number, result: Vector2): boolean {
+        const { direction: n, point: v } = lines[current]!;
+        const alignment = v.dot(n);
+        const discriminantSq = alignment * alignment + maxSpeedSq - v.magnitudeSq();
+        if (discriminantSq < 0) {
+            // Failure: maximum speed does not intersect with feasible line region
+            return false;
+        }
+        const discriminant = Math.sqrt(discriminantSq);
+        // Define the segment of the line within the maximum speed circle
+        let tLeft = -alignment - discriminant;
+        let tRight = -alignment + discriminant;
+        for (let i = 0; i < current; i++) {
+            // Adjust above line segment to satisfy all previous constraints
+            const constraintPrev = lines[i]!;
+            const nPrev = constraintPrev.direction, vPrev = constraintPrev.point;
+            const denominator = n.det(nPrev);
+            const numerator = nPrev.det(v.clone().sub(vPrev));
+            if (Math.abs(denominator) < _Math.EPSILON) {
+                // Lines are parallel or nearly parallel
+                if (numerator < 0) {
+                    // Current constraint line is on the wrong side (right) of previous
+                    return false;
+                }
+                continue;
+            }
+            /** The intersection point along the current constraint line. */
+            const t = numerator / denominator;
+            if (denominator > 0) {
+                // Previous line bounds current line on the right
+                tLeft = Math.min(tRight, t);
+            } else {
+                // Previous line bounds current line on the left
+                tRight = Math.max(tLeft, t);
+            }
+            if (tLeft > tRight) {
+                // Feasible interval along the constraint line is empty
+                return false;
+            }
+        }
+        // Optimize closest point
+        /** Project preferred velocity onto constraint line, the value (distance) to minimize. */
+        const t = n.dot(result.clone().sub(v));
+        if (t < tLeft) {
+            result.copy(v).add(n.clone().scale(tLeft));
+        } else if (t > tRight) {
+            result.copy(v).add(n.clone().scale(tRight));
+        } else {
+            result.copy(v).add(n.clone().scale(t));
+        }
+        return true;
+    }
+
+    function ORCA2(lines: Constraint[], maxSpeedSq: number, result: Vector2): number {
+        for (let i = 0; i < lines.length; i++) {
+            // Objective:   Minimize f(v) = ||v - vPref||^2
+            // Constraints: (v-vPref) * n >= 0
+            //              ||v|| <= vMax
+            //              ORCA lines
+            // ORCA2
+            const constraint = lines[i]!;
+            if (constraint.direction.det(constraint.point.clone().sub(result)) > 0) {
+                // Optimal velocity is on the wrong side (left) of the ORCA constraint
+                // Next linear program
+                const temp = result.clone();
+                if (!ORCA1(i, lines, maxSpeedSq, result)) {
+                    result.copy(temp);
+                    return i;
+                }
+            }
+        }
+        return lines.length;
+    }
+
     // ORCA Move Lions
     // Obstacle Reciprocal Collision Avoidance inspired by https://gamma.cs.unc.edu/ORCA/publications/ORCA.pdf
     // TODO: parallelize and obviously different data structure (k-d tree partitioning, etc.)
@@ -840,83 +916,40 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         }
         // Linear programming to find new optimal velocity satisfying constraints
         vA.copy(optVelocity);
-        for (let lineNo = 0; lineNo < constraints.length; ++lineNo) {
-            // Objective:   Minimize f(v) = ||v - vPref||^2
-            // Constraints: (v-vPref) * n >= 0
-            //              ||v|| <= vMax
-            //              ORCA lines
-            const constraint = constraints[lineNo]!;
-            const n = constraint.direction, v = constraint.point;
-            if (n.det(v.clone().sub(optVelocity)) > 0) {
-                // Optimal velocity is on the wrong side (left) of the ORCA constraint
-                // Next linear program
-                const alignment = v.dot(n);
-                const discriminantSq = alignment * alignment + maxSpeedSq - v.magnitudeSq();
-                if (discriminantSq < 0) {
-                    // Failure: maximum speed does not intersect with feasible line region
-                    return false; // TODO: separate function
-                }
-                const discriminant = Math.sqrt(discriminantSq);
-                // Define the segment of the line within the maximum speed circle
-                let tLeft = -alignment - discriminant;
-                let tRight = -alignment + discriminant;
-                for (let lineNoPrev = 0; lineNoPrev < lineNo; ++lineNoPrev) {
-                    // Adjust above line segment to satisfy all previous constraints
-                    const constraintPrev = constraints[lineNoPrev]!;
-                    const nPrev = constraintPrev.direction, vPrev = constraintPrev.point;
-                    const denominator = n.det(nPrev);
-                    const numerator = nPrev.det(v.clone().sub(vPrev));
-                    if (Math.abs(denominator) < _Math.EPSILON) {
-                        // Lines are parallel or nearly parallel
-                        if (numerator < 0) {
-                            // Current constraint line is on the wrong side (right) of previous
-                            return false // TODO: separate function
+        const lineCount = ORCA2(constraints, maxSpeedSq, optVelocity);
+        // Final linear program: ORCA3
+        if (lineCount < constraints.length) {
+            let distance = 0;
+            const numObstLines = 0; // TODO: solve ORCA for Obstacles (not just other Lions)
+            const projectedLines = constraints.slice(0, numObstLines);
+            for (let i = lineCount; i < constraints.length; i++) {
+                const constraint = constraints[i]!;
+                const n = constraint.direction, v = constraint.point;
+                if (n.det(v.clone().sub(vA)) > distance) {
+                    // Velocity does not satisfy constraint of the current line
+                    for (let j = numObstLines; j < i; j++) {
+                        const newLine = { direction: new Vector2(), point: new Vector2() };
+                        const constraintPrev = projectedLines[j]!;
+                        const nPrev = constraintPrev.direction, vPrev = constraintPrev.point;
+                        const denominator = n.det(nPrev);
+                        if (Math.abs(denominator) <= _Math.EPSILON) {
+                            // Lines are parallel
+                            if (n.dot(nPrev) > 0) {
+                                // Lines are in the same direction
+                                continue;
+                            }
+                            newLine.point.copy(v.clone().add(vPrev)).scale(0.5);
+                        } else {
+                            newLine.point.copy(v).add(n.clone().scale(nPrev.det(v.clone().sub(vPrev)) / denominator));
                         }
-                        continue;
+                        newLine.direction.copy(nPrev).sub(n).normalize();
+                        projectedLines.push(newLine);
                     }
-                    /** The intersection point along the current constraint line. */
-                    const t = numerator / denominator;
-                    if (denominator > 0) {
-                        // Previous line bounds current line on the right
-                        tLeft = Math.min(tRight, t);
-                    } else {
-                        // Previous line bounds current line on the left
-                        tRight = Math.max(tLeft, t);
+                    const temp = vA.clone();
+                    if (!ORCA2(projectedLines, maxSpeedSq, optVelocity)) {
+                        // TODO: cont.
                     }
-                    if (tLeft > tRight) {
-                        // Feasible interval along the constraint line is empty
-                        return false; // TODO: separate function
-                    }
-                }
-                // Optimize closest point
-                /** Project preferred velocity onto constraint line, the value (distance) to minimize. */
-                const t = n.dot(optVelocity.clone().sub(v));
-                if (t < tLeft) {    
-                    vA.copy(v).add(n.clone().scale(tLeft));
-                } else if (t > tRight) {
-                    vA.copy(v).add(n.clone().scale(tRight));
-                } else {
-                    vA.copy(v).add(n.clone().scale(t));
-                }
-            }
-        }
-        // Final linear program
-        const failedLine = 0; // TODO: retrieve from linear program above (when returning false)
-        let distance = 0;
-        const numObstLines = 0; // TODO: solve ORCA for Obstacles (not just other Lions)
-        const projectedLines = constraints.slice(0, numObstLines);
-        for (let lineNo = failedLine; lineNo < constraints.length; ++lineNo) {
-            const constraint = constraints[lineNo]!;
-            const n = constraint.direction, v = constraint.point;
-            if (n.det(v.clone().sub(vA)) > distance) {
-                // Velocity does not satisfy constraint of the current line
-                for (let lineNoPrev = numObstLines; lineNoPrev < lineNo; ++lineNoPrev) {
-                    const constraintPrev = projectedLines[lineNoPrev]!;
-                    const nPrev = constraintPrev.direction, vPrev = constraintPrev.point;
-                    const denominator = n.det(nPrev);
-                    if (Math.abs(denominator) <= _Math.EPSILON) {
-                        // Lines are parallel
-                    }
+                    distance = n.det(v.clone().sub(vA));
                 }
             }
         }
