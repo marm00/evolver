@@ -781,8 +781,8 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             // Adjust above line segment to satisfy all previous constraints
             const constraintPrev = lines[i]!;
             const nPrev = constraintPrev.direction, vPrev = constraintPrev.point;
-            const denominator = n.det(nPrev);
-            const numerator = nPrev.det(v.clone().sub(vPrev));
+            const denominator = n.detUnchecked(nPrev);
+            const numerator = nPrev.detUnchecked(v.clone().sub(vPrev));
             if (Math.abs(denominator) < _Math.EPSILON) {
                 // Lines are parallel or nearly parallel
                 if (numerator < 0) {
@@ -847,7 +847,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             //              ORCA lines
             // ORCA2
             const constraint = lines[i]!;
-            if (constraint.direction.det(constraint.point.clone().sub(result)) > 0) {
+            if (constraint.direction.detUnchecked(constraint.point.clone().sub(result)) > 0) {
                 // Optimal velocity is on the wrong side (left) of the ORCA constraint
                 // Next linear program
                 const temp = result.clone();
@@ -872,7 +872,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     // Obstacle Reciprocal Collision Avoidance inspired by https://gamma.cs.unc.edu/ORCA/publications/ORCA.pdf
     // TODO: parallelize and obviously different data structure (k-d tree partitioning, etc.)
     /** Time horizon (steps) for the ORCA algorithm. */
-    const timeHorizon = 2;
+    const timeHorizon = 10;
     const inverseTimeHorizon = 1 / timeHorizon;
     // TODO: replace dot/det with unchecked versions where possible
     // TODO: 'radius' might be misimplented in some ORCA problems (should not be maxSpeed)
@@ -960,13 +960,13 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             for (let i = lineCount; i < constraints.length; i++) {
                 const constraint = constraints[i]!;
                 const n = constraint.direction, v = constraint.point;
-                if (n.det(v.clone().sub(result)) > distance) {
+                if (n.detUnchecked(v.clone().sub(result)) > distance) {
                     // Velocity does not satisfy constraint of the current line
                     for (let j = numObstLines; j < i; j++) {
                         const newLine = { direction: new Vector2(), point: new Vector2() };
                         const constraintPrev = constraints[j]!;
                         const nPrev = constraintPrev.direction, vPrev = constraintPrev.point;
-                        const denominator = n.det(nPrev);
+                        const denominator = n.detUnchecked(nPrev);
                         if (Math.abs(denominator) <= _Math.EPSILON) {
                             // Lines are parallel
                             if (n.dot(nPrev) > 0) {
@@ -975,7 +975,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
                             }
                             newLine.point.copy(v.clone().add(vPrev)).scale(0.5);
                         } else {
-                            newLine.point.copy(v).add(n.clone().scale(nPrev.det(v.clone().sub(vPrev)) / denominator));
+                            newLine.point.copy(v).add(n.clone().scale(nPrev.detUnchecked(v.clone().sub(vPrev)) / denominator));
                         }
                         newLine.direction.copy(nPrev).sub(n).normalize();
                         projectedLines.push(newLine);
@@ -984,7 +984,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
                     if (ORCA2(projectedLines, maxSpeed, maxSpeedSq, true, n.clone().rotate180Deg(), result) < projectedLines.length) {
                         result.copy(temp);
                     }
-                    distance = n.det(v.clone().sub(result));
+                    distance = n.detUnchecked(v.clone().sub(result));
                 }
             }
         }
