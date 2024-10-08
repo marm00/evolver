@@ -861,14 +861,18 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     }
 
     for (const lion of gameState.lions) {
-        lion.prefVelocity.copy(gameState.player.center.clone().sub(lion.center).normalize().scale(lion.maxSpeed));
+        if (lion.center.distanceToSq(gameState.player.center) <= lion.radiusSq * 2) {
+            lion.prefVelocity.set(0, 0);
+        } else {
+            lion.prefVelocity.copy(gameState.player.center.clone().sub(lion.center).normalize().scale(lion.maxSpeed));
+        }
     }
 
     // ORCA Move Lions
     // Obstacle Reciprocal Collision Avoidance inspired by https://gamma.cs.unc.edu/ORCA/publications/ORCA.pdf
     // TODO: parallelize and obviously different data structure (k-d tree partitioning, etc.)
     /** Time horizon (steps) for the ORCA algorithm. */
-    const timeHorizon = 5;
+    const timeHorizon = 2;
     const inverseTimeHorizon = 1 / timeHorizon;
     // TODO: replace dot/det with unchecked versions where possible
     // TODO: 'radius' might be misimplented in some ORCA problems (should not be maxSpeed)
@@ -876,7 +880,6 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         const lionA = gameState.lions[i]!;
         const pA = lionA.center, rA = lionA.radius, vA = lionA.velocity;
         const maxSpeed = lionA.maxSpeed, maxSpeedSq = lionA.maxSpeedSq;
-        // TODO: actually compute optimal velocities instead of using current velocities, using linear program
         /** Initial velocity to be used in linear program. */
         // const optVelocity = vA.clone();
         // if (optVelocity.magnitudeSq() > maxSpeedSq) {
@@ -896,6 +899,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             const distSq = pRel.magnitudeSq();
             const r = rA + rB;
             const rSq = r * r;
+            if (distSq > rSq*3) continue; // TODO: change this sensing implementation
             /** Apex of the VO (truncated) cone or origin of relative velocity space. */
             const apex = new Vector2();
             /** The smallest change in relative velocity required to resolve the collision. */
@@ -944,7 +948,9 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             constraints.push({ direction, point });
         }
         // Linear programming to find new optimal velocity satisfying constraints
-        result.copy(vA);
+        // result.copy(vA);
+        result.set(0, 0);
+        // TODO: actually compute optimal velocities instead of using prefVelocity, using linear program
         const lineCount = ORCA2(constraints, maxSpeed, maxSpeedSq, false, lionA.prefVelocity, result);
         // Final linear program: ORCA3
         if (lineCount < constraints.length) {
