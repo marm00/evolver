@@ -166,6 +166,7 @@ export async function createGame(strategy: string): Promise<Game> {
     const lionPool = new Pool<Lion>((cx = 0, cy = 0, radius = 0, maxSpeed = 0) =>
         new Lion(cx, cy, radius, maxSpeed), 0);
 
+
     const world = new SingleCell();
     const player = new Player();
     // world.insert(player); // TODO: player to world?
@@ -195,10 +196,19 @@ export async function createGame(strategy: string): Promise<Game> {
     world.insert(new Rect(new Vector2(128, 128), new Vector2(0, 0), new Vector2(0, 0), 128, 128));
     world.insert(new Rect(new Vector2(0, 256), new Vector2(0, 0), new Vector2(0, 0), 512, 512));
     world.insert(new Circle(new Vector2(-64, -128), new Vector2(Math.SQRT1_2, Math.SQRT1_2), new Vector2(0, 0), 64));
+
+    const tempLion1 = new Lion(-200, 0, LION_RADIUS, LION_VELOCITY);
+    tempLion1.prefVelocity.set(200, 0).normalize().scale(LION_VELOCITY);
+    const tempLion2 = new Lion(200, 0, LION_RADIUS, LION_VELOCITY);
+    tempLion2.prefVelocity.set(-200, 0).normalize().scale(LION_VELOCITY);
+    const tempLion3 = new Lion(-200, 200, LION_RADIUS, LION_VELOCITY);
+    tempLion3.prefVelocity.set(200, 200).normalize().scale(LION_VELOCITY);
+    const tempLion4 = new Lion(200, 200, LION_RADIUS, LION_VELOCITY);
+    tempLion4.prefVelocity.set(-200, 200).normalize().scale(LION_VELOCITY);
     return {
         world, player, m3Pool, v2Pool, v2Pool2, oRectPool, spearPool, spears: [],
         meteoritePool, meteorites: [], obsidianPool, obsidians: [], thunderstorm, orb, walls,
-        lionPool, lions: []
+        lionPool, lions: [tempLion1, tempLion2, tempLion3, tempLion4]
     };
 }
 
@@ -860,12 +870,41 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         return lines.length;
     }
 
-    for (const lion of gameState.lions) {
-        if (lion.center.distanceToSq(gameState.player.center) <= lion.radiusSq * 2) {
-            lion.prefVelocity.set(0, 0);
-        } else {
-            lion.prefVelocity.copy(gameState.player.center.clone().sub(lion.center).normalize().scale(lion.maxSpeed));
-        }
+    // for (const lion of gameState.lions) {
+    //     if (lion.center.distanceToSq(gameState.player.center) <= lion.radiusSq * 2) {
+    //         lion.prefVelocity.set(0, 0);
+    //     } else {
+    //         lion.prefVelocity.copy(gameState.player.center.clone().sub(lion.center).normalize().scale(lion.maxSpeed));
+    //     }
+    // }
+
+    const lion1 = gameState.lions[0]!;
+    const lion2 = gameState.lions[1]!;
+    const lion3 = gameState.lions[2]!;
+    const lion4 = gameState.lions[3]!;
+    const target1 = new Vector2(200, 200);
+    const target2 = new Vector2(-200, 200);
+    const target3 = new Vector2(200, 0);
+    const target4 = new Vector2(-200, 0);
+    if (lion1.center.distanceToSq(target1) > lion1.radiusSq) {
+        lion1.prefVelocity.copy(target1.sub(lion1.center).normalize().scale(LION_VELOCITY * 0.9));
+    } else {
+        lion1.prefVelocity.set(0, 0);
+    }
+    if (lion2.center.distanceToSq(target2) > lion2.radiusSq) {
+        lion2.prefVelocity.copy(target2.sub(lion2.center).normalize().scale(LION_VELOCITY * 0.4));
+    } else {
+        lion2.prefVelocity.set(0, 0);
+    }
+    if (lion3.center.distanceToSq(target3) > lion3.radiusSq) {
+        lion3.prefVelocity.copy(target3.sub(lion3.center).normalize().scale(LION_VELOCITY * 0.9));
+    } else {
+        lion3.prefVelocity.set(0, 0);
+    }
+    if (lion4.center.distanceToSq(target4) > lion4.radiusSq) {
+        lion4.prefVelocity.copy(target4.sub(lion4.center).normalize().scale(LION_VELOCITY * 0.9));
+    } else {
+        lion4.prefVelocity.set(0, 0);
     }
 
     // ORCA Move Lions
@@ -899,7 +938,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             const distSq = pRel.magnitudeSq();
             const r = rA + rB;
             const rSq = r * r;
-            if (distSq > rSq*3) continue; // TODO: change this sensing implementation
+            if ((timeHorizon * maxSpeed + lionA.radius) ** 2 < distSq) continue; // TODO: change this sensing implementation
             /** Apex of the VO (truncated) cone or origin of relative velocity space. */
             const apex = new Vector2();
             /** The smallest change in relative velocity required to resolve the collision. */
