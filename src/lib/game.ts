@@ -958,7 +958,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
                     // Velocity does not satisfy constraint of the current line
                     for (let j = numObstLines; j < i; j++) {
                         const newLine = { direction: new Vector2(), point: new Vector2() };
-                        const constraintPrev = projectedLines[j]!;
+                        const constraintPrev = constraints[j]!;
                         const nPrev = constraintPrev.direction, vPrev = constraintPrev.point;
                         const denominator = n.det(nPrev);
                         if (Math.abs(denominator) <= _Math.EPSILON) {
