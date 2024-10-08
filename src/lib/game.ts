@@ -764,7 +764,8 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     // gameState.v2Pool.free(p_obstacle);
 
     type Constraint = { direction: Vector2, point: Vector2 };
-    function ORCA1(current: number, lines: Constraint[], maxSpeedSq: number, result: Vector2): boolean {
+
+    function ORCA1(current: number, lines: Constraint[], maxSpeedSq: number, directionOpt: boolean, optVelocity: Vector2, result: Vector2): boolean {
         const { direction: n, point: v } = lines[current]!;
         const alignment = v.dot(n);
         const discriminantSq = alignment * alignment + maxSpeedSq - v.magnitudeSq();
@@ -804,20 +805,41 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
                 return false;
             }
         }
-        // Optimize closest point
-        /** Project preferred velocity onto constraint line, the value (distance) to minimize. */
-        const t = n.dot(result.clone().sub(v));
-        if (t < tLeft) {
-            result.copy(v).add(n.clone().scale(tLeft));
-        } else if (t > tRight) {
-            result.copy(v).add(n.clone().scale(tRight));
+        if (directionOpt) {
+            // Optimize direction
+            if (optVelocity.dot(n) > 0) {
+                // Take rightmost point
+                result.copy(v).add(n.clone().scale(tRight));
+            } else {
+                // Take leftmost point
+                result.copy(v).add(n.clone().scale(tLeft));
+            }
         } else {
-            result.copy(v).add(n.clone().scale(t));
+            // Optimize closest point
+            /** Project preferred velocity onto constraint line, the value (distance) to minimize. */
+            const t = n.dot(optVelocity.clone().sub(v));
+            if (t < tLeft) {
+                result.copy(v).add(n.clone().scale(tLeft));
+            } else if (t > tRight) {
+                result.copy(v).add(n.clone().scale(tRight));
+            } else {
+                result.copy(v).add(n.clone().scale(t));
+            }
         }
         return true;
     }
 
-    function ORCA2(lines: Constraint[], maxSpeedSq: number, result: Vector2): number {
+    function ORCA2(lines: Constraint[], maxSpeed: number, maxSpeedSq: number, directionOpt: boolean, optVelocity: Vector2, result: Vector2): number {
+        if (directionOpt) {
+            // Optimize direction with velocity as a unit vector
+            result.copy(optVelocity).scale(maxSpeed);
+        } else if (optVelocity.magnitudeSq() > maxSpeedSq) {
+            // Outside circle, optimize closest point
+            result.copy(optVelocity).normalize().scale(maxSpeed);
+        } else {
+            // Inside circle, optimize closest point
+            result.copy(optVelocity);
+        }
         for (let i = 0; i < lines.length; i++) {
             // Objective:   Minimize f(v) = ||v - vPref||^2
             // Constraints: (v-vPref) * n >= 0
@@ -829,7 +851,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
                 // Optimal velocity is on the wrong side (left) of the ORCA constraint
                 // Next linear program
                 const temp = result.clone();
-                if (!ORCA1(i, lines, maxSpeedSq, result)) {
+                if (!ORCA1(i, lines, maxSpeedSq, directionOpt, optVelocity, result)) {
                     result.copy(temp);
                     return i;
                 }
@@ -875,7 +897,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             const direction = new Vector2();
             /** Represents the line on which to adjust velocity for reciprocal avoidance. */
             const point = new Vector2();
-            if (distSq > rSq) { // TODO: _Math.EPSILON or combined squared radius?
+            if (distSq > rSq) {
                 // No observed collision or overlap
                 apex.copy(vRel).sub(pRel.clone().scale(inverseTimeHorizon));
                 const apexLengthSq = apex.magnitudeSq();
@@ -915,8 +937,8 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             constraints.push({ direction, point });
         }
         // Linear programming to find new optimal velocity satisfying constraints
-        vA.copy(optVelocity);
-        const lineCount = ORCA2(constraints, maxSpeedSq, optVelocity);
+        const result = optVelocity.clone();
+        const lineCount = ORCA2(constraints, maxSpeed, maxSpeedSq, false, optVelocity, result);
         // Final linear program: ORCA3
         if (lineCount < constraints.length) {
             let distance = 0;
@@ -925,7 +947,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             for (let i = lineCount; i < constraints.length; i++) {
                 const constraint = constraints[i]!;
                 const n = constraint.direction, v = constraint.point;
-                if (n.det(v.clone().sub(vA)) > distance) {
+                if (n.det(v.clone().sub(result)) > distance) {
                     // Velocity does not satisfy constraint of the current line
                     for (let j = numObstLines; j < i; j++) {
                         const newLine = { direction: new Vector2(), point: new Vector2() };
@@ -945,11 +967,11 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
                         newLine.direction.copy(nPrev).sub(n).normalize();
                         projectedLines.push(newLine);
                     }
-                    const temp = vA.clone();
-                    if (!ORCA2(projectedLines, maxSpeedSq, optVelocity)) {
-                        // TODO: cont.
+                    const temp = result.clone();
+                    if (ORCA2(projectedLines, maxSpeed, maxSpeedSq, true, n.clone().rotate180Deg(), result) < projectedLines.length) {
+                        result.copy(temp);
                     }
-                    distance = n.det(v.clone().sub(vA));
+                    distance = n.det(v.clone().sub(result));
                 }
             }
         }
