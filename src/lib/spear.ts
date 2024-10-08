@@ -117,39 +117,42 @@ export class Wall {
 export class Lion {
     center: Vector2;
     velocity: Vector2;
-    acceleration: Vector2;
+    prefVelocity: Vector2;
     radius: number;
     radiusSq: number;
-    velocityScalar: number;
     maxSpeed: number;
     maxSpeedSq: number;
-    preferredVelocity: Vector2;
-    optimalVelocity: Vector2;
+    // velocityScalar: number;
+    // acceleration: Vector2;
+    // preferredVelocity: Vector2;
+    // optimalVelocity: Vector2;
     // TODO: maximum speed and preferred velocity (not a velocity scalar)
     // ORCA wants position, radius, preferred velocity
     // Where the optimal of each disc is generally its current velocity,
     // with the exception of high density areas (estimates have to be made)
+    // TODO: clean up lion class
 
-    constructor(cx: number, cy: number, radius: number, velocityScalar: number, maxSpeed: number) {
+    constructor(cx: number, cy: number, radius: number, maxSpeed: number) {
         this.center = new Vector2(cx, cy);
         this.velocity = new Vector2();
-        this.acceleration = new Vector2();
+        this.prefVelocity = new Vector2();
         this.radius = radius;
         this.radiusSq = radius * radius;
-        this.velocityScalar = velocityScalar;
-        this.preferredVelocity = new Vector2();
         this.maxSpeed = maxSpeed;
         this.maxSpeedSq = maxSpeed * maxSpeed;
-        this.optimalVelocity = new Vector2();
+        // this.velocityScalar = velocityScalar;
+        // this.acceleration = new Vector2();
+        // this.preferredVelocity = new Vector2();
+        // this.optimalVelocity = new Vector2();
     }
 
-    set(cx: number, cy: number, radius: number, velocityScalar: number, maxSpeed: number): this {
+    set(cx: number, cy: number, radius: number, maxSpeed: number): this {
         this.center.set(cx, cy);
         this.radius = radius;
         this.radiusSq = radius * radius;
-        this.velocityScalar = velocityScalar;
         this.maxSpeed = maxSpeed;
         this.maxSpeedSq = maxSpeed * maxSpeed;
+        // this.velocityScalar = velocityScalar;
         return this;
     }
 }

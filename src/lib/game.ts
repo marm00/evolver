@@ -163,8 +163,8 @@ export async function createGame(strategy: string): Promise<Game> {
         new Meteorite(ox, oy, tx, ty, radius, lifetime, displayRadius), 0);
     const obsidianPool = new Pool<Obsidian>((cx = 0, cy = 0, radius = 0, velocityScalar = 0, displayRadius = 0) =>
         new Obsidian(cx, cy, radius, velocityScalar, displayRadius), 0);
-    const lionPool = new Pool<Lion>((cx = 0, cy = 0, radius = 0, velocity = 0, maxSpeed = 0) =>
-        new Lion(cx, cy, radius, velocity, maxSpeed), 0);
+    const lionPool = new Pool<Lion>((cx = 0, cy = 0, radius = 0, maxSpeed = 0) =>
+        new Lion(cx, cy, radius, maxSpeed), 0);
 
     const world = new SingleCell();
     const player = new Player();
@@ -249,8 +249,8 @@ export function spawnOrb(orb: Orb) {
 }
 
 export function spawnLion(target: Vector2, lionPool: Pool<Lion>, lions: Lion[]) {
-    const randVelocty = Math.random() * (LION_VELOCITY * 0.5) + (LION_VELOCITY * 1.5);
-    const lion = lionPool.alloc(target.x, target.y, LION_RADIUS, randVelocty, 350); // TODO: manage max speed var
+    const randMaxSpeed = Math.random() * (LION_VELOCITY * 0.5) + (LION_VELOCITY * 1.5);
+    const lion = lionPool.alloc(target.x, target.y, LION_RADIUS, randMaxSpeed); // TODO: manage max speed var
     lions.push(lion);
 }
 
@@ -860,6 +860,10 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         return lines.length;
     }
 
+    for (const lion of gameState.lions) {
+        lion.prefVelocity.copy(gameState.player.center.clone().sub(lion.center).normalize().scale(lion.maxSpeed));
+    }
+
     // ORCA Move Lions
     // Obstacle Reciprocal Collision Avoidance inspired by https://gamma.cs.unc.edu/ORCA/publications/ORCA.pdf
     // TODO: parallelize and obviously different data structure (k-d tree partitioning, etc.)
@@ -867,21 +871,24 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     const timeHorizon = 5;
     const inverseTimeHorizon = 1 / timeHorizon;
     // TODO: replace dot/det with unchecked versions where possible
-    for (let i = 0; i < gameState.lions.length - 1; i++) {
+    // TODO: 'radius' might be misimplented in some ORCA problems (should not be maxSpeed)
+    for (let i = 0; i < gameState.lions.length; i++) {
         const lionA = gameState.lions[i]!;
         const pA = lionA.center, rA = lionA.radius, vA = lionA.velocity;
         const maxSpeed = lionA.maxSpeed, maxSpeedSq = lionA.maxSpeedSq;
-        /** Initial velocity to be used in linear program. */
-        const optVelocity = vA.clone();
-        if (optVelocity.magnitudeSq() > maxSpeedSq) {
-            // Current velocity is above maximum speed, clamping it
-            optVelocity.normalize().scale(maxSpeed);
-        }
-        // TODO: compute k-nearest neighbors, naive = compare distances of all neighbors less than sensing radius
         // TODO: actually compute optimal velocities instead of using current velocities, using linear program
+        /** Initial velocity to be used in linear program. */
+        // const optVelocity = vA.clone();
+        // if (optVelocity.magnitudeSq() > maxSpeedSq) {
+        //     // Current velocity is above maximum speed, clamping it
+        //     optVelocity.normalize().scale(maxSpeed);
+        // }
+        // TODO: compute k-nearest neighbors, naive = compare distances of all neighbors less than sensing radius
         const kNN = gameState.lions.length - 1;
         const constraints: { direction: Vector2, point: Vector2 }[] = [];
-        for (let j = i + 1; j < gameState.lions.length; j++) {
+        const result = new Vector2();
+        for (let j = 0; j < gameState.lions.length; j++) {
+            if (i === j) continue;
             const lionB = gameState.lions[j]!;
             const pB = lionB.center, rB = lionB.radius, vB = lionB.velocity;
             const pRel = pB.clone().sub(pA);
@@ -937,8 +944,8 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             constraints.push({ direction, point });
         }
         // Linear programming to find new optimal velocity satisfying constraints
-        const result = optVelocity.clone();
-        const lineCount = ORCA2(constraints, maxSpeed, maxSpeedSq, false, optVelocity, result);
+        result.copy(vA);
+        const lineCount = ORCA2(constraints, maxSpeed, maxSpeedSq, false, lionA.prefVelocity, result);
         // Final linear program: ORCA3
         if (lineCount < constraints.length) {
             let distance = 0;
@@ -975,6 +982,22 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
                 }
             }
         }
+        vA.copy(result);
+        // pA.add(vA.clone().scale(deltaTime));
+    }
+
+    for (const lion of gameState.lions) {
+        lion.center.add(lion.velocity.clone().scale(deltaTime))
+        // Draw
+        ctx.beginPath();
+        ctx.strokeStyle = '#ffffff';
+        ctx.moveTo(lion.center.x, lion.center.y);
+        ctx.arc(lion.center.x, lion.center.y, lion.radius, 0, _Math.TAU);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.strokeStyle = '#ff0000';
+        ctx.lineTo(lion.velocity.x, lion.velocity.y);
+        ctx.stroke();
     }
 
     for (const thing of [...thingsToRender, gameState.player]) {
