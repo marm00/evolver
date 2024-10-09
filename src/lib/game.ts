@@ -62,7 +62,7 @@ const ORB_VELOCITY = ORB_CIRCUMFERENCE / 6;
 
 const LION_RADIUS = 16;
 const LION_VELOCITY = HUMAN_VELOCITY / 2;
-const TEMPLION1_MAXSPEED = LION_VELOCITY * 0.01;
+const TEMPLION1_MAXSPEED = LION_VELOCITY * 0.1;
 
 // TODO: the game contains lists for different things (like spears), pools, and the partinioning contains references
 interface Game {
@@ -1037,7 +1037,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             const opacityStep = Math.min(1 / constraints.length, 1/3).toFixed(1);
             for (const constraint of constraints) {
                 const direction = constraint.direction, v = constraint.point;
-                const P_pos = vA.clone().scale(timeHorizon).add(pA);
+                const P_pos = v.clone().scale(timeHorizon).add(pA);
                 const D_pos = direction.clone().scale(timeHorizon);
                 const N = new Vector2(-D_pos.y, D_pos.x).negate().normalize();
                 const P1 = P_pos.clone().add(D_pos.clone().scale(L));
