@@ -62,6 +62,7 @@ const ORB_VELOCITY = ORB_CIRCUMFERENCE / 6;
 
 const LION_RADIUS = 16;
 const LION_VELOCITY = HUMAN_VELOCITY / 2;
+const TEMPLION1_MAXSPEED = LION_VELOCITY * 0.01;
 
 // TODO: the game contains lists for different things (like spears), pools, and the partinioning contains references
 interface Game {
@@ -197,14 +198,14 @@ export async function createGame(strategy: string): Promise<Game> {
     world.insert(new Rect(new Vector2(0, 256), new Vector2(0, 0), new Vector2(0, 0), 512, 512));
     world.insert(new Circle(new Vector2(-64, -128), new Vector2(Math.SQRT1_2, Math.SQRT1_2), new Vector2(0, 0), 64));
 
-    const tempLion1 = new Lion(-200, 0, LION_RADIUS, LION_VELOCITY);
-    tempLion1.prefVelocity.set(200, 0).normalize().scale(LION_VELOCITY);
-    const tempLion2 = new Lion(200, 0, LION_RADIUS, LION_VELOCITY);
-    tempLion2.prefVelocity.set(-200, 0).normalize().scale(LION_VELOCITY);
-    const tempLion3 = new Lion(-200, 200, LION_RADIUS, LION_VELOCITY);
-    tempLion3.prefVelocity.set(200, 200).normalize().scale(LION_VELOCITY);
-    const tempLion4 = new Lion(200, 200, LION_RADIUS, LION_VELOCITY);
-    tempLion4.prefVelocity.set(-200, 200).normalize().scale(LION_VELOCITY);
+    const tempLion1 = new Lion(-200, 0, LION_RADIUS, TEMPLION1_MAXSPEED);
+    tempLion1.prefVelocity.set(200, 0).normalize().scale(LION_VELOCITY * 0.1);
+    const tempLion2 = new Lion(200, 0, LION_RADIUS, LION_VELOCITY * 0.1);
+    tempLion2.prefVelocity.set(-200, 0).normalize().scale(LION_VELOCITY * 0.1);
+    const tempLion3 = new Lion(-200, 200, LION_RADIUS, LION_VELOCITY * 0.1);
+    tempLion3.prefVelocity.set(200, 200).normalize().scale(LION_VELOCITY * 0.1);
+    const tempLion4 = new Lion(200, 200, LION_RADIUS, LION_VELOCITY * 0.1);
+    tempLion4.prefVelocity.set(-200, 200).normalize().scale(LION_VELOCITY * 0.1);
     return {
         world, player, m3Pool, v2Pool, v2Pool2, oRectPool, spearPool, spears: [],
         meteoritePool, meteorites: [], obsidianPool, obsidians: [], thunderstorm, orb, walls,
@@ -886,23 +887,23 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     const target2 = new Vector2(-200, 200);
     const target3 = new Vector2(200, 0);
     const target4 = new Vector2(-200, 0);
-    if (lion1.center.distanceToSq(target1) > lion1.radiusSq) {
-        lion1.prefVelocity.copy(target1.sub(lion1.center).normalize().scale(LION_VELOCITY * 0.9));
+    if (lion1.center.distanceToSq(target1) >= lion1.radiusSq) {
+        lion1.prefVelocity.copy(target1.sub(lion1.center).normalize().scale(TEMPLION1_MAXSPEED));
     } else {
         lion1.prefVelocity.set(0, 0);
     }
-    if (lion2.center.distanceToSq(target2) > lion2.radiusSq) {
-        lion2.prefVelocity.copy(target2.sub(lion2.center).normalize().scale(LION_VELOCITY * 0.4));
+    if (lion2.center.distanceToSq(target2) >= lion2.radiusSq) {
+        lion2.prefVelocity.copy(target2.sub(lion2.center).normalize().scale(LION_VELOCITY * 0.1));
     } else {
         lion2.prefVelocity.set(0, 0);
     }
-    if (lion3.center.distanceToSq(target3) > lion3.radiusSq) {
-        lion3.prefVelocity.copy(target3.sub(lion3.center).normalize().scale(LION_VELOCITY * 0.9));
+    if (lion3.center.distanceToSq(target3) >= lion3.radiusSq) {
+        lion3.prefVelocity.copy(target3.sub(lion3.center).normalize().scale(LION_VELOCITY * 0.1));
     } else {
         lion3.prefVelocity.set(0, 0);
     }
-    if (lion4.center.distanceToSq(target4) > lion4.radiusSq) {
-        lion4.prefVelocity.copy(target4.sub(lion4.center).normalize().scale(LION_VELOCITY * 0.9));
+    if (lion4.center.distanceToSq(target4) >= lion4.radiusSq) {
+        lion4.prefVelocity.copy(target4.sub(lion4.center).normalize().scale(LION_VELOCITY * 0.1));
     } else {
         lion4.prefVelocity.set(0, 0);
     }
@@ -1029,18 +1030,58 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         }
         vA.copy(result);
         // pA.add(vA.clone().scale(deltaTime));
+        if (i === 0) {
+            console.log('Contraints:', constraints.length)
+            ctx.strokeStyle = '#09ff00';
+            const L = 1000;
+            const opacityStep = Math.min(1 / constraints.length, 1/3).toFixed(1);
+            for (const constraint of constraints) {
+                const direction = constraint.direction, v = constraint.point;
+                const P_pos = vA.clone().scale(timeHorizon).add(pA);
+                const D_pos = direction.clone().scale(timeHorizon);
+                const N = new Vector2(-D_pos.y, D_pos.x).negate().normalize();
+                const P1 = P_pos.clone().add(D_pos.clone().scale(L));
+                const P2 = P_pos.clone().sub(D_pos.clone().scale(L));
+                const NF1 = P1.clone().add(N.clone().scale(L));
+                const NF2 = P2.clone().add(N.clone().scale(L));
+                ctx.beginPath();
+                ctx.moveTo(P1.x, P1.y);
+                ctx.lineTo(P2.x, P2.y);
+                ctx.strokeStyle = 'red';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(P1.x, P1.y);
+                ctx.lineTo(NF1.x, NF1.y);
+                ctx.lineTo(NF2.x, NF2.y);
+                ctx.lineTo(P2.x, P2.y);
+                ctx.closePath();
+                ctx.fillStyle = `rgba(255, 0, 0, ${opacityStep})`;
+                ctx.fill();
+
+            }
+            ctx.strokeStyle = '#000000ff';
+            ctx.beginPath();
+            ctx.moveTo(pA.x, pA.y);
+            const nV = pA.clone().add(vA.clone().scale(timeHorizon));
+            ctx.lineTo(nV.x, nV.y);
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = '#ffffff';
+        }
     }
 
     for (const lion of gameState.lions) {
         lion.center.add(lion.velocity.clone().scale(deltaTime))
         // Draw
         ctx.beginPath();
-        ctx.strokeStyle = '#ffffff';
+        ctx.fillStyle = '#ffffff';
         ctx.moveTo(lion.center.x, lion.center.y);
         ctx.arc(lion.center.x, lion.center.y, lion.radius, 0, _Math.TAU);
-        ctx.stroke();
+        ctx.fill();
         ctx.beginPath();
-        ctx.strokeStyle = '#ff0000';
+        ctx.fillStyle = '#ff0000';
         ctx.lineTo(lion.velocity.x, lion.velocity.y);
         ctx.stroke();
     }
