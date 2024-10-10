@@ -63,6 +63,7 @@ const ORB_VELOCITY = ORB_CIRCUMFERENCE / 6;
 const LION_RADIUS = 16;
 const LION_VELOCITY = HUMAN_VELOCITY / 2;
 const TEMPLION1_MAXSPEED = LION_VELOCITY * 0.1;
+const TEMPLIONX_MAXSPEED = TEMPLION1_MAXSPEED * 1.1;
 
 // TODO: the game contains lists for different things (like spears), pools, and the partinioning contains references
 interface Game {
@@ -199,13 +200,13 @@ export async function createGame(strategy: string): Promise<Game> {
     world.insert(new Circle(new Vector2(-64, -128), new Vector2(Math.SQRT1_2, Math.SQRT1_2), new Vector2(0, 0), 64));
 
     const tempLion1 = new Lion(-200, 0, LION_RADIUS, TEMPLION1_MAXSPEED);
-    tempLion1.prefVelocity.set(200, 0).normalize().scale(LION_VELOCITY * 0.1);
-    const tempLion2 = new Lion(200, 0, LION_RADIUS, LION_VELOCITY * 0.1);
-    tempLion2.prefVelocity.set(-200, 0).normalize().scale(LION_VELOCITY * 0.1);
-    const tempLion3 = new Lion(-200, 200, LION_RADIUS, LION_VELOCITY * 0.1);
-    tempLion3.prefVelocity.set(200, 200).normalize().scale(LION_VELOCITY * 0.1);
-    const tempLion4 = new Lion(200, 200, LION_RADIUS, LION_VELOCITY * 0.1);
-    tempLion4.prefVelocity.set(-200, 200).normalize().scale(LION_VELOCITY * 0.1);
+    tempLion1.prefVelocity.set(200, 0).normalize().scale(TEMPLION1_MAXSPEED);
+    const tempLion2 = new Lion(200, 0, LION_RADIUS, TEMPLIONX_MAXSPEED);
+    tempLion2.prefVelocity.set(-200, 0).normalize().scale(TEMPLIONX_MAXSPEED);
+    const tempLion3 = new Lion(-200, 200, LION_RADIUS, TEMPLIONX_MAXSPEED);
+    tempLion3.prefVelocity.set(200, 200).normalize().scale(TEMPLIONX_MAXSPEED);
+    const tempLion4 = new Lion(200, 200, LION_RADIUS, TEMPLIONX_MAXSPEED);
+    tempLion4.prefVelocity.set(-200, 200).normalize().scale(TEMPLIONX_MAXSPEED);
     return {
         world, player, m3Pool, v2Pool, v2Pool2, oRectPool, spearPool, spears: [],
         meteoritePool, meteorites: [], obsidianPool, obsidians: [], thunderstorm, orb, walls,
@@ -893,17 +894,17 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         lion1.prefVelocity.set(0, 0);
     }
     if (lion2.center.distanceToSq(target2) >= lion2.radiusSq) {
-        lion2.prefVelocity.copy(target2.sub(lion2.center).normalize().scale(LION_VELOCITY * 0.1));
+        lion2.prefVelocity.copy(target2.sub(lion2.center).normalize().scale(TEMPLIONX_MAXSPEED));
     } else {
         lion2.prefVelocity.set(0, 0);
     }
     if (lion3.center.distanceToSq(target3) >= lion3.radiusSq) {
-        lion3.prefVelocity.copy(target3.sub(lion3.center).normalize().scale(LION_VELOCITY * 0.1));
+        lion3.prefVelocity.copy(target3.sub(lion3.center).normalize().scale(TEMPLIONX_MAXSPEED));
     } else {
         lion3.prefVelocity.set(0, 0);
     }
     if (lion4.center.distanceToSq(target4) >= lion4.radiusSq) {
-        lion4.prefVelocity.copy(target4.sub(lion4.center).normalize().scale(LION_VELOCITY * 0.1));
+        lion4.prefVelocity.copy(target4.sub(lion4.center).normalize().scale(TEMPLIONX_MAXSPEED));
     } else {
         lion4.prefVelocity.set(0, 0);
     }
