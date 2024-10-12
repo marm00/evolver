@@ -62,8 +62,8 @@ const ORB_VELOCITY = ORB_CIRCUMFERENCE / 6;
 
 const LION_RADIUS = 16;
 const LION_VELOCITY = HUMAN_VELOCITY / 2;
-const TEMPLION1_MAXSPEED = LION_VELOCITY * 0.1;
-const TEMPLIONX_MAXSPEED = TEMPLION1_MAXSPEED * 1.1;
+const TEMPLION1_MAXSPEED = LION_VELOCITY * 0.2;
+const TEMPLIONX_MAXSPEED = TEMPLION1_MAXSPEED * 1.2;
 
 // TODO: the game contains lists for different things (like spears), pools, and the partinioning contains references
 interface Game {
@@ -280,6 +280,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     // pp.add(p_pv.copy(pv).scale(deltaTime));
     // v2Pool2.free(p_pv);
 
+    const inverseDeltaTime = 1 / deltaTime;
     const thingsToRender = gameState.world.query(pp.x - cx, pp.y - cy, pp.x + cx, pp.y + cy);
 
     const sprite: HTMLImageElement | null = gameState.player.sprite;
@@ -795,7 +796,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             const nPrev = constraintPrev.direction, vPrev = constraintPrev.point;
             const denominator = n.detUnchecked(nPrev);
             const numerator = nPrev.detUnchecked(v.clone().sub(vPrev));
-            if (Math.abs(denominator) < _Math.EPSILON) {
+            if (Math.abs(denominator) <= _Math.EPSILON) {
                 // Lines are parallel or nearly parallel
                 if (numerator < 0) {
                     // Current constraint line is on the wrong side (right) of previous
@@ -805,12 +806,12 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             }
             /** The intersection point along the current constraint line. */
             const t = numerator / denominator;
-            if (denominator > 0) {
-                // Previous line bounds current line on the right
-                tLeft = Math.min(tRight, t);
-            } else {
+            if (denominator >= 0) {
                 // Previous line bounds current line on the left
-                tRight = Math.max(tLeft, t);
+                tRight = Math.min(tRight, t);
+            } else {
+                // Previous line bounds current line on the right
+                tLeft = Math.max(tLeft, t);
             }
             if (tLeft > tRight) {
                 // Feasible interval along the constraint line is empty
@@ -940,7 +941,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             const distSq = pRel.magnitudeSq();
             const r = rA + rB;
             const rSq = r * r;
-            if ((timeHorizon * maxSpeed + lionA.radius) ** 2 < distSq) continue; // TODO: change this sensing implementation
+            // if ((timeHorizon * maxSpeed + lionA.radius) ** 2 < distSq) continue; // TODO: change this sensing implementation
             /** Apex of the VO (truncated) cone or origin of relative velocity space. */
             const apex = new Vector2();
             /** The smallest change in relative velocity required to resolve the collision. */
@@ -953,14 +954,15 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
                 // No observed collision or overlap
                 apex.copy(vRel).sub(pRel.clone().scale(inverseTimeHorizon));
                 const apexLengthSq = apex.magnitudeSq();
-                const angle = apex.dot(vRel);
+                const angle = apex.dot(pRel);
                 const imminentAngle = angle < 0;
                 const imminentCollision = angle * angle > rSq * apexLengthSq;
                 if (imminentAngle && imminentCollision) {
                     /** Project on cut-off circle. */
                     const apexLength = Math.sqrt(apexLengthSq);
-                    direction.copy(apex).scale(1 / apexLength).rotate90Deg();
-                    u.copy(direction).scale(r * inverseTimeHorizon - apexLength);
+                    const unitApex = apex.clone().scale(1 / apexLength);
+                    direction.copy(unitApex).rotate90Deg();
+                    u.copy(unitApex).scale(r * inverseTimeHorizon - apexLength);
                 } else {
                     /** No imminent collision, project velocity on nearest leg. */
                     const leg = Math.sqrt(distSq - rSq);
@@ -978,10 +980,11 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             } else {
                 // Lions are on top of each other, define VO as entire plane
                 // Apex is now defined as the cutoff center to relative velocity
-                apex.copy(vRel).sub(pRel.clone().scale(inverseTimeHorizon));
+                apex.copy(vRel).sub(pRel.clone().scale(inverseDeltaTime));
                 const apexLength = apex.magnitude();
-                direction.copy(apex).scale(1 / apexLength).rotate90Deg();
-                u.copy(direction).scale(r * inverseTimeHorizon - apexLength);
+                const unitApex = apex.clone().scale(1 / apexLength);
+                direction.copy(unitApex).rotate90Deg();
+                u.copy(unitApex).scale(r * inverseDeltaTime - apexLength);
             }
             // ORCA constraint (half-plane) is now defined by n (direction off of u) and vA+halfU (point)
             // Where halfU is the reciprocal (shared half effort) of the smallest change
@@ -997,26 +1000,26 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         if (lineCount < constraints.length) {
             let distance = 0;
             const numObstLines = 0; // TODO: solve ORCA for Obstacles (not just other Lions)
-            const projectedLines = constraints.slice(0, numObstLines);
             for (let i = lineCount; i < constraints.length; i++) {
                 const constraint = constraints[i]!;
                 const n = constraint.direction, v = constraint.point;
                 if (n.detUnchecked(v.clone().sub(result)) > distance) {
+                    const projectedLines = constraints.slice(0, numObstLines);
                     // Velocity does not satisfy constraint of the current line
                     for (let j = numObstLines; j < i; j++) {
                         const newLine = { direction: new Vector2(), point: new Vector2() };
                         const constraintPrev = constraints[j]!;
                         const nPrev = constraintPrev.direction, vPrev = constraintPrev.point;
-                        const denominator = n.detUnchecked(nPrev);
-                        if (Math.abs(denominator) <= _Math.EPSILON) {
+                        const determinant = n.detUnchecked(nPrev);
+                        if (Math.abs(determinant) <= _Math.EPSILON) {
                             // Lines are parallel
                             if (n.dot(nPrev) > 0) {
                                 // Lines are in the same direction
                                 continue;
                             }
-                            newLine.point.copy(v.clone().add(vPrev)).scale(0.5);
+                            newLine.point.copy(v).add(vPrev).scale(0.5);
                         } else {
-                            newLine.point.copy(v).add(n.clone().scale(nPrev.detUnchecked(v.clone().sub(vPrev)) / denominator));
+                            newLine.point.copy(v).add(n.clone().scale(nPrev.detUnchecked(v.clone().sub(vPrev)) / determinant));
                         }
                         newLine.direction.copy(nPrev).sub(n).normalize();
                         projectedLines.push(newLine);
