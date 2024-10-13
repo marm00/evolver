@@ -42,7 +42,7 @@ const OBSIDIAN_DISPLAY_RADIUS = OBSIDIAN_RADIUS;
 const OBSIDIAN_VELOCITY = 12;
 const OBSIDIAN_ACCELERATION = 1 + (6 / 100);
 /** Threshold for finishing a lerp to a target in pixels. */
-const OBSIDIAN_THRESHOLD = 4;
+const OBSIDIAN_THRESHOLD = 4; // TODO: replace with epsilon?
 const OBSIDIAN_JUMP_DISTANCE = OBSIDIAN_RADIUS * 5;
 
 const THUNDERSTORM_RADIUS = 96;
@@ -52,7 +52,7 @@ const THUNDERSTORM_OFFSET = THUNDERSTORM_RADIUS * 3;
 const THUNDERSTORM_VELOCITY = HUMAN_VELOCITY * 1.5;
 const THUNDERSTORM_EASING_FACTOR = _Math.pow2(2);
 /** Threshold for stopping storm movement in pixels (edge-to-edge collision). */
-const THUNDERSTORM_THRESHOLD = 1;
+const THUNDERSTORM_THRESHOLD = 1; // TODO: replace with epsilon?
 
 const ORB_RADIUS = 16;
 const ORB_OFFSET = 256;
@@ -62,7 +62,7 @@ const ORB_VELOCITY = ORB_CIRCUMFERENCE / 6;
 
 const LION_RADIUS = 16;
 const LION_VELOCITY = HUMAN_VELOCITY / 2;
-const TEMPLION1_MAXSPEED = LION_VELOCITY * 0.2;
+const TEMPLION1_MAXSPEED = LION_VELOCITY * 0.5;
 const TEMPLIONX_MAXSPEED = TEMPLION1_MAXSPEED * 1.2;
 
 // TODO: the game contains lists for different things (like spears), pools, and the partinioning contains references
@@ -873,13 +873,13 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         return lines.length;
     }
 
-    // for (const lion of gameState.lions) {
-    //     if (lion.center.distanceToSq(gameState.player.center) <= lion.radiusSq * 2) {
-    //         lion.prefVelocity.set(0, 0);
-    //     } else {
-    //         lion.prefVelocity.copy(gameState.player.center.clone().sub(lion.center).normalize().scale(lion.maxSpeed));
-    //     }
-    // }
+    for (const lion of gameState.lions) {
+        if (lion.center.distanceToSq(gameState.player.center) <= lion.radiusSq * 2) {
+            lion.prefVelocity.set(0, 0);
+        } else {
+            lion.prefVelocity.copy(gameState.player.center.clone().sub(lion.center).normalize().scale(lion.maxSpeed));
+        }
+    }
 
     const lion1 = gameState.lions[0]!;
     const lion2 = gameState.lions[1]!;
@@ -916,8 +916,8 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     /** Time horizon (steps) for the ORCA algorithm. */
     const timeHorizon = 10;
     const inverseTimeHorizon = 1 / timeHorizon;
-    // TODO: replace dot/det with unchecked versions where possible
-    // TODO: 'radius' might be misimplented in some ORCA problems (should not be maxSpeed)
+    const obstTimeHorizon = 10;
+    const inverseObstTimeHorizon = 1 / obstTimeHorizon;
     for (let i = 0; i < gameState.lions.length; i++) {
         const lionA = gameState.lions[i]!;
         const pA = lionA.center, rA = lionA.radius, vA = lionA.velocity;
@@ -931,7 +931,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         // TODO: compute k-nearest neighbors, naive = compare distances of all neighbors less than sensing radius
         const kNN = gameState.lions.length - 1;
         const constraints: { direction: Vector2, point: Vector2 }[] = [];
-        const result = new Vector2();
+        // TODO: obstacle constraints
         for (let j = 0; j < gameState.lions.length; j++) {
             if (i === j) continue;
             const lionB = gameState.lions[j]!;
@@ -991,10 +991,8 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             point.copy(vA).add(u.clone().scale(0.5));
             constraints.push({ direction, point });
         }
-        // Linear programming to find new optimal velocity satisfying constraints
-        // result.copy(vA);
-        result.set(0, 0);
-        // TODO: actually compute optimal velocities instead of using prefVelocity, using linear program
+        // ORCA lines are defined, linear programming to find new vOpt satisfying constraints
+        const result = new Vector2();
         const lineCount = ORCA2(constraints, maxSpeed, maxSpeedSq, false, lionA.prefVelocity, result);
         // Final linear program: ORCA3
         if (lineCount < constraints.length) {
