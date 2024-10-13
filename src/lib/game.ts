@@ -210,7 +210,9 @@ export async function createGame(strategy: string): Promise<Game> {
     return {
         world, player, m3Pool, v2Pool, v2Pool2, oRectPool, spearPool, spears: [],
         meteoritePool, meteorites: [], obsidianPool, obsidians: [], thunderstorm, orb, walls,
-        lionPool, lions: [tempLion1, tempLion2, tempLion3, tempLion4]
+        lionPool,
+        // lions: [tempLion1, tempLion2, tempLion3, tempLion4]
+        lions: []
     };
 }
 
@@ -885,29 +887,31 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     const lion2 = gameState.lions[1]!;
     const lion3 = gameState.lions[2]!;
     const lion4 = gameState.lions[3]!;
-    const target1 = new Vector2(200, 200);
-    const target2 = new Vector2(-200, 200);
-    const target3 = new Vector2(200, 0);
-    const target4 = new Vector2(-200, 0);
-    if (lion1.center.distanceToSq(target1) >= lion1.radiusSq) {
-        lion1.prefVelocity.copy(target1.sub(lion1.center).normalize().scale(TEMPLION1_MAXSPEED));
-    } else {
-        lion1.prefVelocity.set(0, 0);
-    }
-    if (lion2.center.distanceToSq(target2) >= lion2.radiusSq) {
-        lion2.prefVelocity.copy(target2.sub(lion2.center).normalize().scale(TEMPLIONX_MAXSPEED));
-    } else {
-        lion2.prefVelocity.set(0, 0);
-    }
-    if (lion3.center.distanceToSq(target3) >= lion3.radiusSq) {
-        lion3.prefVelocity.copy(target3.sub(lion3.center).normalize().scale(TEMPLIONX_MAXSPEED));
-    } else {
-        lion3.prefVelocity.set(0, 0);
-    }
-    if (lion4.center.distanceToSq(target4) >= lion4.radiusSq) {
-        lion4.prefVelocity.copy(target4.sub(lion4.center).normalize().scale(TEMPLIONX_MAXSPEED));
-    } else {
-        lion4.prefVelocity.set(0, 0);
+    if (lion1 && lion2 && lion3 && lion4) {
+        const target1 = new Vector2(300, 200);
+        const target2 = new Vector2(-200, 200);
+        const target3 = new Vector2(200, 0);
+        const target4 = new Vector2(-200, 0);
+        if (lion1.center.distanceToSq(target1) >= lion1.radiusSq) {
+            lion1.prefVelocity.copy(target1.sub(lion1.center).normalize().scale(TEMPLION1_MAXSPEED));
+        } else {
+            lion1.prefVelocity.set(0, 0);
+        }
+        if (lion2.center.distanceToSq(target2) >= lion2.radiusSq) {
+            lion2.prefVelocity.copy(target2.sub(lion2.center).normalize().scale(TEMPLIONX_MAXSPEED));
+        } else {
+            lion2.prefVelocity.set(0, 0);
+        }
+        if (lion3.center.distanceToSq(target3) >= lion3.radiusSq) {
+            lion3.prefVelocity.copy(target3.sub(lion3.center).normalize().scale(TEMPLIONX_MAXSPEED));
+        } else {
+            lion3.prefVelocity.set(0, 0);
+        }
+        if (lion4.center.distanceToSq(target4) >= lion4.radiusSq) {
+            lion4.prefVelocity.copy(target4.sub(lion4.center).normalize().scale(TEMPLIONX_MAXSPEED));
+        } else {
+            lion4.prefVelocity.set(0, 0);
+        }
     }
 
     // ORCA Move Lions
@@ -931,7 +935,78 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         // TODO: compute k-nearest neighbors, naive = compare distances of all neighbors less than sensing radius
         const kNN = gameState.lions.length - 1;
         const constraints: { direction: Vector2, point: Vector2 }[] = [];
+        
         // TODO: obstacle constraints
+        for (const wall of gameState.walls) {
+            const direction = new Vector2();
+            const point = new Vector2();
+            const pB = wall.center, hW = wall.halfWidth, hH = wall.halfHeight;
+            const local_pA = pA.clone().sub(pB).matmul2(wall.inverseRotation);
+            const local_vA = vA.clone().matmul2(wall.inverseRotation);
+            const dx = Math.abs(local_pA.x) - hW - rA;
+            const dy = Math.abs(local_pA.y) - hH - rA;
+            const outsideX = dx > 0;
+            const outsideY = dy > 0;
+            if (!outsideX && !outsideY) {
+                // Lion is inside the wall
+                point.set(0, 0);
+                direction.copy(pB).sub(pA).normalize().rotate180Deg();
+                constraints.push({ direction, point });
+                continue;
+            }
+            const faces: { point: Vector2, normal: Vector2 }[] = [];
+            if (outsideX) {
+                // Outside along X axis, get closest face
+                if (local_pA.x > 0) {
+                    faces.push({ point: new Vector2(hW, local_pA.y), normal: new Vector2(1, 0) });
+                } else {
+                    faces.push({ point: new Vector2(-hW, local_pA.y), normal: new Vector2(-1, 0) });
+                }
+            }
+            if (outsideY) {
+                // Outside along Y axis, get closest face
+                if (local_pA.y > 0) {
+                    faces.push({ point: new Vector2(local_pA.x, hH), normal: new Vector2(0, 1) });
+                } else {
+                    faces.push({ point: new Vector2(local_pA.x, -hH), normal: new Vector2(0, -1) });
+                }
+            }
+            for (const { point, normal } of faces) {
+                const pRel = point.clone().sub(local_pA);
+                const vRel = local_vA.clone();
+                const apex = vRel.clone().sub(pRel.clone().scale(inverseObstTimeHorizon));
+                const distSq = pRel.magnitudeSq();
+                const rSq = rA * rA;
+                const line = { direction: new Vector2(), point: new Vector2() };
+                const u = new Vector2();
+                const dotProduct = apex.dot(pRel);
+                if (dotProduct < 0 && dotProduct * dotProduct > rSq * apex.magnitudeSq()) {
+                    // Collision is imminent, calculate u by scalar projections
+                    const apexLength = apex.magnitude();
+                    const unitApex = apex.clone().scale(1 / apexLength);
+                    line.direction.copy(unitApex).rotate90Deg();
+                    u.copy(unitApex).scale(rA * inverseObstTimeHorizon - apexLength);
+                } else {
+                    // No imminent collision, project velocity on nearest leg
+                    const leg = Math.sqrt(distSq - rSq);
+                    const px = pRel.x, py = pRel.y;
+                    if (pRel.detUnchecked(apex) > 0) {
+                        // Project on left leg
+                        line.direction.set(px * leg - py * rA, px * rA + py * leg).scale(1 / distSq);
+                    } else {
+                        // Project on right leg
+                        line.direction.set(px * leg + py * rA, -px * rA + py * leg).negate().scale(1 / distSq);
+                    }
+                    // line.direction.normalize();
+                    u.copy(line.direction).scale(vRel.dot(line.direction)).sub(vRel);
+                }
+                line.point.copy(vA).add(u.clone().matmul2(wall.rotation).scale(0.5));
+                line.direction.matmul2(wall.rotation);
+                constraints.push(line);
+            }
+        }
+        const numObstLines = constraints.length;
+
         for (let j = 0; j < gameState.lions.length; j++) {
             if (i === j) continue;
             const lionB = gameState.lions[j]!;
@@ -997,7 +1072,6 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         // Final linear program: ORCA3
         if (lineCount < constraints.length) {
             let distance = 0;
-            const numObstLines = 0; // TODO: solve ORCA for Obstacles (not just other Lions)
             for (let i = lineCount; i < constraints.length; i++) {
                 const constraint = constraints[i]!;
                 const n = constraint.direction, v = constraint.point;
@@ -1036,7 +1110,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             console.log('Contraints:', constraints.length)
             ctx.strokeStyle = '#09ff00';
             const L = 1000;
-            const opacityStep = Math.min(1 / constraints.length, 1/3).toFixed(1);
+            const opacityStep = Math.min(1 / constraints.length, 1 / 3).toFixed(1);
             for (const constraint of constraints) {
                 const direction = constraint.direction, v = constraint.point;
                 const P_pos = v.clone().scale(timeHorizon).add(pA);
