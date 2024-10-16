@@ -938,6 +938,9 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         
         // TODO: obstacle constraints
         for (const wall of gameState.walls) {
+            // Current implementation of handling walls is only somewhat correct
+            // Should morph the general line principles onto an OBB
+            // Also look at the cheapest way of retrieving velocity obstacles (1 line and rotate?)
             const direction = new Vector2();
             const point = new Vector2();
             const pB = wall.center, hW = wall.halfWidth, hH = wall.halfHeight;
