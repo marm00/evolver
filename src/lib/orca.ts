@@ -35,33 +35,62 @@ interface ObstacleNeighbor {
     obstacle: Obstacle;
 }
 
-let agents: Agent[] = [];
-let obstacles: Obstacle[] = [];
-const agentNeighbors: AgentNeighbor[] = [];
-const constraints: Line[] = [];
-
-export class Agent {
+interface Agent {
     center: Vector2;
-    radius: number;
     velocity: Vector2;
+    radius: number;
     maxSpeed: number;
     maxSpeedSq: number;
+}
 
-    computeNeighbors() {
-        let numConstraints = 0;
-        
+export class AgentWorker {
+    agents: Agent[];
+    obstacles: Obstacle[];
+    agentNeighbors: AgentNeighbor[] = [];
+    obstacleNeighbors: ObstacleNeighbor[] = [];
+    // TODO: add a k-d tree with access to all agents and obstacles, to fill neighbors
+    constraints: Line[] = [];
+
+    constructor(agents: Agent[], obstacles: Obstacle[]) {
+        this.agents = agents;
+        this.obstacles = obstacles;
     }
 
     update() {
-        
+        const agents = this.agents, obstacles = this.obstacles;
+        for (const agentA of agents) {
+            const pA = agentA.center, vA = agentA.velocity, rA = agentA.radius;
+            const maxSpeedA = agentA.maxSpeed, maxSpeedSqA = agentA.maxSpeedSq;
+
+            // Compute obstacle neighbors
+            // TODO: use a k-d tree to find neighbors and implement pooling
+            this.agentNeighbors = agents.filter(agentB => agentA !== agentB).map(agentB => {
+                const pB = agentB.center;
+                const distSq = pA.distanceToSq(pB);
+                return { distSq, agent: agentB };
+            });
+
+            // Compute agent neighbors
+            // TODO: use a k-d tree to find neighbors and implement pooling
+            this.obstacleNeighbors = obstacles.map(obstacle => {
+                const distSq = pA.distanceTo(obstacle.point);
+                return { distSq, obstacle };
+            });
+
+            // Compute obstacle constraints
+            for (const obstacleNeighbor of this.obstacleNeighbors) {
+                const obstacleA = obstacleNeighbor.obstacle;
+                const obstacleB = obstacleA.next;
+            }
+
+            // Compute agent constraints
+
+            // Compute optimal velocity
+
+        }
     }
 }
 
-export function update(newAgents: Agent[], newObstacles: Obstacle[]) {
-    // TODO: prevent garbage collection for agents array while keeping it global
-    agents = newAgents;
-    obstacles = newObstacles;
-    for (const agent of agents) {
 
-    }
-}
+
+
