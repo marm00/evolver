@@ -114,6 +114,23 @@ export class Wall {
     }
 }
 
+// TODO: create a polygon class (natural objects are convex obstacles not rectangular)
+export class Obstacle {
+    direction: Vector2;
+    point: Vector2;
+    next: Obstacle;
+    prev: Obstacle;
+    isConvex: boolean;
+
+    constructor(direction: Vector2, point: Vector2, next: Obstacle, prev: Obstacle, isConvex: boolean) {
+        this.direction = direction;
+        this.point = point;
+        this.next = next;
+        this.prev = prev;
+        this.isConvex = isConvex;
+    }
+}
+
 export class Lion {
     center: Vector2;
     velocity: Vector2;

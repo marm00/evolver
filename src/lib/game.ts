@@ -915,7 +915,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     }
 
     // ORCA Move Lions
-    // Obstacle Reciprocal Collision Avoidance inspired by https://gamma.cs.unc.edu/ORCA/publications/ORCA.pdf
+    // Optimal Reciprocal Collision Avoidance inspired by https://gamma.cs.unc.edu/ORCA/publications/ORCA.pdf
     // TODO: parallelize and obviously different data structure (k-d tree partitioning, etc.)
     /** Time horizon (steps) for the ORCA algorithm. */
     const timeHorizon = 10;
