@@ -171,7 +171,7 @@ export class Vector2 implements Resettable {
     }
 
     /** Divides the vector by a scalar, resulting in a vector with the same (or negated) direction but different magnitude. */
-    inverseScale(scalar: number): this {
+    invScale(scalar: number): this {
         return this.scale(1 / scalar);
     }
 
@@ -201,7 +201,7 @@ export class Vector2 implements Resettable {
         return this;
     }
 
-    /** Rotates the vector 90 degrees counterclockwise. */
+    /** Rotates the vector 90 degrees clockwise. */
     rotate90Deg(): this {
         const x = this.x;
         this.x = this.y;
@@ -209,8 +209,8 @@ export class Vector2 implements Resettable {
         return this;
     }
 
-    /** Rotates the vector 180 degrees counterclockwise. */
-    rotate180Deg(): this {
+    /** Rotates the vector 90 degrees counterclockwise. */
+    rotate90DegCounter(): this {
         const x = this.x;
         this.x = -this.y;
         this.y = x;

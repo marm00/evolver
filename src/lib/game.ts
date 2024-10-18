@@ -919,9 +919,9 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     // TODO: parallelize and obviously different data structure (k-d tree partitioning, etc.)
     /** Time horizon (steps) for the ORCA algorithm. */
     const timeHorizon = 10;
-    const inverseTimeHorizon = 1 / timeHorizon;
+    const invTimeHorizon = 1 / timeHorizon;
     const obstTimeHorizon = 10;
-    const inverseObstTimeHorizon = 1 / obstTimeHorizon;
+    const invTimeHorizonObst = 1 / obstTimeHorizon;
     for (let i = 0; i < gameState.lions.length; i++) {
         const lionA = gameState.lions[i]!;
         const pA = lionA.center, rA = lionA.radius, vA = lionA.velocity;
@@ -953,7 +953,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             if (!outsideX && !outsideY) {
                 // Lion is inside the wall
                 point.set(0, 0);
-                direction.copy(pB).sub(pA).normalize().rotate180Deg();
+                direction.copy(pB).sub(pA).normalize().rotate90DegCounter();
                 constraints.push({ direction, point });
                 continue;
             }
@@ -977,7 +977,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             for (const { point, normal } of faces) {
                 const pRel = point.clone().sub(local_pA);
                 const vRel = local_vA.clone();
-                const apex = vRel.clone().sub(pRel.clone().scale(inverseObstTimeHorizon));
+                const apex = vRel.clone().sub(pRel.clone().scale(invTimeHorizonObst));
                 const distSq = pRel.magnitudeSq();
                 const rSq = rA * rA;
                 const line = { direction: new Vector2(), point: new Vector2() };
@@ -988,7 +988,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
                     const apexLength = apex.magnitude();
                     const unitApex = apex.clone().scale(1 / apexLength);
                     line.direction.copy(unitApex).rotate90Deg();
-                    u.copy(unitApex).scale(rA * inverseObstTimeHorizon - apexLength);
+                    u.copy(unitApex).scale(rA * invTimeHorizonObst - apexLength);
                 } else {
                     // No imminent collision, project velocity on nearest leg
                     const leg = Math.sqrt(distSq - rSq);
@@ -1030,7 +1030,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             const point = new Vector2();
             if (distSq > rSq) {
                 // No observed collision or overlap
-                apex.copy(vRel).sub(pRel.clone().scale(inverseTimeHorizon));
+                apex.copy(vRel).sub(pRel.clone().scale(invTimeHorizon));
                 const apexLengthSq = apex.magnitudeSq();
                 const angle = apex.dot(pRel);
                 const imminentAngle = angle < 0;
@@ -1040,7 +1040,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
                     const apexLength = Math.sqrt(apexLengthSq);
                     const unitApex = apex.clone().scale(1 / apexLength);
                     direction.copy(unitApex).rotate90Deg();
-                    u.copy(unitApex).scale(r * inverseTimeHorizon - apexLength);
+                    u.copy(unitApex).scale(r * invTimeHorizon - apexLength);
                 } else {
                     /** No imminent collision, project velocity on nearest leg. */
                     const leg = Math.sqrt(distSq - rSq);
@@ -1100,7 +1100,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
                         projectedLines.push(newLine);
                     }
                     const temp = result.clone();
-                    if (ORCA2(projectedLines, maxSpeed, maxSpeedSq, true, n.clone().rotate180Deg(), result) < projectedLines.length) {
+                    if (ORCA2(projectedLines, maxSpeed, maxSpeedSq, true, n.clone().rotate90DegCounter(), result) < projectedLines.length) {
                         result.copy(temp);
                     }
                     distance = n.detUnchecked(v.clone().sub(result));

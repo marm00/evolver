@@ -17,6 +17,9 @@ export interface _Math {
     /** The smallest number that can be represented by a float32 in JavaScript. */
     readonly EPSILON: number;
 
+    /** The negation of the smallest number that can be represented by a float32 in JavaScript. */
+    readonly NEG_EPSILON: number;
+
     /** 
      * Returns the angle of the numeric argument in radians.
      * 
@@ -102,6 +105,7 @@ export const _Math: _Math = {
     RAD_TO_DEG: 180 / Math.PI,
     GRAVITY: 9.81,
     EPSILON: 1e-6,
+    NEG_EPSILON: -1e-6,
     degToRad(degrees: number): number {
         return degrees * this.DEG_TO_RAD;
     },
