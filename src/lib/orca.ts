@@ -8,14 +8,6 @@
 import { _Math } from "./mathUtils";
 import { Vector2 } from "./vector2";
 
-const deltaTime = 1; // TODO: get delta time and SCREAM_CASE consts
-const invDeltaTime = 1 / deltaTime;
-const timeHorizon = 10;
-const invTimeHorizon = 1 / timeHorizon;
-const obstTimeHorizon = 10;
-const invTimeHorizonObst = 1 / obstTimeHorizon;
-const V2_POOL_SIZE = 16;
-
 interface Line {
     direction: Vector2;
     point: Vector2;
@@ -45,10 +37,17 @@ interface Agent {
     radius: number;
     radiusSq: number;
     maxSpeed: number;
-    maxSpeedSq: number; // TODO: maybe just square in functions (should be let not const anyhow)
     prefVelocity: Vector2;
 }
+
 export class AgentWorker {
+    readonly poolSize = 7;
+    readonly deltaTime: number;
+    readonly invDeltaTime: number;
+    readonly timeHorizon: number;
+    readonly invTimeHorizon: number;
+    readonly obstTimeHorizon: number;
+    readonly invTimeHorizonObst: number;
     readonly agentsRef: Agent[];
     readonly obstaclesRef: Obstacle[];
     agentNeighbors: AgentNeighbor[] = [];
@@ -57,12 +56,17 @@ export class AgentWorker {
     constraints: Line[] = [];
     projectedLines: Line[] = [];
     v2Pool: Vector2[];
-    poolIndex = -1;
 
-    constructor(agentsRef: Agent[], obstaclesRef: Obstacle[]) {
+    constructor(agentsRef: Agent[], obstaclesRef: Obstacle[], deltaTime: number, timeHorizon: number, obstTimeHorizon: number) {
         this.agentsRef = agentsRef;
         this.obstaclesRef = obstaclesRef;
-        this.v2Pool = Array(V2_POOL_SIZE).fill(null).map(() => new Vector2());
+        this.v2Pool = Array(this.poolSize).fill(null).map(() => new Vector2());
+        this.deltaTime = deltaTime;
+        this.invDeltaTime = 1 / deltaTime;
+        this.timeHorizon = timeHorizon;
+        this.invTimeHorizon = 1 / timeHorizon;
+        this.obstTimeHorizon = obstTimeHorizon;
+        this.invTimeHorizonObst = 1 / obstTimeHorizon;
     }
 
     update() {
@@ -74,10 +78,12 @@ export class AgentWorker {
     processAgent(agentA: Agent) {
         const constraints = this.constraints;
         let projectedLines = this.projectedLines;
+        const invTimeHorizonObst = this.invTimeHorizonObst;
+        const invTimeHorizon = this.invTimeHorizon;
+        const invDeltaTime = this.invDeltaTime;
         const v2Pool = this.v2Pool;
-        this.poolIndex = -1;
         const pA = agentA.center, vA = agentA.velocity, rA = agentA.radius, rSqA = agentA.radiusSq;
-        const maxSpeedA = agentA.maxSpeed, maxSpeedSqA = agentA.maxSpeedSq;
+        const maxSpeedA = agentA.maxSpeed;
 
         // Compute obstacle neighbors
         // TODO: use a k-d tree to find neighbors and implement pooling
@@ -309,7 +315,6 @@ export class AgentWorker {
 
         // Compute agent constraints
         const numObstLines = constraints.length;
-        this.poolIndex = -1;
         const pRel = this.v2Pool[0]!;
         const vRel = this.v2Pool[1]!;
         /** Apex of the VO (truncated) cone or origin of relative velocity space. */
@@ -382,15 +387,19 @@ export class AgentWorker {
         // Final linear program: linearProgram3
         const lineCount = this.linearProgram2(maxSpeedA, false, agentA.prefVelocity, result);
         if (lineCount < constraints.length) {
+            const temp1 = v2Pool[3]!;
+            const temp2 = v2Pool[4]!;
+            // TODO: pool new line points and directions, and be careful with references
+            const newDirection = new Vector2();
+            const newPoint = new Vector2();
             let distance = 0;
             for (let i = lineCount; i < constraints.length; i++) {
                 const line = constraints[i]!;
                 const n = line.direction, v = line.point;
-                if (n.detUnchecked(v.clone().sub(result)) > distance) {
+                if (n.detUnchecked(temp1.copy(v).sub(result)) > distance) {
                     projectedLines = constraints.slice(0, numObstLines);
                     // Velocity does not satisfy constraint of the current line
                     for (let j = numObstLines; j < i; j++) {
-                        const newLine = { direction: new Vector2(), point: new Vector2() };
                         const linePrev = constraints[j]!;
                         const nPrev = linePrev.direction, vPrev = linePrev.point;
                         const determinant = n.detUnchecked(nPrev);
@@ -400,43 +409,23 @@ export class AgentWorker {
                                 // Lines are in the same direction
                                 continue;
                             }
-                            newLine.point.copy(v).add(vPrev).scale(0.5);
+                            newPoint.copy(v).add(vPrev).scale(0.5);
                         } else {
-                            newLine.point.copy(v).add(n.clone().scale(nPrev.detUnchecked(v.clone().sub(vPrev)) / determinant));
+                            temp1.copy(n).scale(nPrev.detUnchecked(temp2.copy(v).sub(vPrev)) / determinant)
+                            newPoint.copy(v).add(temp1);
                         }
-                        newLine.direction.copy(nPrev).sub(n).normalize();
-                        projectedLines.push(newLine);
+                        newDirection.copy(nPrev).sub(n).normalize();
+                        projectedLines.push({ direction: newDirection, point: newPoint });
                     }
-                    const temp = result.clone();
-                    if (this.linearProgram2(maxSpeedA, true, n.clone().rotate90DegCounter(), result) < projectedLines.length) {
-                        result.copy(temp);
+                    temp1.copy(result);
+                    if (this.linearProgram2(maxSpeedA, true, temp2.copy(n).rotate90DegCounter(), result) < projectedLines.length) {
+                        result.copy(temp1);
                     }
-                    distance = n.detUnchecked(v.clone().sub(result));
+                    distance = n.detUnchecked(temp1.copy(v).sub(result));
                 }
             }
         }
         vA.copy(result);
-    }
-
-    v2(x: number, y: number): Vector2 {
-        if (this.poolIndex++ < this.v2Pool.length) {
-            const vector = this.v2Pool[this.poolIndex]!;
-            vector.x = x;
-            vector.y = y;
-            return vector;
-        }
-        console.warn('Vector2 pool exhausted, triggering reallocation.');
-        this.v2Pool.push(new Vector2(x, y));
-        return this.v2Pool[this.poolIndex]!;
-    }
-
-    v2Fast(): Vector2 {
-        if (this.poolIndex++ < this.v2Pool.length) {
-            return this.v2Pool[this.poolIndex]!;
-        }
-        console.warn('Vector2 pool exhausted, triggering reallocation.');
-        this.v2Pool.push(new Vector2());
-        return this.v2Pool[this.poolIndex]!;
     }
 
     linearProgram1(current: number, maxSpeedSq: number, directionOpt: boolean, optVelocity: Vector2, result: Vector2): boolean {
@@ -538,6 +527,27 @@ export class AgentWorker {
         }
         return lines.length;
     }
+
+    // v2(x: number, y: number): Vector2 {
+    //     if (this.poolIndex++ < this.v2Pool.length) {
+    //         const vector = this.v2Pool[this.poolIndex]!;
+    //         vector.x = x;
+    //         vector.y = y;
+    //         return vector;
+    //     }
+    //     console.warn('Vector2 pool exhausted, triggering reallocation.');
+    //     this.v2Pool.push(new Vector2(x, y));
+    //     return this.v2Pool[this.poolIndex]!;
+    // }
+
+    // v2Fast(): Vector2 {
+    //     if (this.poolIndex++ < this.v2Pool.length) {
+    //         return this.v2Pool[this.poolIndex]!;
+    //     }
+    //     console.warn('Vector2 pool exhausted, triggering reallocation.');
+    //     this.v2Pool.push(new Vector2());
+    //     return this.v2Pool[this.poolIndex]!;
+    // }
 }
 
 
