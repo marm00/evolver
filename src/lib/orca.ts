@@ -386,43 +386,45 @@ export class AgentWorker {
         const result = v2Pool[0]!.set(0, 0);
         // Final linear program: linearProgram3
         const lineCount = this.linearProgram2(maxSpeedA, false, agentA.prefVelocity, result);
-        if (lineCount < constraints.length) {
-            const temp1 = v2Pool[3]!;
-            const temp2 = v2Pool[4]!;
-            // TODO: pool new line points and directions, and be careful with references
-            const newDirection = new Vector2();
-            const newPoint = new Vector2();
-            let distance = 0;
-            for (let i = lineCount; i < constraints.length; i++) {
-                const line = constraints[i]!;
-                const n = line.direction, v = line.point;
-                if (n.detUnchecked(temp1.copy(v).sub(result)) > distance) {
-                    projectedLines = constraints.slice(0, numObstLines);
-                    // Velocity does not satisfy constraint of the current line
-                    for (let j = numObstLines; j < i; j++) {
-                        const linePrev = constraints[j]!;
-                        const nPrev = linePrev.direction, vPrev = linePrev.point;
-                        const determinant = n.detUnchecked(nPrev);
-                        if (Math.abs(determinant) <= _Math.EPSILON) {
-                            // Lines are parallel
-                            if (n.dot(nPrev) > 0) {
-                                // Lines are in the same direction
-                                continue;
-                            }
-                            newPoint.copy(v).add(vPrev).scale(0.5);
-                        } else {
-                            temp1.copy(n).scale(nPrev.detUnchecked(temp2.copy(v).sub(vPrev)) / determinant)
-                            newPoint.copy(v).add(temp1);
+        if (lineCount === constraints.length) {
+            vA.copy(result);
+            return;
+        }
+        const vTemp = v2Pool[3]!;
+        const vOptTemp = v2Pool[4]!;
+        // TODO: pool new line points and directions, and be careful with references
+        const newDirection = new Vector2();
+        const newPoint = new Vector2();
+        let distance = 0;
+        for (let i = lineCount; i < constraints.length; i++) {
+            const line = constraints[i]!;
+            const n = line.direction, v = line.point;
+            if (n.detUnchecked(vTemp.copy(v).sub(result)) > distance) {
+                projectedLines = constraints.slice(0, numObstLines);
+                // Velocity does not satisfy constraint of the current line
+                for (let j = numObstLines; j < i; j++) {
+                    const linePrev = constraints[j]!;
+                    const nPrev = linePrev.direction, vPrev = linePrev.point;
+                    const determinant = n.detUnchecked(nPrev);
+                    if (Math.abs(determinant) <= _Math.EPSILON) {
+                        // Lines are parallel
+                        if (n.dot(nPrev) > 0) {
+                            // Lines are in the same direction
+                            continue;
                         }
-                        newDirection.copy(nPrev).sub(n).normalize();
-                        projectedLines.push({ direction: newDirection, point: newPoint });
+                        newPoint.copy(v).add(vPrev).scale(0.5);
+                    } else {
+                        vTemp.copy(n).scale(nPrev.detUnchecked(vOptTemp.copy(v).sub(vPrev)) / determinant)
+                        newPoint.copy(v).add(vTemp);
                     }
-                    temp1.copy(result);
-                    if (this.linearProgram2(maxSpeedA, true, temp2.copy(n).rotate90DegCounter(), result) < projectedLines.length) {
-                        result.copy(temp1);
-                    }
-                    distance = n.detUnchecked(temp1.copy(v).sub(result));
+                    newDirection.copy(nPrev).sub(n).normalize();
+                    projectedLines.push({ direction: newDirection, point: newPoint });
                 }
+                vTemp.copy(result);
+                if (this.linearProgram2(maxSpeedA, true, vOptTemp.copy(n).rotate90DegCounter(), result) < projectedLines.length) {
+                    result.copy(vTemp);
+                }
+                distance = n.detUnchecked(vTemp.copy(v).sub(result));
             }
         }
         vA.copy(result);
