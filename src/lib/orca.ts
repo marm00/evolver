@@ -46,6 +46,7 @@ interface Agent {
     radiusSq: number;
     maxSpeed: number;
     maxSpeedSq: number; // TODO: maybe just square in functions (should be let not const anyhow)
+    prefVelocity: Vector2;
 }
 export class AgentWorker {
     readonly agentsRef: Agent[];
@@ -54,6 +55,7 @@ export class AgentWorker {
     obstacleNeighbors: ObstacleNeighbor[] = [];
     // TODO: add a k-d tree with access to all agents and obstacles, to fill neighbors
     constraints: Line[] = [];
+    projectedLines: Line[] = [];
     v2Pool: Vector2[];
     poolIndex = -1;
 
@@ -70,6 +72,9 @@ export class AgentWorker {
     }
 
     processAgent(agentA: Agent) {
+        const constraints = this.constraints;
+        let projectedLines = this.projectedLines;
+        const v2Pool = this.v2Pool;
         this.poolIndex = -1;
         const pA = agentA.center, vA = agentA.velocity, rA = agentA.radius, rSqA = agentA.radiusSq;
         const maxSpeedA = agentA.maxSpeed, maxSpeedSqA = agentA.maxSpeedSq;
@@ -92,15 +97,15 @@ export class AgentWorker {
         // Compute obstacle constraints
         const rInvA = rA * invTimeHorizonObst;
         // TODO: pool new line points and directions, and be careful with references
-        const linePoint = this.v2Fast();
-        const lineDirection = this.v2Fast();
-        const pRelA = this.v2Fast();
-        const pRelB = this.v2Fast();
-        const leftCutoff = this.v2Fast();
-        const rightCutoff = this.v2Fast();
-        const velocity = this.v2Fast();
-        const temp1 = this.v2Fast();
-        const temp2 = this.v2Fast();
+        const linePoint = new Vector2();
+        const lineDirection = new Vector2();
+        const pRelA = v2Pool[0]!;
+        const pRelB = v2Pool[1]!;
+        const leftCutoff = v2Pool[2]!;
+        const rightCutoff = v2Pool[3]!;
+        const velocity = v2Pool[4]!;
+        const temp1 = v2Pool[5]!;
+        const temp2 = v2Pool[6]!;
         for (const obstacleNeighbor of this.obstacleNeighbors) {
             // Obstacles A and B, two vertices, define a restricted Line/polygon edge 
             let obstacleA = obstacleNeighbor.obstacle;
@@ -109,7 +114,7 @@ export class AgentWorker {
             pRelB.copy(obstacleB.point).sub(pA);
             // If the current VO falls fully inside a previous ORCA line's infeasible space, skip
             let alreadyCovered = false;
-            for (const line of this.constraints) {
+            for (const line of constraints) {
                 temp1.copy(pRelA).scale(invTimeHorizonObst).sub(line.point);
                 if (temp1.detUnchecked(line.direction) - rInvA >= _Math.NEG_EPSILON) {
                     temp1.copy(pRelB).scale(invTimeHorizonObst).sub(line.point);
@@ -135,7 +140,7 @@ export class AgentWorker {
                 if (obstacleA.isConvex) {
                     linePoint.set(0, 0);
                     lineDirection.copy(pRelA).rotate90DegCounter().normalize();
-                    this.constraints.push({ point: linePoint, direction: lineDirection });
+                    constraints.push({ point: linePoint, direction: lineDirection });
                 }
                 continue;
             }
@@ -146,7 +151,7 @@ export class AgentWorker {
                 if (obstacleB.isConvex && pRelB.detUnchecked(obstacleB.direction) >= 0) {
                     linePoint.set(0, 0);
                     lineDirection.copy(pRelB).rotate90DegCounter().normalize();
-                    this.constraints.push({ point: linePoint, direction: lineDirection });
+                    constraints.push({ point: linePoint, direction: lineDirection });
                 }
                 continue;
             }
@@ -156,7 +161,7 @@ export class AgentWorker {
                 // Collision with obstacle segment
                 linePoint.set(0, 0);
                 lineDirection.copy(obstacleA.direction).negate();
-                this.constraints.push({ point: linePoint, direction: lineDirection });
+                constraints.push({ point: linePoint, direction: lineDirection });
                 continue;
             }
             if (s < 0 && distSqLine <= rSqA) {
@@ -239,7 +244,7 @@ export class AgentWorker {
                 pRelB.copy(vA).sub(leftCutoff).normalize();
                 lineDirection.set(pRelB.y, -pRelB.x);
                 linePoint.copy(leftCutoff).add(pRelB.scale(rInvA));
-                this.constraints.push({ direction: lineDirection, point: linePoint });
+                constraints.push({ direction: lineDirection, point: linePoint });
                 continue;
             }
             if (t > 1 && tRight < 0) {
@@ -248,7 +253,7 @@ export class AgentWorker {
                 pRelB.copy(vA).sub(rightCutoff).normalize();
                 lineDirection.set(pRelB.y, -pRelB.x);
                 linePoint.copy(rightCutoff).add(pRelB.scale(rInvA));
-                this.constraints.push({ direction: lineDirection, point: linePoint });
+                constraints.push({ direction: lineDirection, point: linePoint });
                 continue;
             }
             // Project on closest of: left leg, right leg, cut-off line (somewhere on segment)
@@ -280,7 +285,7 @@ export class AgentWorker {
                 // Closer to point on cut-off line than either left or right leg, project on cut-off
                 lineDirection.copy(obstacleA.direction).negate();
                 linePoint.copy(lineDirection).rotate90DegCounter().scale(rInvA).add(leftCutoff);
-                this.constraints.push({ direction: lineDirection, point: linePoint });
+                constraints.push({ direction: lineDirection, point: linePoint });
                 continue;
             }
             if (distSqLeft < distSqRight) {
@@ -290,7 +295,7 @@ export class AgentWorker {
                 }
                 lineDirection.copy(temp1);
                 linePoint.copy(lineDirection).rotate90DegCounter().scale(rInvA).add(leftCutoff);
-                this.constraints.push({ direction: lineDirection, point: linePoint });
+                constraints.push({ direction: lineDirection, point: linePoint });
                 continue;
             }
             // Closest to right, project on right leg
@@ -299,24 +304,24 @@ export class AgentWorker {
             }
             lineDirection.copy(temp2).negate();
             linePoint.copy(lineDirection).rotate90DegCounter().scale(rInvA).add(rightCutoff);
-            this.constraints.push({ direction: lineDirection, point: linePoint });
+            constraints.push({ direction: lineDirection, point: linePoint });
         }
 
         // Compute agent constraints
-        const numObstLines = this.constraints.length;
+        const numObstLines = constraints.length;
         this.poolIndex = -1;
-        const pRel = this.v2Fast();
-        const vRel = this.v2Fast();
+        const pRel = this.v2Pool[0]!;
+        const vRel = this.v2Pool[1]!;
         /** Apex of the VO (truncated) cone or origin of relative velocity space. */
-        const apex = this.v2Fast();
+        const apex = this.v2Pool[2]!;
         /** The smallest change in relative velocity required to resolve the collision. */
-        const u = this.v2Fast();
+        const u = this.v2Pool[3]!;
+        const temp1Agent = this.v2Pool[4]!;
         // TODO: pool new line points and directions, and be careful with references
         /** Normal vector n (or direction) of minimal change. */
-        const lineDirectionAgent = this.v2Fast();
+        const lineDirectionAgent = new Vector2();
         /** Represents the line on which to adjust velocity for reciprocal avoidance. */
-        const linePointAgent = this.v2Fast();
-        const temp1Agent = this.v2Fast();
+        const linePointAgent = new Vector2();
         for (const agentNeighbor of this.agentNeighbors) {
             const other = agentNeighbor.agent;
             const pB = other.center, vB = other.velocity, rB = other.radius;
@@ -368,10 +373,49 @@ export class AgentWorker {
             // ORCA constraint (half-plane) is now defined by n (direction off of u) and vA+halfU (point)
             // Where halfU is the reciprocal (shared half effort) of the smallest change
             linePointAgent.copy(vA).add(u.scale(0.5));
-            this.constraints.push({ direction: lineDirectionAgent, point: linePointAgent });
+            constraints.push({ direction: lineDirectionAgent, point: linePointAgent });
         }
 
         // Compute optimal velocity
+        // ORCA lines are defined, linear programming to find new vOpt satisfying constraints
+        const result = v2Pool[0]!.set(0, 0);
+        // Final linear program: linearProgram3
+        const lineCount = this.linearProgram2(maxSpeedA, false, agentA.prefVelocity, result);
+        if (lineCount < constraints.length) {
+            let distance = 0;
+            for (let i = lineCount; i < constraints.length; i++) {
+                const line = constraints[i]!;
+                const n = line.direction, v = line.point;
+                if (n.detUnchecked(v.clone().sub(result)) > distance) {
+                    projectedLines = constraints.slice(0, numObstLines);
+                    // Velocity does not satisfy constraint of the current line
+                    for (let j = numObstLines; j < i; j++) {
+                        const newLine = { direction: new Vector2(), point: new Vector2() };
+                        const linePrev = constraints[j]!;
+                        const nPrev = linePrev.direction, vPrev = linePrev.point;
+                        const determinant = n.detUnchecked(nPrev);
+                        if (Math.abs(determinant) <= _Math.EPSILON) {
+                            // Lines are parallel
+                            if (n.dot(nPrev) > 0) {
+                                // Lines are in the same direction
+                                continue;
+                            }
+                            newLine.point.copy(v).add(vPrev).scale(0.5);
+                        } else {
+                            newLine.point.copy(v).add(n.clone().scale(nPrev.detUnchecked(v.clone().sub(vPrev)) / determinant));
+                        }
+                        newLine.direction.copy(nPrev).sub(n).normalize();
+                        projectedLines.push(newLine);
+                    }
+                    const temp = result.clone();
+                    if (this.linearProgram2(maxSpeedA, true, n.clone().rotate90DegCounter(), result) < projectedLines.length) {
+                        result.copy(temp);
+                    }
+                    distance = n.detUnchecked(v.clone().sub(result));
+                }
+            }
+        }
+        vA.copy(result);
     }
 
     v2(x: number, y: number): Vector2 {
@@ -393,6 +437,106 @@ export class AgentWorker {
         console.warn('Vector2 pool exhausted, triggering reallocation.');
         this.v2Pool.push(new Vector2());
         return this.v2Pool[this.poolIndex]!;
+    }
+
+    linearProgram1(current: number, maxSpeedSq: number, directionOpt: boolean, optVelocity: Vector2, result: Vector2): boolean {
+        const temp = this.v2Pool[2]!;
+        const lines = this.constraints;
+        const { direction: n, point: v } = lines[current]!;
+        const alignment = v.dot(n);
+        const discriminantSq = alignment * alignment + maxSpeedSq - v.magnitudeSq();
+        if (discriminantSq < 0) {
+            // Failure: maximum speed does not intersect with feasible line region
+            return false;
+        }
+        const discriminant = Math.sqrt(discriminantSq);
+        // Define the segment of the line within the maximum speed circle
+        let tLeft = -alignment - discriminant;
+        let tRight = -alignment + discriminant;
+        for (let i = 0; i < current; i++) {
+            // Adjust above line segment to satisfy all previous constraints
+            const constraintPrev = lines[i]!;
+            const nPrev = constraintPrev.direction, vPrev = constraintPrev.point;
+            const denominator = n.detUnchecked(nPrev);
+            const numerator = nPrev.detUnchecked(temp.copy(v).sub(vPrev));
+            if (Math.abs(denominator) <= _Math.EPSILON) {
+                // Lines are parallel or nearly parallel
+                if (numerator < 0) {
+                    // Current constraint line is on the wrong side (right) of previous
+                    return false;
+                }
+                continue;
+            }
+            /** The intersection point along the current constraint line. */
+            const t = numerator / denominator;
+            if (denominator >= 0) {
+                // Previous line bounds current line on the left
+                tRight = Math.min(tRight, t);
+            } else {
+                // Previous line bounds current line on the right
+                tLeft = Math.max(tLeft, t);
+            }
+            if (tLeft > tRight) {
+                // Feasible interval along the constraint line is empty
+                return false;
+            }
+        }
+        if (directionOpt) {
+            // Optimize direction
+            if (optVelocity.dot(n) > 0) {
+                // Take rightmost point
+                result.copy(v).add(temp.copy(n).scale(tRight));
+            } else {
+                // Take leftmost point
+                result.copy(v).add(temp.copy(n).scale(tLeft));
+            }
+        } else {
+            // Optimize closest point
+            /** Project preferred velocity onto constraint line, the value (distance) to minimize. */
+            const t = n.dot(temp.copy(optVelocity).sub(v));
+            if (t < tLeft) {
+                result.copy(v).add(temp.copy(n).scale(tLeft));
+            } else if (t > tRight) {
+                result.copy(v).add(temp.copy(n).scale(tRight));
+            } else {
+                result.copy(v).add(temp.copy(n).scale(t));
+            }
+        }
+        return true;
+    }
+
+    linearProgram2(maxSpeed: number, directionOpt: boolean, optVelocity: Vector2, result: Vector2): number {
+        const temp = this.v2Pool[1]!;
+        const maxSpeedSq = maxSpeed * maxSpeed;
+        if (directionOpt) {
+            // Optimize direction with velocity as a unit vector
+            result.copy(optVelocity).scale(maxSpeed);
+        } else if (optVelocity.magnitudeSq() > maxSpeedSq) {
+            // Outside circle, optimize closest point
+            result.copy(optVelocity).normalize().scale(maxSpeed);
+        } else {
+            // Inside circle, optimize closest point
+            result.copy(optVelocity);
+        }
+        const lines = directionOpt ? this.projectedLines : this.constraints;
+        for (let i = 0; i < lines.length; i++) {
+            // Objective:   Minimize f(v) = ||v - vPref||^2
+            // Constraints: (v-vPref) * n >= 0
+            //              ||v|| <= vMax
+            //              ORCA lines
+            // ORCA2
+            const constraint = lines[i]!;
+            if (constraint.direction.detUnchecked(temp.copy(constraint.point).sub(result)) > 0) {
+                // Optimal velocity is on the wrong side (left) of the ORCA constraint
+                // Next linear program
+                temp.copy(result);
+                if (!this.linearProgram1(i, maxSpeedSq, directionOpt, optVelocity, result)) {
+                    result.copy(temp);
+                    return i;
+                }
+            }
+        }
+        return lines.length;
     }
 }
 
