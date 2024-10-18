@@ -8,6 +8,8 @@
 import { _Math } from "./mathUtils";
 import { Vector2 } from "./vector2";
 
+const deltaTime = 1; // TODO: get delta time and SCREAM_CASE consts
+const invDeltaTime = 1 / deltaTime;
 const timeHorizon = 10;
 const invTimeHorizon = 1 / timeHorizon;
 const obstTimeHorizon = 10;
@@ -302,7 +304,72 @@ export class AgentWorker {
 
         // Compute agent constraints
         const numObstLines = this.constraints.length;
-
+        this.poolIndex = -1;
+        const pRel = this.v2Fast();
+        const vRel = this.v2Fast();
+        /** Apex of the VO (truncated) cone or origin of relative velocity space. */
+        const apex = this.v2Fast();
+        /** The smallest change in relative velocity required to resolve the collision. */
+        const u = this.v2Fast();
+        // TODO: pool new line points and directions, and be careful with references
+        /** Normal vector n (or direction) of minimal change. */
+        const lineDirectionAgent = this.v2Fast();
+        /** Represents the line on which to adjust velocity for reciprocal avoidance. */
+        const linePointAgent = this.v2Fast();
+        const temp1Agent = this.v2Fast();
+        for (const agentNeighbor of this.agentNeighbors) {
+            const other = agentNeighbor.agent;
+            const pB = other.center, vB = other.velocity, rB = other.radius;
+            pRel.copy(pB).sub(pA);
+            vRel.copy(vA).sub(vB);
+            const distSq = pRel.magnitudeSq();
+            const r = rA + rB;
+            const rSq = r * r;
+            if (distSq > rSq) {
+                // No observed collision or overlap
+                apex.copy(vRel).sub(temp1Agent.copy(pRel).scale(invTimeHorizon));
+                const apexLengthSq = apex.magnitudeSq();
+                const dotProduct = apex.dot(pRel);
+                if (dotProduct < 0 && dotProduct * dotProduct > rSq * apexLengthSq) {
+                    // Project on cut-off circle
+                    const apexLength = Math.sqrt(apexLengthSq);
+                    u.copy(apex).scale(1 / apexLength);
+                    lineDirectionAgent.copy(u).rotate90Deg();
+                    u.scale(r * invTimeHorizon - apexLength);
+                } else {
+                    // No imminent collision, project velocity on nearest leg
+                    const leg = Math.sqrt(distSq - rSq);
+                    const pX = pRel.x, pY = pRel.y;
+                    if (pRel.detUnchecked(apex) > 0) {
+                        // 2D cross product is positive, project on left leg
+                        lineDirectionAgent.set(
+                            pX * leg - pY * r,
+                            pX * r + pY * leg
+                        ).scale(1 / distSq);
+                    } else {
+                        // 2D cross product is negative, project on right leg
+                        lineDirectionAgent.set(
+                            pX * leg + pY * r,
+                            -pX * r + pY * leg
+                        ).negate().scale(1 / distSq);
+                    }
+                    // Find shortest vector (adjusted velocity) on the ORCA constraint line
+                    u.copy(lineDirectionAgent).scale(vRel.dot(lineDirectionAgent)).sub(vRel);
+                }
+            } else {
+                // Lions are on top of each other, define VO as entire plane
+                // Apex is now defined as the cutoff center to relative velocity
+                apex.copy(vRel).sub(temp1Agent.copy(pRel).scale(invDeltaTime));
+                const apexLength = apex.magnitude();
+                u.copy(apex).scale(1 / apexLength);
+                lineDirectionAgent.copy(u).rotate90Deg();
+                u.scale(r * invDeltaTime - apexLength);
+            }
+            // ORCA constraint (half-plane) is now defined by n (direction off of u) and vA+halfU (point)
+            // Where halfU is the reciprocal (shared half effort) of the smallest change
+            linePointAgent.copy(vA).add(u.scale(0.5));
+            this.constraints.push({ direction: lineDirectionAgent, point: linePointAgent });
+        }
 
         // Compute optimal velocity
     }
