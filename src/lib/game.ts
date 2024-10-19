@@ -4,6 +4,7 @@ import { Pool, Pool2 } from "./pool";
 import { _Math } from "./mathUtils";
 import { Matrix3 } from "./matrix3";
 import { Lion, Meteorite, Obsidian, Orb, RESOURCE_STATE, Spear, Thunderstorm, Wall } from "./spear";
+import { AgentWorker } from "./orca";
 
 const GAME_WIDTH = 6400;
 const GAME_HEIGHT = 6400;
@@ -62,8 +63,13 @@ const ORB_VELOCITY = ORB_CIRCUMFERENCE / 6;
 
 const LION_RADIUS = 16;
 const LION_VELOCITY = HUMAN_VELOCITY / 2;
-const TEMPLION1_MAXSPEED = LION_VELOCITY * 0.5;
+const TEMPLION1_MAXSPEED = LION_VELOCITY * 0.2;
 const TEMPLIONX_MAXSPEED = TEMPLION1_MAXSPEED * 1.2;
+
+const TIME_HORIZON = 10;
+const INV_TIME_HORIZON = 1 / TIME_HORIZON;
+const OBST_TIME_HORIZON = 10;
+const INV_OBST_TIME_HORIZON = 1 / OBST_TIME_HORIZON;
 
 // TODO: the game contains lists for different things (like spears), pools, and the partinioning contains references
 interface Game {
@@ -84,6 +90,7 @@ interface Game {
     walls: Wall[]; // TODO: different data structure?
     lionPool: Pool<Lion>;
     lions: Lion[]; // TODO: different data structure?
+    agentWorker: AgentWorker;
 }
 
 /**
@@ -207,12 +214,16 @@ export async function createGame(strategy: string): Promise<Game> {
     tempLion3.prefVelocity.set(200, 200).normalize().scale(TEMPLIONX_MAXSPEED);
     const tempLion4 = new Lion(200, 200, LION_RADIUS, TEMPLIONX_MAXSPEED);
     tempLion4.prefVelocity.set(-200, 200).normalize().scale(TEMPLIONX_MAXSPEED);
+
+    const lions = [tempLion1, tempLion2, tempLion3, tempLion4];
+    const agentWorker = new AgentWorker(lions, [], TIME_HORIZON, OBST_TIME_HORIZON);
     return {
         world, player, m3Pool, v2Pool, v2Pool2, oRectPool, spearPool, spears: [],
         meteoritePool, meteorites: [], obsidianPool, obsidians: [], thunderstorm, orb, walls,
         lionPool,
         // lions: [tempLion1, tempLion2, tempLion3, tempLion4]
-        lions: []
+        lions,
+        agentWorker
     };
 }
 
@@ -263,9 +274,9 @@ export function spawnOrb(orb: Orb) {
 }
 
 export function spawnLion(target: Vector2, lionPool: Pool<Lion>, lions: Lion[]) {
-    const randMaxSpeed = Math.random() * (LION_VELOCITY * 0.5) + (LION_VELOCITY * 1.5);
-    const lion = lionPool.alloc(target.x, target.y, LION_RADIUS, randMaxSpeed); // TODO: manage max speed var
-    lions.push(lion);
+    // const randMaxSpeed = Math.random() * (LION_VELOCITY * 0.5) + (LION_VELOCITY * 1.5);
+    // const lion = lionPool.alloc(target.x, target.y, LION_RADIUS, randMaxSpeed); // TODO: manage max speed var
+    // lions.push(lion);
 }
 
 export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game, elapsedTime: number, deltaTime: number) {
@@ -780,108 +791,108 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
 
     type Constraint = { direction: Vector2, point: Vector2 };
 
-    function ORCA1(current: number, lines: Constraint[], maxSpeedSq: number, directionOpt: boolean, optVelocity: Vector2, result: Vector2): boolean {
-        const { direction: n, point: v } = lines[current]!;
-        const alignment = v.dot(n);
-        const discriminantSq = alignment * alignment + maxSpeedSq - v.magnitudeSq();
-        if (discriminantSq < 0) {
-            // Failure: maximum speed does not intersect with feasible line region
-            return false;
-        }
-        const discriminant = Math.sqrt(discriminantSq);
-        // Define the segment of the line within the maximum speed circle
-        let tLeft = -alignment - discriminant;
-        let tRight = -alignment + discriminant;
-        for (let i = 0; i < current; i++) {
-            // Adjust above line segment to satisfy all previous constraints
-            const constraintPrev = lines[i]!;
-            const nPrev = constraintPrev.direction, vPrev = constraintPrev.point;
-            const denominator = n.detUnchecked(nPrev);
-            const numerator = nPrev.detUnchecked(v.clone().sub(vPrev));
-            if (Math.abs(denominator) <= _Math.EPSILON) {
-                // Lines are parallel or nearly parallel
-                if (numerator < 0) {
-                    // Current constraint line is on the wrong side (right) of previous
-                    return false;
-                }
-                continue;
-            }
-            /** The intersection point along the current constraint line. */
-            const t = numerator / denominator;
-            if (denominator >= 0) {
-                // Previous line bounds current line on the left
-                tRight = Math.min(tRight, t);
-            } else {
-                // Previous line bounds current line on the right
-                tLeft = Math.max(tLeft, t);
-            }
-            if (tLeft > tRight) {
-                // Feasible interval along the constraint line is empty
-                return false;
-            }
-        }
-        if (directionOpt) {
-            // Optimize direction
-            if (optVelocity.dot(n) > 0) {
-                // Take rightmost point
-                result.copy(v).add(n.clone().scale(tRight));
-            } else {
-                // Take leftmost point
-                result.copy(v).add(n.clone().scale(tLeft));
-            }
-        } else {
-            // Optimize closest point
-            /** Project preferred velocity onto constraint line, the value (distance) to minimize. */
-            const t = n.dot(optVelocity.clone().sub(v));
-            if (t < tLeft) {
-                result.copy(v).add(n.clone().scale(tLeft));
-            } else if (t > tRight) {
-                result.copy(v).add(n.clone().scale(tRight));
-            } else {
-                result.copy(v).add(n.clone().scale(t));
-            }
-        }
-        return true;
-    }
+    // function ORCA1(current: number, lines: Constraint[], maxSpeedSq: number, directionOpt: boolean, optVelocity: Vector2, result: Vector2): boolean {
+    //     const { direction: n, point: v } = lines[current]!;
+    //     const alignment = v.dot(n);
+    //     const discriminantSq = alignment * alignment + maxSpeedSq - v.magnitudeSq();
+    //     if (discriminantSq < 0) {
+    //         // Failure: maximum speed does not intersect with feasible line region
+    //         return false;
+    //     }
+    //     const discriminant = Math.sqrt(discriminantSq);
+    //     // Define the segment of the line within the maximum speed circle
+    //     let tLeft = -alignment - discriminant;
+    //     let tRight = -alignment + discriminant;
+    //     for (let i = 0; i < current; i++) {
+    //         // Adjust above line segment to satisfy all previous constraints
+    //         const constraintPrev = lines[i]!;
+    //         const nPrev = constraintPrev.direction, vPrev = constraintPrev.point;
+    //         const denominator = n.detUnchecked(nPrev);
+    //         const numerator = nPrev.detUnchecked(v.clone().sub(vPrev));
+    //         if (Math.abs(denominator) <= _Math.EPSILON) {
+    //             // Lines are parallel or nearly parallel
+    //             if (numerator < 0) {
+    //                 // Current constraint line is on the wrong side (right) of previous
+    //                 return false;
+    //             }
+    //             continue;
+    //         }
+    //         /** The intersection point along the current constraint line. */
+    //         const t = numerator / denominator;
+    //         if (denominator >= 0) {
+    //             // Previous line bounds current line on the left
+    //             tRight = Math.min(tRight, t);
+    //         } else {
+    //             // Previous line bounds current line on the right
+    //             tLeft = Math.max(tLeft, t);
+    //         }
+    //         if (tLeft > tRight) {
+    //             // Feasible interval along the constraint line is empty
+    //             return false;
+    //         }
+    //     }
+    //     if (directionOpt) {
+    //         // Optimize direction
+    //         if (optVelocity.dot(n) > 0) {
+    //             // Take rightmost point
+    //             result.copy(v).add(n.clone().scale(tRight));
+    //         } else {
+    //             // Take leftmost point
+    //             result.copy(v).add(n.clone().scale(tLeft));
+    //         }
+    //     } else {
+    //         // Optimize closest point
+    //         /** Project preferred velocity onto constraint line, the value (distance) to minimize. */
+    //         const t = n.dot(optVelocity.clone().sub(v));
+    //         if (t < tLeft) {
+    //             result.copy(v).add(n.clone().scale(tLeft));
+    //         } else if (t > tRight) {
+    //             result.copy(v).add(n.clone().scale(tRight));
+    //         } else {
+    //             result.copy(v).add(n.clone().scale(t));
+    //         }
+    //     }
+    //     return true;
+    // }
 
-    function ORCA2(lines: Constraint[], maxSpeed: number, maxSpeedSq: number, directionOpt: boolean, optVelocity: Vector2, result: Vector2): number {
-        if (directionOpt) {
-            // Optimize direction with velocity as a unit vector
-            result.copy(optVelocity).scale(maxSpeed);
-        } else if (optVelocity.magnitudeSq() > maxSpeedSq) {
-            // Outside circle, optimize closest point
-            result.copy(optVelocity).normalize().scale(maxSpeed);
-        } else {
-            // Inside circle, optimize closest point
-            result.copy(optVelocity);
-        }
-        for (let i = 0; i < lines.length; i++) {
-            // Objective:   Minimize f(v) = ||v - vPref||^2
-            // Constraints: (v-vPref) * n >= 0
-            //              ||v|| <= vMax
-            //              ORCA lines
-            // ORCA2
-            const constraint = lines[i]!;
-            if (constraint.direction.detUnchecked(constraint.point.clone().sub(result)) > 0) {
-                // Optimal velocity is on the wrong side (left) of the ORCA constraint
-                // Next linear program
-                const temp = result.clone();
-                if (!ORCA1(i, lines, maxSpeedSq, directionOpt, optVelocity, result)) {
-                    result.copy(temp);
-                    return i;
-                }
-            }
-        }
-        return lines.length;
-    }
+    // function ORCA2(lines: Constraint[], maxSpeed: number, maxSpeedSq: number, directionOpt: boolean, optVelocity: Vector2, result: Vector2): number {
+    //     if (directionOpt) {
+    //         // Optimize direction with velocity as a unit vector
+    //         result.copy(optVelocity).scale(maxSpeed);
+    //     } else if (optVelocity.magnitudeSq() > maxSpeedSq) {
+    //         // Outside circle, optimize closest point
+    //         result.copy(optVelocity).normalize().scale(maxSpeed);
+    //     } else {
+    //         // Inside circle, optimize closest point
+    //         result.copy(optVelocity);
+    //     }
+    //     for (let i = 0; i < lines.length; i++) {
+    //         // Objective:   Minimize f(v) = ||v - vPref||^2
+    //         // Constraints: (v-vPref) * n >= 0
+    //         //              ||v|| <= vMax
+    //         //              ORCA lines
+    //         // ORCA2
+    //         const constraint = lines[i]!;
+    //         if (constraint.direction.detUnchecked(constraint.point.clone().sub(result)) > 0) {
+    //             // Optimal velocity is on the wrong side (left) of the ORCA constraint
+    //             // Next linear program
+    //             const temp = result.clone();
+    //             if (!ORCA1(i, lines, maxSpeedSq, directionOpt, optVelocity, result)) {
+    //                 result.copy(temp);
+    //                 return i;
+    //             }
+    //         }
+    //     }
+    //     return lines.length;
+    // }
 
-    for (const lion of gameState.lions) {
-        if (lion.center.distanceToSq(gameState.player.center) <= lion.radiusSq * 2) {
-            lion.prefVelocity.set(0, 0);
-        } else {
-            lion.prefVelocity.copy(gameState.player.center.clone().sub(lion.center).normalize().scale(lion.maxSpeed));
-        }
-    }
+    // for (const lion of gameState.lions) {
+    //     if (lion.center.distanceToSq(gameState.player.center) <= lion.radiusSq * 2) {
+    //         lion.prefVelocity.set(0, 0);
+    //     } else {
+    //         lion.prefVelocity.copy(gameState.player.center.clone().sub(lion.center).normalize().scale(lion.maxSpeed));
+    //     }
+    // }
 
     const lion1 = gameState.lions[0]!;
     const lion2 = gameState.lions[1]!;
@@ -918,197 +929,205 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     // Optimal Reciprocal Collision Avoidance inspired by https://gamma.cs.unc.edu/ORCA/publications/ORCA.pdf
     // TODO: parallelize and obviously different data structure (k-d tree partitioning, etc.)
     /** Time horizon (steps) for the ORCA algorithm. */
-    const timeHorizon = 10;
-    const invTimeHorizon = 1 / timeHorizon;
-    const obstTimeHorizon = 10;
-    const invTimeHorizonObst = 1 / obstTimeHorizon;
+    // const timeHorizon = 10;
+    // const invTimeHorizon = 1 / timeHorizon;
+    // const obstTimeHorizon = 10;
+    // const invTimeHorizonObst = 1 / obstTimeHorizon;
     for (let i = 0; i < gameState.lions.length; i++) {
         const lionA = gameState.lions[i]!;
         const pA = lionA.center, rA = lionA.radius, vA = lionA.velocity;
         const maxSpeed = lionA.maxSpeed, maxSpeedSq = lionA.maxSpeedSq;
-        /** Initial velocity to be used in linear program. */
-        // const optVelocity = vA.clone();
-        // if (optVelocity.magnitudeSq() > maxSpeedSq) {
-        //     // Current velocity is above maximum speed, clamping it
-        //     optVelocity.normalize().scale(maxSpeed);
-        // }
-        // TODO: compute k-nearest neighbors, naive = compare distances of all neighbors less than sensing radius
-        const kNN = gameState.lions.length - 1;
-        const constraints: { direction: Vector2, point: Vector2 }[] = [];
+        // /** Initial velocity to be used in linear program. */
+        // // const optVelocity = vA.clone();
+        // // if (optVelocity.magnitudeSq() > maxSpeedSq) {
+        // //     // Current velocity is above maximum speed, clamping it
+        // //     optVelocity.normalize().scale(maxSpeed);
+        // // }
+        // // TODO: compute k-nearest neighbors, naive = compare distances of all neighbors less than sensing radius
+        // const kNN = gameState.lions.length - 1;
+        // const constraints: { direction: Vector2, point: Vector2 }[] = [];
         
-        // TODO: obstacle constraints
-        for (const wall of gameState.walls) {
-            // Current implementation of handling walls is only somewhat correct
-            // Should morph the general line principles onto an OBB
-            // Also look at the cheapest way of retrieving velocity obstacles (1 line and rotate?)
-            const direction = new Vector2();
-            const point = new Vector2();
-            const pB = wall.center, hW = wall.halfWidth, hH = wall.halfHeight;
-            const local_pA = pA.clone().sub(pB).matmul2(wall.inverseRotation);
-            const local_vA = vA.clone().matmul2(wall.inverseRotation);
-            const dx = Math.abs(local_pA.x) - hW - rA;
-            const dy = Math.abs(local_pA.y) - hH - rA;
-            const outsideX = dx > 0;
-            const outsideY = dy > 0;
-            if (!outsideX && !outsideY) {
-                // Lion is inside the wall
-                point.set(0, 0);
-                direction.copy(pB).sub(pA).normalize().rotate90DegCounter();
-                constraints.push({ direction, point });
-                continue;
-            }
-            const faces: { point: Vector2, normal: Vector2 }[] = [];
-            if (outsideX) {
-                // Outside along X axis, get closest face
-                if (local_pA.x > 0) {
-                    faces.push({ point: new Vector2(hW, local_pA.y), normal: new Vector2(1, 0) });
-                } else {
-                    faces.push({ point: new Vector2(-hW, local_pA.y), normal: new Vector2(-1, 0) });
-                }
-            }
-            if (outsideY) {
-                // Outside along Y axis, get closest face
-                if (local_pA.y > 0) {
-                    faces.push({ point: new Vector2(local_pA.x, hH), normal: new Vector2(0, 1) });
-                } else {
-                    faces.push({ point: new Vector2(local_pA.x, -hH), normal: new Vector2(0, -1) });
-                }
-            }
-            for (const { point, normal } of faces) {
-                const pRel = point.clone().sub(local_pA);
-                const vRel = local_vA.clone();
-                const apex = vRel.clone().sub(pRel.clone().scale(invTimeHorizonObst));
-                const distSq = pRel.magnitudeSq();
-                const rSq = rA * rA;
-                const line = { direction: new Vector2(), point: new Vector2() };
-                const u = new Vector2();
-                const dotProduct = apex.dot(pRel);
-                if (dotProduct < 0 && dotProduct * dotProduct > rSq * apex.magnitudeSq()) {
-                    // Collision is imminent, calculate u by scalar projections
-                    const apexLength = apex.magnitude();
-                    const unitApex = apex.clone().scale(1 / apexLength);
-                    line.direction.copy(unitApex).rotate90Deg();
-                    u.copy(unitApex).scale(rA * invTimeHorizonObst - apexLength);
-                } else {
-                    // No imminent collision, project velocity on nearest leg
-                    const leg = Math.sqrt(distSq - rSq);
-                    const px = pRel.x, py = pRel.y;
-                    if (pRel.detUnchecked(apex) > 0) {
-                        // Project on left leg
-                        line.direction.set(px * leg - py * rA, px * rA + py * leg).scale(1 / distSq);
-                    } else {
-                        // Project on right leg
-                        line.direction.set(px * leg + py * rA, -px * rA + py * leg).negate().scale(1 / distSq);
-                    }
-                    // line.direction.normalize();
-                    u.copy(line.direction).scale(vRel.dot(line.direction)).sub(vRel);
-                }
-                line.point.copy(vA).add(u.clone().matmul2(wall.rotation).scale(0.5));
-                line.direction.matmul2(wall.rotation);
-                constraints.push(line);
-            }
-        }
-        const numObstLines = constraints.length;
+        // // TODO: obstacle constraints
+        // for (const wall of gameState.walls) {
+        //     // Current implementation of handling walls is only somewhat correct
+        //     // Should morph the general line principles onto an OBB
+        //     // Also look at the cheapest way of retrieving velocity obstacles (1 line and rotate?)
+        //     const direction = new Vector2();
+        //     const point = new Vector2();
+        //     const pB = wall.center, hW = wall.halfWidth, hH = wall.halfHeight;
+        //     const local_pA = pA.clone().sub(pB).matmul2(wall.inverseRotation);
+        //     const local_vA = vA.clone().matmul2(wall.inverseRotation);
+        //     const dx = Math.abs(local_pA.x) - hW - rA;
+        //     const dy = Math.abs(local_pA.y) - hH - rA;
+        //     const outsideX = dx > 0;
+        //     const outsideY = dy > 0;
+        //     if (!outsideX && !outsideY) {
+        //         // Lion is inside the wall
+        //         point.set(0, 0);
+        //         direction.copy(pB).sub(pA).normalize().rotate90DegCounter();
+        //         constraints.push({ direction, point });
+        //         continue;
+        //     }
+        //     const faces: { point: Vector2, normal: Vector2 }[] = [];
+        //     if (outsideX) {
+        //         // Outside along X axis, get closest face
+        //         if (local_pA.x > 0) {
+        //             faces.push({ point: new Vector2(hW, local_pA.y), normal: new Vector2(1, 0) });
+        //         } else {
+        //             faces.push({ point: new Vector2(-hW, local_pA.y), normal: new Vector2(-1, 0) });
+        //         }
+        //     }
+        //     if (outsideY) {
+        //         // Outside along Y axis, get closest face
+        //         if (local_pA.y > 0) {
+        //             faces.push({ point: new Vector2(local_pA.x, hH), normal: new Vector2(0, 1) });
+        //         } else {
+        //             faces.push({ point: new Vector2(local_pA.x, -hH), normal: new Vector2(0, -1) });
+        //         }
+        //     }
+        //     for (const { point, normal } of faces) {
+        //         const pRel = point.clone().sub(local_pA);
+        //         const vRel = local_vA.clone();
+        //         const apex = vRel.clone().sub(pRel.clone().scale(invTimeHorizonObst));
+        //         const distSq = pRel.magnitudeSq();
+        //         const rSq = rA * rA;
+        //         const line = { direction: new Vector2(), point: new Vector2() };
+        //         const u = new Vector2();
+        //         const dotProduct = apex.dot(pRel);
+        //         if (dotProduct < 0 && dotProduct * dotProduct > rSq * apex.magnitudeSq()) {
+        //             // Collision is imminent, calculate u by scalar projections
+        //             const apexLength = apex.magnitude();
+        //             const unitApex = apex.clone().scale(1 / apexLength);
+        //             line.direction.copy(unitApex).rotate90Deg();
+        //             u.copy(unitApex).scale(rA * invTimeHorizonObst - apexLength);
+        //         } else {
+        //             // No imminent collision, project velocity on nearest leg
+        //             const leg = Math.sqrt(distSq - rSq);
+        //             const px = pRel.x, py = pRel.y;
+        //             if (pRel.detUnchecked(apex) > 0) {
+        //                 // Project on left leg
+        //                 line.direction.set(px * leg - py * rA, px * rA + py * leg).scale(1 / distSq);
+        //             } else {
+        //                 // Project on right leg
+        //                 line.direction.set(px * leg + py * rA, -px * rA + py * leg).negate().scale(1 / distSq);
+        //             }
+        //             // line.direction.normalize();
+        //             u.copy(line.direction).scale(vRel.dot(line.direction)).sub(vRel);
+        //         }
+        //         line.point.copy(vA).add(u.clone().matmul2(wall.rotation).scale(0.5));
+        //         line.direction.matmul2(wall.rotation);
+        //         constraints.push(line);
+        //     }
+        // }
+        // const numObstLines = constraints.length;
 
-        for (let j = 0; j < gameState.lions.length; j++) {
-            if (i === j) continue;
-            const lionB = gameState.lions[j]!;
-            const pB = lionB.center, rB = lionB.radius, vB = lionB.velocity;
-            const pRel = pB.clone().sub(pA);
-            const vRel = vA.clone().sub(vB);
-            const distSq = pRel.magnitudeSq();
-            const r = rA + rB;
-            const rSq = r * r;
-            // if ((timeHorizon * maxSpeed + lionA.radius) ** 2 < distSq) continue; // TODO: change this sensing implementation
-            /** Apex of the VO (truncated) cone or origin of relative velocity space. */
-            const apex = new Vector2();
-            /** The smallest change in relative velocity required to resolve the collision. */
-            const u = new Vector2();
-            /** Normal vector n (or direction) of minimal change. */
-            const direction = new Vector2();
-            /** Represents the line on which to adjust velocity for reciprocal avoidance. */
-            const point = new Vector2();
-            if (distSq > rSq) {
-                // No observed collision or overlap
-                apex.copy(vRel).sub(pRel.clone().scale(invTimeHorizon));
-                const apexLengthSq = apex.magnitudeSq();
-                const angle = apex.dot(pRel);
-                const imminentAngle = angle < 0;
-                const imminentCollision = angle * angle > rSq * apexLengthSq;
-                if (imminentAngle && imminentCollision) {
-                    /** Project on cut-off circle. */
-                    const apexLength = Math.sqrt(apexLengthSq);
-                    const unitApex = apex.clone().scale(1 / apexLength);
-                    direction.copy(unitApex).rotate90Deg();
-                    u.copy(unitApex).scale(r * invTimeHorizon - apexLength);
-                } else {
-                    /** No imminent collision, project velocity on nearest leg. */
-                    const leg = Math.sqrt(distSq - rSq);
-                    const pX = pRel.x, pY = pRel.y;
-                    if (pRel.detUnchecked(apex) > 0) {
-                        // 2D cross product is positive, project on left leg
-                        direction.set(pX * leg - pY * r, pX * r + pY * leg).scale(1 / distSq);
-                    } else {
-                        // 2D cross product is negative, project on right leg
-                        direction.set(pX * leg + pY * r, -pX * r + pY * leg).negate().scale(1 / distSq);
-                    }
-                    // Find shortest vector (adjusted velocity) on the ORCA constraint line
-                    u.copy(direction).scale(vRel.dot(direction)).sub(vRel);
-                }
-            } else {
-                // Lions are on top of each other, define VO as entire plane
-                // Apex is now defined as the cutoff center to relative velocity
-                apex.copy(vRel).sub(pRel.clone().scale(inverseDeltaTime));
-                const apexLength = apex.magnitude();
-                const unitApex = apex.clone().scale(1 / apexLength);
-                direction.copy(unitApex).rotate90Deg();
-                u.copy(unitApex).scale(r * inverseDeltaTime - apexLength);
-            }
-            // ORCA constraint (half-plane) is now defined by n (direction off of u) and vA+halfU (point)
-            // Where halfU is the reciprocal (shared half effort) of the smallest change
-            point.copy(vA).add(u.clone().scale(0.5));
-            constraints.push({ direction, point });
-        }
-        // ORCA lines are defined, linear programming to find new vOpt satisfying constraints
-        const result = new Vector2();
-        const lineCount = ORCA2(constraints, maxSpeed, maxSpeedSq, false, lionA.prefVelocity, result);
-        // Final linear program: ORCA3
-        if (lineCount < constraints.length) {
-            let distance = 0;
-            for (let i = lineCount; i < constraints.length; i++) {
-                const constraint = constraints[i]!;
-                const n = constraint.direction, v = constraint.point;
-                if (n.detUnchecked(v.clone().sub(result)) > distance) {
-                    const projectedLines = constraints.slice(0, numObstLines);
-                    // Velocity does not satisfy constraint of the current line
-                    for (let j = numObstLines; j < i; j++) {
-                        const newLine = { direction: new Vector2(), point: new Vector2() };
-                        const constraintPrev = constraints[j]!;
-                        const nPrev = constraintPrev.direction, vPrev = constraintPrev.point;
-                        const determinant = n.detUnchecked(nPrev);
-                        if (Math.abs(determinant) <= _Math.EPSILON) {
-                            // Lines are parallel
-                            if (n.dot(nPrev) > 0) {
-                                // Lines are in the same direction
-                                continue;
-                            }
-                            newLine.point.copy(v).add(vPrev).scale(0.5);
-                        } else {
-                            newLine.point.copy(v).add(n.clone().scale(nPrev.detUnchecked(v.clone().sub(vPrev)) / determinant));
-                        }
-                        newLine.direction.copy(nPrev).sub(n).normalize();
-                        projectedLines.push(newLine);
-                    }
-                    const temp = result.clone();
-                    if (ORCA2(projectedLines, maxSpeed, maxSpeedSq, true, n.clone().rotate90DegCounter(), result) < projectedLines.length) {
-                        result.copy(temp);
-                    }
-                    distance = n.detUnchecked(v.clone().sub(result));
-                }
-            }
-        }
-        vA.copy(result);
-        // pA.add(vA.clone().scale(deltaTime));
+        // for (let j = 0; j < gameState.lions.length; j++) {
+        //     if (i === j) continue;
+        //     const lionB = gameState.lions[j]!;
+        //     const pB = lionB.center, rB = lionB.radius, vB = lionB.velocity;
+        //     const pRel = pB.clone().sub(pA);
+        //     const vRel = vA.clone().sub(vB);
+        //     const distSq = pRel.magnitudeSq();
+        //     const r = rA + rB;
+        //     const rSq = r * r;
+        //     // if ((timeHorizon * maxSpeed + lionA.radius) ** 2 < distSq) continue; // TODO: change this sensing implementation
+        //     /** Apex of the VO (truncated) cone or origin of relative velocity space. */
+        //     const apex = new Vector2();
+        //     /** The smallest change in relative velocity required to resolve the collision. */
+        //     const u = new Vector2();
+        //     /** Normal vector n (or direction) of minimal change. */
+        //     const direction = new Vector2();
+        //     /** Represents the line on which to adjust velocity for reciprocal avoidance. */
+        //     const point = new Vector2();
+        //     if (distSq > rSq) {
+        //         // No observed collision or overlap
+        //         apex.copy(vRel).sub(pRel.clone().scale(invTimeHorizon));
+        //         const apexLengthSq = apex.magnitudeSq();
+        //         const angle = apex.dot(pRel);
+        //         const imminentAngle = angle < 0;
+        //         const imminentCollision = angle * angle > rSq * apexLengthSq;
+        //         if (imminentAngle && imminentCollision) {
+        //             /** Project on cut-off circle. */
+        //             const apexLength = Math.sqrt(apexLengthSq);
+        //             const unitApex = apex.clone().scale(1 / apexLength);
+        //             direction.copy(unitApex).rotate90Deg();
+        //             u.copy(unitApex).scale(r * invTimeHorizon - apexLength);
+        //         } else {
+        //             /** No imminent collision, project velocity on nearest leg. */
+        //             const leg = Math.sqrt(distSq - rSq);
+        //             const pX = pRel.x, pY = pRel.y;
+        //             if (pRel.detUnchecked(apex) > 0) {
+        //                 // 2D cross product is positive, project on left leg
+        //                 direction.set(pX * leg - pY * r, pX * r + pY * leg).scale(1 / distSq);
+        //             } else {
+        //                 // 2D cross product is negative, project on right leg
+        //                 direction.set(pX * leg + pY * r, -pX * r + pY * leg).negate().scale(1 / distSq);
+        //             }
+        //             // Find shortest vector (adjusted velocity) on the ORCA constraint line
+        //             u.copy(direction).scale(vRel.dot(direction)).sub(vRel);
+        //         }
+        //     } else {
+        //         // Lions are on top of each other, define VO as entire plane
+        //         // Apex is now defined as the cutoff center to relative velocity
+        //         apex.copy(vRel).sub(pRel.clone().scale(inverseDeltaTime));
+        //         const apexLength = apex.magnitude();
+        //         const unitApex = apex.clone().scale(1 / apexLength);
+        //         direction.copy(unitApex).rotate90Deg();
+        //         u.copy(unitApex).scale(r * inverseDeltaTime - apexLength);
+        //     }
+        //     // ORCA constraint (half-plane) is now defined by n (direction off of u) and vA+halfU (point)
+        //     // Where halfU is the reciprocal (shared half effort) of the smallest change
+        //     point.copy(vA).add(u.clone().scale(0.5));
+        //     constraints.push({ direction, point });
+        // }
+        // // ORCA lines are defined, linear programming to find new vOpt satisfying constraints
+        // const result = new Vector2();
+        // const lineCount = ORCA2(constraints, maxSpeed, maxSpeedSq, false, lionA.prefVelocity, result);
+        // // Final linear program: ORCA3
+        // if (lineCount < constraints.length) {
+        //     let distance = 0;
+        //     for (let i = lineCount; i < constraints.length; i++) {
+        //         const constraint = constraints[i]!;
+        //         const n = constraint.direction, v = constraint.point;
+        //         if (n.detUnchecked(v.clone().sub(result)) > distance) {
+        //             const projectedLines = constraints.slice(0, numObstLines);
+        //             // Velocity does not satisfy constraint of the current line
+        //             for (let j = numObstLines; j < i; j++) {
+        //                 const newLine = { direction: new Vector2(), point: new Vector2() };
+        //                 const constraintPrev = constraints[j]!;
+        //                 const nPrev = constraintPrev.direction, vPrev = constraintPrev.point;
+        //                 const determinant = n.detUnchecked(nPrev);
+        //                 if (Math.abs(determinant) <= _Math.EPSILON) {
+        //                     // Lines are parallel
+        //                     if (n.dot(nPrev) > 0) {
+        //                         // Lines are in the same direction
+        //                         continue;
+        //                     }
+        //                     newLine.point.copy(v).add(vPrev).scale(0.5);
+        //                 } else {
+        //                     newLine.point.copy(v).add(n.clone().scale(nPrev.detUnchecked(v.clone().sub(vPrev)) / determinant));
+        //                 }
+        //                 newLine.direction.copy(nPrev).sub(n).normalize();
+        //                 projectedLines.push(newLine);
+        //             }
+        //             const temp = result.clone();
+        //             if (ORCA2(projectedLines, maxSpeed, maxSpeedSq, true, n.clone().rotate90DegCounter(), result) < projectedLines.length) {
+        //                 result.copy(temp);
+        //             }
+        //             distance = n.detUnchecked(v.clone().sub(result));
+        //         }
+        //     }
+        // }
+        // vA.copy(result);
+        // // pA.add(vA.clone().scale(deltaTime));
+        const constraints = gameState.agentWorker.processAgent({
+            center: pA,
+            velocity: vA,
+            radius: lionA.radius,
+            radiusSq: lionA.radiusSq,
+            maxSpeed: lionA.maxSpeed,
+            prefVelocity: lionA.prefVelocity
+        }, deltaTime, 1 / deltaTime);
         if (i === 0) {
             console.log('Contraints:', constraints.length)
             ctx.strokeStyle = '#09ff00';
@@ -1116,8 +1135,8 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             const opacityStep = Math.min(1 / constraints.length, 1 / 3).toFixed(1);
             for (const constraint of constraints) {
                 const direction = constraint.direction, v = constraint.point;
-                const P_pos = v.clone().scale(timeHorizon).add(pA);
-                const D_pos = direction.clone().scale(timeHorizon);
+                const P_pos = v.clone().scale(TIME_HORIZON).add(pA);
+                const D_pos = direction.clone().scale(TIME_HORIZON);
                 const N = new Vector2(-D_pos.y, D_pos.x).negate().normalize();
                 const P1 = P_pos.clone().add(D_pos.clone().scale(L));
                 const P2 = P_pos.clone().sub(D_pos.clone().scale(L));
@@ -1142,7 +1161,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             ctx.strokeStyle = '#000000ff';
             ctx.beginPath();
             ctx.moveTo(pA.x, pA.y);
-            const nV = pA.clone().add(vA.clone().scale(timeHorizon));
+            const nV = pA.clone().add(vA.clone().scale(TIME_HORIZON));
             ctx.lineTo(nV.x, nV.y);
             ctx.lineWidth = 3;
             ctx.stroke();

@@ -41,10 +41,8 @@ interface Agent {
 }
 
 export class AgentWorker {
-    readonly deltaTime: number; // TODO: dont pass in constructor but on 'message'
     readonly timeHorizon: number;
     readonly obstTimeHorizon: number;
-    readonly invDeltaTime: number;
     readonly invTimeHorizon: number;
     readonly invTimeHorizonObst: number;
 
@@ -65,11 +63,9 @@ export class AgentWorker {
     agentNeighbors: AgentNeighbor[] = [];
     obstacleNeighbors: ObstacleNeighbor[] = [];
 
-    constructor(agentsRef: Agent[], obstaclesRef: Obstacle[], deltaTime: number, timeHorizon: number, obstTimeHorizon: number) {
+    constructor(agentsRef: Agent[], obstaclesRef: Obstacle[], timeHorizon: number, obstTimeHorizon: number) {
         this.agentsRef = agentsRef;
         this.obstaclesRef = obstaclesRef;
-        this.deltaTime = deltaTime;
-        this.invDeltaTime = 1 / deltaTime;
         this.timeHorizon = timeHorizon;
         this.invTimeHorizon = 1 / timeHorizon;
         this.obstTimeHorizon = obstTimeHorizon;
@@ -79,19 +75,19 @@ export class AgentWorker {
         this.projectedLines = Array(this.projectedLinesInitialSize).fill(null).map(() => ({ direction: new Vector2(), point: new Vector2() }));
     }
 
-    update() {
+    update(deltaTime: number) {
         for (const agentA of this.agentsRef) {
-            this.processAgent(agentA);
+            this.processAgent(agentA, deltaTime, 1 / deltaTime);
         }
     }
 
-    processAgent(agentA: Agent) {
+    processAgent(agentA: Agent, deltaTime: number, invDeltaTime: number): Line[] { // TODO: dont return Line[] probably
         this.lineIndex = -1;
         const lines = this.lines;
         const projectedLines = this.projectedLines;
         const invTimeHorizonObst = this.invTimeHorizonObst;
         const invTimeHorizon = this.invTimeHorizon;
-        const invDeltaTime = this.invDeltaTime;
+        // const invDeltaTime = this.invDeltaTime;
         const v2Pool = this.v2Pool;
         const pA = agentA.center, vA = agentA.velocity, rA = agentA.radius, rSqA = agentA.radiusSq;
         const maxSpeedA = agentA.maxSpeed;
@@ -394,7 +390,7 @@ export class AgentWorker {
         if (lineCount === totalLines) {
             // Success, no failed lines
             vA.copy(result);
-            return;
+            return lines.slice(0, lineCount);
         }
         const vTemp = v2Pool[3]!;
         const vOptTemp = v2Pool[4]!;
@@ -458,6 +454,7 @@ export class AgentWorker {
             }
         }
         vA.copy(result);
+        return lines.slice(0, lineCount);
     }
 
     linearProgram1(current: number, maxSpeedSq: number, directionOpt: boolean, optVelocity: Vector2, result: Vector2): boolean {
