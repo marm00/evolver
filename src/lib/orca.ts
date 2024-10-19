@@ -398,8 +398,11 @@ export class AgentWorker {
         }
         const vTemp = v2Pool[3]!;
         const vOptTemp = v2Pool[4]!;
-        // If no empty slots, grow array to lowest value divisible by projectedLinesGrowthN
+        // If not enough empty slots, grow array to lowest value divisible by projectedLinesGrowthN
         if (projectedLines.length < numObstLines) {
+            console.warn('More obstacle lines' + numObstLines + ' than projected lines'
+                + projectedLines.length + ', growing array to'
+                + Math.ceil(numObstLines / this.projectedLinesGrowthN) * this.projectedLinesGrowthN);
             // No need to initialize undefined slots, as each gets a reference to lines[j] below
             projectedLines.length = Math.ceil(numObstLines / this.projectedLinesGrowthN) * this.projectedLinesGrowthN;
         }
