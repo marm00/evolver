@@ -63,7 +63,7 @@ const ORB_VELOCITY = ORB_CIRCUMFERENCE / 6;
 
 const LION_RADIUS = 16;
 const LION_VELOCITY = HUMAN_VELOCITY / 2;
-const TEMPLION1_MAXSPEED = LION_VELOCITY * 0.2;
+const TEMPLION1_MAXSPEED = LION_VELOCITY * 0.5;
 const TEMPLIONX_MAXSPEED = TEMPLION1_MAXSPEED * 1.2;
 
 const TIME_HORIZON = 10;
@@ -274,9 +274,9 @@ export function spawnOrb(orb: Orb) {
 }
 
 export function spawnLion(target: Vector2, lionPool: Pool<Lion>, lions: Lion[]) {
-    // const randMaxSpeed = Math.random() * (LION_VELOCITY * 0.5) + (LION_VELOCITY * 1.5);
-    // const lion = lionPool.alloc(target.x, target.y, LION_RADIUS, randMaxSpeed); // TODO: manage max speed var
-    // lions.push(lion);
+    const randMaxSpeed = Math.random() * (LION_VELOCITY * 0.5) + (LION_VELOCITY * 1.5);
+    const lion = lionPool.alloc(target.x, target.y, LION_RADIUS, randMaxSpeed); // TODO: manage max speed var
+    lions.push(lion);
 }
 
 export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game, elapsedTime: number, deltaTime: number) {
@@ -886,42 +886,50 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     //     return lines.length;
     // }
 
-    // for (const lion of gameState.lions) {
-    //     if (lion.center.distanceToSq(gameState.player.center) <= lion.radiusSq * 2) {
-    //         lion.prefVelocity.set(0, 0);
-    //     } else {
-    //         lion.prefVelocity.copy(gameState.player.center.clone().sub(lion.center).normalize().scale(lion.maxSpeed));
-    //     }
-    // }
+    for (const lion of gameState.lions) {
+        if (lion.center.distanceToSq(gameState.player.center) <= lion.radiusSq * 2) {
+            lion.prefVelocity.set(0, 0);
+        } else {
+            lion.prefVelocity.copy(gameState.player.center.clone().sub(lion.center).normalize().scale(lion.maxSpeed));
+        }
+    }
 
     const lion1 = gameState.lions[0]!;
     const lion2 = gameState.lions[1]!;
     const lion3 = gameState.lions[2]!;
     const lion4 = gameState.lions[3]!;
     if (lion1 && lion2 && lion3 && lion4) {
-        const target1 = new Vector2(300, 200);
+        const target1 = new Vector2(0, 200);
         const target2 = new Vector2(-200, 200);
         const target3 = new Vector2(200, 0);
         const target4 = new Vector2(-200, 0);
         if (lion1.center.distanceToSq(target1) >= lion1.radiusSq) {
             lion1.prefVelocity.copy(target1.sub(lion1.center).normalize().scale(TEMPLION1_MAXSPEED));
         } else {
-            lion1.prefVelocity.set(0, 0);
+            // lion1.prefVelocity.set(0, 0);
+            lion1.maxSpeed = 0;
+            lion1.maxSpeedSq = 0;
         }
         if (lion2.center.distanceToSq(target2) >= lion2.radiusSq) {
             lion2.prefVelocity.copy(target2.sub(lion2.center).normalize().scale(TEMPLIONX_MAXSPEED));
         } else {
-            lion2.prefVelocity.set(0, 0);
+            // lion2.prefVelocity.set(0, 0);
+            lion2.maxSpeed = 0;
+            lion2.maxSpeedSq = 0;
         }
         if (lion3.center.distanceToSq(target3) >= lion3.radiusSq) {
             lion3.prefVelocity.copy(target3.sub(lion3.center).normalize().scale(TEMPLIONX_MAXSPEED));
         } else {
-            lion3.prefVelocity.set(0, 0);
+            // lion3.prefVelocity.set(0, 0);
+            lion3.maxSpeed = 0;
+            lion3.maxSpeedSq = 0;
         }
         if (lion4.center.distanceToSq(target4) >= lion4.radiusSq) {
             lion4.prefVelocity.copy(target4.sub(lion4.center).normalize().scale(TEMPLIONX_MAXSPEED));
         } else {
-            lion4.prefVelocity.set(0, 0);
+            // lion4.prefVelocity.set(0, 0);
+            lion4.maxSpeed = 0;
+            lion4.maxSpeedSq = 0;
         }
     }
 
