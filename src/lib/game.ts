@@ -207,13 +207,13 @@ export async function createGame(strategy: string): Promise<Game> {
     world.insert(new Circle(new Vector2(-64, -128), new Vector2(Math.SQRT1_2, Math.SQRT1_2), new Vector2(0, 0), 64));
 
     const tempLion1 = new Lion(-200, 0, LION_RADIUS, TEMPLION1_MAXSPEED);
-    tempLion1.prefVelocity.set(200, 0).normalize().scale(TEMPLION1_MAXSPEED);
+    // tempLion1.prefVelocity.set(200, 0).normalize().scale(TEMPLION1_MAXSPEED);
     const tempLion2 = new Lion(200, 0, LION_RADIUS, TEMPLIONX_MAXSPEED);
-    tempLion2.prefVelocity.set(-200, 0).normalize().scale(TEMPLIONX_MAXSPEED);
+    // tempLion2.prefVelocity.set(-200, 0).normalize().scale(TEMPLIONX_MAXSPEED);
     const tempLion3 = new Lion(-200, 200, LION_RADIUS, TEMPLIONX_MAXSPEED);
-    tempLion3.prefVelocity.set(200, 200).normalize().scale(TEMPLIONX_MAXSPEED);
+    // tempLion3.prefVelocity.set(200, 200).normalize().scale(TEMPLIONX_MAXSPEED);
     const tempLion4 = new Lion(200, 200, LION_RADIUS, TEMPLIONX_MAXSPEED);
-    tempLion4.prefVelocity.set(-200, 200).normalize().scale(TEMPLIONX_MAXSPEED);
+    // tempLion4.prefVelocity.set(-200, 200).normalize().scale(TEMPLIONX_MAXSPEED);
 
     const lions = [tempLion1, tempLion2, tempLion3, tempLion4];
     const agentWorker = new AgentWorker(lions, [], TIME_HORIZON, OBST_TIME_HORIZON);
@@ -890,7 +890,11 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         if (lion.center.distanceToSq(gameState.player.center) <= lion.radiusSq * 2) {
             lion.prefVelocity.set(0, 0);
         } else {
-            lion.prefVelocity.copy(gameState.player.center.clone().sub(lion.center).normalize().scale(lion.maxSpeed));
+            lion.prefVelocity.copy(gameState.player.center).sub(lion.center).normalize().scale(lion.maxSpeed);
+        }
+        if (Number.isNaN(lion.center.x) || Number.isNaN(lion.center.y)) {
+            console.error(lion.center, ' is NaN');
+            debugger;
         }
     }
 
@@ -1175,8 +1179,12 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     }
 
     for (const lion of gameState.lions) {
+        if (Number.isNaN(lion.velocity.x) || Number.isNaN(lion.velocity.y)) {
+            console.error(lion);
+            console.error('velocity',lion.velocity, ' is NaN');
+            debugger;
+        }
         lion.center.add(lion.velocity.clone().scale(deltaTime));
-        console.log(lion.center.distanceToSq(gameState.player.center));
         // Draw
         ctx.beginPath();
         ctx.fillStyle = '#ffffff';

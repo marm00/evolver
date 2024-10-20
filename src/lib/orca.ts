@@ -324,19 +324,20 @@ export class AgentWorker {
 
         // Compute agent constraints
         const numObstLines = this.lineIndex + 1;
-        const pRel = this.v2Pool[0]!;
-        const vRel = this.v2Pool[1]!;
+        const pRel = v2Pool[0]!;
+        const vRel = v2Pool[1]!;
         /** Apex of the VO (truncated) cone or origin of relative velocity space. */
-        const apex = this.v2Pool[2]!;
+        const apex = v2Pool[2]!;
         /** The smallest change in relative velocity required to resolve the collision. */
-        const u = this.v2Pool[3]!;
-        const temp1Agent = this.v2Pool[4]!;
+        const u = v2Pool[3]!;
+        const temp1Agent = v2Pool[4]!;
         for (const agentNeighbor of this.agentNeighbors) {
             const other = agentNeighbor.agent;
             const pB = other.center, vB = other.velocity, rB = other.radius;
             pRel.copy(pB).sub(pA);
             vRel.copy(vA).sub(vB);
             const distSq = pRel.magnitudeSq();
+            if (distSq === 0) continue; // TODO: prevent the case where distSq is 0, by proper neighbor (kd-tree) selection
             const r = rA + rB;
             const rSq = r * r;
             if (distSq > rSq) {
@@ -375,9 +376,20 @@ export class AgentWorker {
                 // Apex is now defined as the cutoff center to relative velocity
                 apex.copy(vRel).sub(temp1Agent.copy(pRel).scale(invDeltaTime));
                 const apexLength = apex.magnitude();
+                if (apexLength === 0) {
+                    console.error('vRel', vRel);
+                    console.error('pRel', pRel);
+                    console.error(invDeltaTime);
+                    console.error(apex, ' is NaN');
+                    debugger;
+                }
                 u.copy(apex).scale(1 / apexLength);
                 lineTemp.copy(u).rotate90Deg();
                 u.scale(r * invDeltaTime - apexLength);
+                if (Number.isNaN(u.x) || Number.isNaN(u.y)) {
+                    console.error(u, ' is NaN');
+                    debugger;
+                }
             }
             // ORCA constraint (half-plane) is now defined by n (direction off of u) and vA+halfU (point)
             // Where halfU is the reciprocal (shared half effort) of the smallest change
@@ -393,7 +405,7 @@ export class AgentWorker {
         const result = v2Pool[0]!.set(0, 0);
         // Final linear program: linearProgram3
         const totalLines = this.lineIndex + 1;
-        const lineCount = this.linearProgram2(maxSpeedA, false, agentA.prefVelocity, result);
+        const lineCount = this.linearProgram2(maxSpeedA, false, agentA.prefVelocity);
         if (lineCount === totalLines) {
             // Success, no failed lines
             vA.copy(result);
@@ -455,7 +467,7 @@ export class AgentWorker {
                     projectedLine.point.y = pointY;
                 }
                 vTemp.copy(result);
-                if (this.linearProgram2(maxSpeedA, true, vOptTemp.copy(n).rotate90DegCounter(), result) < this.projectedLineIndex + 1) {
+                if (this.linearProgram2(maxSpeedA, true, vOptTemp.copy(n).rotate90DegCounter()) < this.projectedLineIndex + 1) {
                     result.copy(vTemp);
                 }
                 distance = n.detUnchecked(vTemp.copy(v).sub(result));
@@ -465,7 +477,8 @@ export class AgentWorker {
         return lines.slice(0, lineCount);
     }
 
-    linearProgram1(current: number, maxSpeedSq: number, directionOpt: boolean, optVelocity: Vector2, result: Vector2): boolean {
+    linearProgram1(current: number, maxSpeedSq: number, directionOpt: boolean, optVelocity: Vector2): boolean {
+        const result = this.v2Pool[0]!;
         const temp = this.v2Pool[2]!;
         const lines = this.lines;
         const { direction: n, point: v } = lines[current]!;
@@ -531,9 +544,20 @@ export class AgentWorker {
         return true;
     }
 
-    linearProgram2(maxSpeed: number, directionOpt: boolean, optVelocity: Vector2, result: Vector2): number {
+    linearProgram2(maxSpeed: number, directionOpt: boolean, optVelocity: Vector2): number {
+        const result = this.v2Pool[0]!;
         const temp = this.v2Pool[1]!;
         const maxSpeedSq = maxSpeed * maxSpeed;
+        if (this.v2Pool.some(v => Number.isNaN(v.x) || Number.isNaN(v.y))) {
+            console.error(this.v2Pool);
+            debugger;
+        }
+        if (Number.isNaN(optVelocity.x) || Number.isNaN(optVelocity.y)) {
+            console.error(this.agentsRef);
+            console.error(this.v2Pool);
+            console.error(directionOpt, optVelocity, ' is NaN');
+            debugger;
+        }
         let lines: Line[];
         let lineCount: number;
         if (directionOpt) {
@@ -565,7 +589,7 @@ export class AgentWorker {
                 // Optimal velocity is on the wrong side (left) of the ORCA constraint
                 // Next linear program
                 temp.copy(result);
-                if (!this.linearProgram1(i, maxSpeedSq, directionOpt, optVelocity, result)) {
+                if (!this.linearProgram1(i, maxSpeedSq, directionOpt, optVelocity)) {
                     result.copy(temp);
                     return i;
                 }
