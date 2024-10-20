@@ -41,6 +41,13 @@ interface Agent {
 }
 
 export class AgentWorker {
+    /**
+     * Minimal amount of time for which new velocities are computed. The larger
+     * this number, the sooner an agent will respond to the presence of others, 
+     * but the less freedom the agent  has in choosing its velocities. It has a 
+     * symbiotic relationship with velocties: higher velocities require a lower 
+     * time horizon and vice versa, to prevent infeasible linear programs.
+     */
     readonly timeHorizon: number;
     readonly obstTimeHorizon: number;
     readonly invTimeHorizon: number;

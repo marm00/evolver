@@ -63,10 +63,10 @@ const ORB_VELOCITY = ORB_CIRCUMFERENCE / 6;
 
 const LION_RADIUS = 16;
 const LION_VELOCITY = HUMAN_VELOCITY / 2;
-const TEMPLION1_MAXSPEED = LION_VELOCITY * 0.5;
+const TEMPLION1_MAXSPEED = LION_VELOCITY * 1;
 const TEMPLIONX_MAXSPEED = TEMPLION1_MAXSPEED * 1.2;
 
-const TIME_HORIZON = 10;
+const TIME_HORIZON = 2;
 const INV_TIME_HORIZON = 1 / TIME_HORIZON;
 const OBST_TIME_HORIZON = 10;
 const INV_OBST_TIME_HORIZON = 1 / OBST_TIME_HORIZON;
@@ -899,7 +899,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     const lion3 = gameState.lions[2]!;
     const lion4 = gameState.lions[3]!;
     if (lion1 && lion2 && lion3 && lion4) {
-        const target1 = new Vector2(150, 50); // TODO: fix irregular instant displacement for scenario
+        const target1 = new Vector2(-33, 133);
         const target2 = new Vector2(-200, 200);
         const target3 = new Vector2(200, 0);
         const target4 = new Vector2(-200, 0);
@@ -908,28 +908,24 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         } else {
             // lion1.prefVelocity.set(0, 0);
             lion1.maxSpeed = 0;
-            lion1.maxSpeedSq = 0;
         }
         if (lion2.center.distanceToSq(target2) >= lion2.radiusSq) {
             lion2.prefVelocity.copy(target2.sub(lion2.center).normalize().scale(TEMPLIONX_MAXSPEED));
         } else {
             // lion2.prefVelocity.set(0, 0);
             lion2.maxSpeed = 0;
-            lion2.maxSpeedSq = 0;
         }
         if (lion3.center.distanceToSq(target3) >= lion3.radiusSq) {
             lion3.prefVelocity.copy(target3.sub(lion3.center).normalize().scale(TEMPLIONX_MAXSPEED));
         } else {
             // lion3.prefVelocity.set(0, 0);
             lion3.maxSpeed = 0;
-            lion3.maxSpeedSq = 0;
         }
         if (lion4.center.distanceToSq(target4) >= lion4.radiusSq) {
             lion4.prefVelocity.copy(target4.sub(lion4.center).normalize().scale(TEMPLIONX_MAXSPEED));
         } else {
             // lion4.prefVelocity.set(0, 0);
             lion4.maxSpeed = 0;
-            lion4.maxSpeedSq = 0;
         }
     }
 
@@ -954,7 +950,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         // // TODO: compute k-nearest neighbors, naive = compare distances of all neighbors less than sensing radius
         // const kNN = gameState.lions.length - 1;
         // const constraints: { direction: Vector2, point: Vector2 }[] = [];
-        
+
         // // TODO: obstacle constraints
         // for (const wall of gameState.walls) {
         //     // Current implementation of handling walls is only somewhat correct
@@ -1179,7 +1175,8 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     }
 
     for (const lion of gameState.lions) {
-        lion.center.add(lion.velocity.clone().scale(deltaTime))
+        lion.center.add(lion.velocity.clone().scale(deltaTime));
+        console.log(lion.center.distanceToSq(gameState.player.center));
         // Draw
         ctx.beginPath();
         ctx.fillStyle = '#ffffff';
