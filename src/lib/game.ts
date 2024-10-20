@@ -899,7 +899,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     const lion3 = gameState.lions[2]!;
     const lion4 = gameState.lions[3]!;
     if (lion1 && lion2 && lion3 && lion4) {
-        const target1 = new Vector2(0, 200);
+        const target1 = new Vector2(150, 50); // TODO: fix irregular instant displacement for scenario
         const target2 = new Vector2(-200, 200);
         const target3 = new Vector2(200, 0);
         const target4 = new Vector2(-200, 0);
