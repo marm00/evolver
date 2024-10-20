@@ -431,8 +431,7 @@ export class AgentWorker {
                     const pointX = lineTemp.x, pointY = lineTemp.y;
                     lineTemp.copy(nPrev).sub(n).normalize();
                     // Push projected line
-                    this.projectedLineIndex++;
-                    if (this.projectedLineIndex >= projectedLines.length) {
+                    if (++this.projectedLineIndex >= projectedLines.length) {
                         // No empty slots, grow array
                         console.warn('Projected lines pool exhausted at ' + projectedLines.length
                             + ', triggering reallocation by ' + this.projectedLinesGrowthN);
@@ -569,8 +568,7 @@ export class AgentWorker {
     }
 
     pushLine(directionX: number, directionY: number, pointX: number, pointY: number): void {
-        this.lineIndex++;
-        if (this.lineIndex >= this.lines.length) {
+        if (++this.lineIndex >= this.lines.length) {
             // No empty slots, grow array
             console.warn('Lines pool exhausted at ' + this.lines.length
                 + ', triggering reallocation by ' + this.linesGrowthN);
