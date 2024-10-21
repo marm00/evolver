@@ -1129,6 +1129,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         // vA.copy(result);
         // // pA.add(vA.clone().scale(deltaTime));
         const constraints = gameState.agentWorker.processAgent({
+            id: lionA.id,
             center: pA,
             velocity: vA,
             radius: lionA.radius,

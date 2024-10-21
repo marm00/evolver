@@ -13,11 +13,6 @@ interface Line {
     point: Vector2;
 }
 
-interface AgentNeighbor {
-    distSq: number;
-    agent: Agent;
-}
-
 interface Obstacle {
     direction: Vector2;
     point: Vector2;
@@ -32,6 +27,7 @@ interface ObstacleNeighbor {
 }
 
 interface Agent {
+    id: number;
     center: Vector2;
     velocity: Vector2;
     radius: number;
@@ -39,6 +35,12 @@ interface Agent {
     maxSpeed: number;
     prefVelocity: Vector2;
 }
+
+interface AgentNeighbor {
+    distSq: number;
+    agent: Agent;
+}
+
 
 export class AgentWorker {
     /**
@@ -102,7 +104,7 @@ export class AgentWorker {
 
         // Compute obstacle neighbors
         // TODO: use a k-d tree to find neighbors and implement pooling
-        this.agentNeighbors = this.agentsRef.filter(agentB => agentA !== agentB).map(agentB => {
+        this.agentNeighbors = this.agentsRef.filter(agentB => agentA.id !== agentB.id).map(agentB => {
             const pB = agentB.center;
             const distSq = pA.distanceToSq(pB);
             return { distSq, agent: agentB };
@@ -337,7 +339,11 @@ export class AgentWorker {
             pRel.copy(pB).sub(pA);
             vRel.copy(vA).sub(vB);
             const distSq = pRel.magnitudeSq();
-            if (distSq === 0) continue; // TODO: prevent the case where distSq is 0, by proper neighbor (kd-tree) selection
+            if (distSq === 0) {
+                console.error(pRel, pB, pA);
+                console.error(vRel);
+                debugger;    
+            }
             const r = rA + rB;
             const rSq = r * r;
             if (distSq > rSq) {

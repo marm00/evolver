@@ -139,6 +139,7 @@ export class Lion {
     radiusSq: number;
     maxSpeed: number;
     maxSpeedSq: number;
+    id: number;
     // velocityScalar: number;
     // acceleration: Vector2;
     // preferredVelocity: Vector2;
@@ -157,6 +158,7 @@ export class Lion {
         this.radiusSq = radius * radius;
         this.maxSpeed = maxSpeed;
         this.maxSpeedSq = maxSpeed * maxSpeed;
+        this.id = Math.random(); // TODO: better id generation
         // this.velocityScalar = velocityScalar;
         // this.acceleration = new Vector2();
         // this.preferredVelocity = new Vector2();
