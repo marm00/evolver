@@ -13,11 +13,11 @@ interface Line {
     point: Vector2;
 }
 
-interface Obstacle {
+export interface Obstacle {
     direction: Vector2;
     point: Vector2;
-    next: Obstacle;
-    prev: Obstacle;
+    next: Obstacle | null;
+    prev: Obstacle | null;
     isConvex: boolean;
 }
 
