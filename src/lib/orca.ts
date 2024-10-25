@@ -14,6 +14,7 @@ interface Line {
 }
 
 export interface Obstacle {
+    id: number,
     direction: Vector2;
     point: Vector2;
     next: Obstacle | null;
@@ -129,7 +130,7 @@ export class AgentWorker {
         for (const obstacleNeighbor of this.obstacleNeighbors) {
             // Obstacles A and B, two vertices, define a restricted Line/polygon edge 
             let obstacleA = obstacleNeighbor.obstacle;
-            let obstacleB = obstacleA.next;
+            let obstacleB = obstacleA.next!;
             pRelA.copy(obstacleA.point).sub(pA);
             pRelB.copy(obstacleB.point).sub(pA);
             // If the current VO falls fully inside a previous ORCA line's infeasible space, skip
@@ -230,7 +231,7 @@ export class AgentWorker {
             // Legs can never point into neighboring edge when convex vertex, take
             // cutoff-line of neighboring edge instead. If velocity projected on
             // "foreign" leg, no constraint is added.
-            const leftNeighbor = obstacleA.prev;
+            const leftNeighbor = obstacleA.prev!;
             let isLeftLegForeign = false;
             let isRightLegForeign = false;
             // Left neighbor negated direction

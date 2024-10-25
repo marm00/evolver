@@ -218,73 +218,63 @@ export async function createGame(strategy: string): Promise<Game> {
 
     const lions = [tempLion1, tempLion2, tempLion3, tempLion4];
     const vertices: Vector2[] = [
-        new Vector2(-10, -10),
-        new Vector2(-10, 10),
-        new Vector2(10, 100),
-        new Vector2(10, -10)
+        new Vector2(-10, 40),
+        new Vector2(-40, 40),
+        new Vector2(-40, 10),
+        new Vector2(-10, 10)
     ];
-    function createObstacle(point: Vector2, nextPoint: Vector2): Obstacle {
-        if (!point || !nextPoint) {
-            console.error("Invalid points provided to createObstacle:", { point, nextPoint });
-            throw new Error("Invalid points provided to createObstacle");
-        }
-    
-        const direction = nextPoint.clone().sub(point);
-        if (direction.magnitudeSq() === 0) {
-            console.error("Direction vector has zero length:", { point, nextPoint });
-            throw new Error("Direction vector has zero length");
-        }
-    
-        direction.normalize();
-    
-        return {
-            direction,
-            point,
-            next: null,
-            prev: null,
-            isConvex: true
-        };
-    }
-    
-    // Create the linked list of Obstacles
-    function createObstacleList(vertices: Vector2[]): Obstacle | null {
-        if (vertices.length < 2) {
-            console.error("Not enough vertices to create obstacles:", vertices.length);
-            return null;
-        }
-    
-        let firstObstacle: Obstacle | null = null;
-        let prevObstacle: Obstacle | null = null;
-    
-        for (let i = 0; i < vertices.length; i++) {
-            const currentPoint = vertices[i];
-            const nextPoint = vertices[(i + 1) % vertices.length];
-            
-            console.log(`Creating obstacle ${i}:`, { currentPoint, nextPoint });
-    
-            try {
-                const obstacle = createObstacle(currentPoint!, nextPoint!);
-    
-                if (!firstObstacle) {
-                    firstObstacle = obstacle;
-                }
-    
-                if (prevObstacle) {
-                    prevObstacle.next = obstacle;
-                    obstacle.prev = prevObstacle;
-                }
-    
-                prevObstacle = obstacle;
-            } catch (error) {
-                console.error(`Error creating obstacle ${i}:`, error);
-            }
-        }
-    
-        return firstObstacle;
-    }
-    const firstObstacle = createObstacleList(vertices);
+    const vertices2: Vector2[] = [
+        new Vector2(-50, 200),
+        new Vector2(-200, 200),
+        new Vector2(-200, 50),
+        new Vector2(-50, 50)
+    ];
 
-    const agentWorker = new AgentWorker(lions, [firstObstacle!], TIME_HORIZON, OBST_TIME_HORIZON);
+    const obstacles: Obstacle[] = [];
+
+    function addObstacle(vertices: Vector2[]): void {
+        const obstacleNo = obstacles.length;
+        const verticesLength = vertices.length;
+        for (let i = 0; i < verticesLength; i++) {
+            const point = vertices[i]!;
+            const obstacle: Obstacle = {
+                id: 0,
+                direction: new Vector2(),
+                point: point,
+                next: null,
+                prev: null,
+                isConvex: false
+            }
+            if (i !== 0) {
+                obstacle.prev = obstacles[obstacles.length - 1]!;
+                obstacle.prev.next = obstacle;
+            }
+            if (i === verticesLength - 1) {
+                obstacle.next = obstacles[obstacleNo]!;
+                obstacle.next.prev = obstacle;
+            }
+            const nextPoint = vertices[(i + 1) % verticesLength]!;
+            obstacle.direction.copy(nextPoint).sub(point).normalize();
+            if (verticesLength === 2) {
+                obstacle.isConvex = true;
+            } else {
+                // Use 2d cross product (det) to check if point is left of prev->next and convex
+                const prevPoint = vertices[(i - 1 + verticesLength) % verticesLength]!;
+                const x1 = prevPoint.x - nextPoint.x;
+                const y1 = prevPoint.y - nextPoint.y;
+                const x2 = point.x - prevPoint.x;
+                const y2 = point.y - prevPoint.y;
+                obstacle.isConvex = (x1 * y2 - y1 * x2) >= 0;
+            }
+            obstacle.id = obstacles.length;
+            obstacles.push(obstacle);
+        }
+    }
+
+    // addObstacle(vertices);
+    addObstacle(vertices2);
+
+    const agentWorker = new AgentWorker(lions, obstacles, TIME_HORIZON, OBST_TIME_HORIZON);
     return {
         world, player, m3Pool, v2Pool, v2Pool2, oRectPool, spearPool, spears: [],
         meteoritePool, meteorites: [], obsidianPool, obsidians: [], thunderstorm, orb, walls,
@@ -292,7 +282,7 @@ export async function createGame(strategy: string): Promise<Game> {
         // lions: [tempLion1, tempLion2, tempLion3, tempLion4]
         lions,
         agentWorker,
-        obstacles: [firstObstacle!]
+        obstacles
     };
 }
 
@@ -755,23 +745,21 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         }
     }
 
+    ctx.strokeStyle = '#c8ff00';
     for (const obstacle of gameState.obstacles) {
-        console.log(obstacle);
-        ctx.strokeStyle = '#c8ff00';
-        const startVertex = obstacle;
-        let vertex: Obstacle | null = obstacle;
-        do {
-            // ctx.beginPath();
-            // ctx.arc(vertex.point.x, vertex.point.y, 30, 0, _Math.TAU);
-            // vertex = obstacle.next;
-            vertex = obstacle.next;
-            console.log(vertex);
-            // vertex = null;
-            if (vertex!.point.equals(startVertex.point)) break;
-            debugger;
-        } while (vertex !== null);
-        ctx.strokeStyle = '#FFFFFF'
+        const startPoint = obstacle.point;
+        const startId = obstacle.id;
+        ctx.moveTo(startPoint.x, startPoint.y);
+        ctx.beginPath();
+        let next = obstacle.next!;
+        while (next.id !== startId) {
+            ctx.lineTo(next.point.x, next.point.y);
+            ctx.stroke();
+            next = next.next!;
+        }
+        ctx.closePath();
     }
+    ctx.strokeStyle = '#FFFFFF';
 
     for (const lion of gameState.lions) {
         if (Number.isNaN(lion.velocity.x) || Number.isNaN(lion.velocity.y)) {
