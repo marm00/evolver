@@ -64,7 +64,7 @@ const ORB_VELOCITY = ORB_CIRCUMFERENCE / 6;
 const LION_RADIUS = 16;
 const LION_VELOCITY = HUMAN_VELOCITY / 2;
 const TEMPLION1_MAXSPEED = LION_VELOCITY * 1;
-const TEMPLIONX_MAXSPEED = TEMPLION1_MAXSPEED * 1.2;
+const TEMPLIONX_MAXSPEED = TEMPLION1_MAXSPEED * 1.0;
 
 const TIME_HORIZON = 2;
 const INV_TIME_HORIZON = 1 / TIME_HORIZON;
@@ -694,6 +694,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         const lionA = gameState.lions[i]!;
         const pA = lionA.center, rA = lionA.radius, vA = lionA.velocity;
         const maxSpeed = lionA.maxSpeed, maxSpeedSq = lionA.maxSpeedSq;
+        // TODO: bug on bottom and right side of obstacle (collision)
         const constraints = gameState.agentWorker.processAgent({
             id: lionA.id,
             center: pA,
@@ -703,7 +704,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             maxSpeed: lionA.maxSpeed,
             prefVelocity: lionA.prefVelocity
         }, deltaTime, 1 / deltaTime);
-        if (i === 0) {
+        if (i === 2) {
             console.log('Contraints:', constraints.length)
             ctx.strokeStyle = '#09ff00';
             const L = 1000;

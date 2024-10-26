@@ -114,7 +114,7 @@ export class AgentWorker {
         // Compute agent neighbors
         // TODO: use a k-d tree to find neighbors and implement pooling
         this.obstacleNeighbors = this.obstaclesRef.map(obstacle => {
-            const distSq = pA.distanceTo(obstacle.point);
+            const distSq = pA.distanceToSq(obstacle.point);
             return { distSq, obstacle };
         });
 
