@@ -197,7 +197,7 @@ export async function createGame(strategy: string): Promise<Game> {
     const tor11 = new OrientedRect(new Vector2(-128, 0), Vector2.fromPolar(angle, 64), new Vector2(0, 0), 64, 32, _Math.TAU);
     world.insert(tor11);
 
-    const tor2 = OrientedRect.zero().setDimensions(128, 35, new Vector2(-10, 3.3).direction());
+    const tor2 = OrientedRect.zero().setDimensions(128, 35, new Vector2(-10, 3.3).dir());
     tor2.center.set(-20, -20);
     tor2.velocity.set(-10, 3.3)
     world.insert(tor2);
@@ -254,7 +254,7 @@ export async function createGame(strategy: string): Promise<Game> {
                 obstacle.next.prev = obstacle;
             }
             const nextPoint = vertices[(i + 1) % verticesLength]!;
-            obstacle.direction.copy(nextPoint).sub(point).normalize();
+            obstacle.direction.copy(nextPoint).sub(point).norm();
             if (verticesLength === 2) {
                 obstacle.isConvex = true;
             } else {
@@ -298,9 +298,9 @@ export function attack(target: Vector2, player: Player, world: PartitionStrategy
     // p_spear.setDimensions(SPEAR_WIDTH, SPEAR_HEIGHT, p_spear.velocity.direction());
     // v2Pool2.free(p_target);
     // world.insert(p_spear);
-    const p_velocity = v2Pool.alloc(target.x, target.y).sub(player.center).normalize().scale(SPEAR_DISTANCE);
+    const p_velocity = v2Pool.alloc(target.x, target.y).sub(player.center).norm().scale(SPEAR_DISTANCE);
     const cx = player.center.x, cy = player.center.y;
-    const spear = spearPool.alloc(cx, cy, SPEAR_HALF_WIDTH, SPEAR_HALF_HEIGHT, p_velocity.direction() - _Math.HALF_PI, p_velocity.x, p_velocity.y, SPEAR_LIFETIME);
+    const spear = spearPool.alloc(cx, cy, SPEAR_HALF_WIDTH, SPEAR_HALF_HEIGHT, p_velocity.dir() - _Math.HALF_PI, p_velocity.x, p_velocity.y, SPEAR_LIFETIME);
     spears.push(spear);
     // world.insert(spear);
     v2Pool.free(p_velocity);
@@ -520,15 +520,15 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         const c = obsidian.center, jump = obsidian.jump;
         switch (obsidian.resourceState) {
             case RESOURCE_STATE.Uncollected: {
-                if (c.distanceToSq(pp) <= obsidian.radiusSq) {
-                    jump.copy(c).sub(pp).normalize().scale(OBSIDIAN_JUMP_DISTANCE).add(c);
+                if (c.distToSq(pp) <= obsidian.radiusSq) {
+                    jump.copy(c).sub(pp).norm().scale(OBSIDIAN_JUMP_DISTANCE).add(c);
                     obsidian.resourceState = RESOURCE_STATE.Jumping;
                 }
                 break;
             }
             case RESOURCE_STATE.Jumping: {
                 c.lerp(jump, _Math.clamp(OBSIDIAN_VELOCITY * deltaTime, 0, 1));
-                if (c.distanceToSq(jump) < OBSIDIAN_THRESHOLD) {
+                if (c.distToSq(jump) < OBSIDIAN_THRESHOLD) {
                     obsidian.resourceState = RESOURCE_STATE.Collecting;
                 }
                 ctx.strokeStyle = '#47ff5f';
@@ -543,7 +543,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
                 // There could be a cheaper way to move while still not visually overshooting the target
                 obsidian.acceleration *= OBSIDIAN_ACCELERATION;
                 c.lerp(pp, _Math.clamp(obsidian.acceleration * deltaTime * deltaTime, 0, 1));
-                if (c.distanceToSq(pp) < OBSIDIAN_THRESHOLD) {
+                if (c.distToSq(pp) < OBSIDIAN_THRESHOLD) {
                     gameState.obsidians.splice(gameState.obsidians.indexOf(obsidian), 1);
                     gameState.obsidianPool.free(obsidian);
                     // TODO: add resource to player
@@ -563,13 +563,13 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     if (gameState.thunderstorm.active) {
         const storm = gameState.thunderstorm;
         const c = storm.center, v = storm.velocity, r = storm.radius;
-        const dist = c.distanceTo(pp);
+        const dist = c.distTo(pp);
         const radii = r + pr;
         if (dist > radii + THUNDERSTORM_THRESHOLD) {
             const easingStart = radii * THUNDERSTORM_EASING_FACTOR;
             let deceleration = _Math.clamp((dist - radii) / (easingStart - radii), 0, 1);
             deceleration = _Math.easeOutQuad(deceleration);
-            c.add(v.copy(pp).sub(c).normalize().scale(THUNDERSTORM_VELOCITY * deceleration * deltaTime));
+            c.add(v.copy(pp).sub(c).norm().scale(THUNDERSTORM_VELOCITY * deceleration * deltaTime));
         }
         ctx.beginPath();
         ctx.strokeStyle = '#141313f8';
@@ -636,10 +636,10 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     ctx.strokeStyle = '#ffffff';
 
     for (const lion of gameState.lions) {
-        if (lion.center.distanceToSq(gameState.player.center) <= lion.radiusSq * 2) {
+        if (lion.center.distToSq(gameState.player.center) <= lion.radiusSq * 2) {
             lion.prefVelocity.set(0, 0);
         } else {
-            lion.prefVelocity.copy(gameState.player.center).sub(lion.center).normalize().scale(lion.maxSpeed);
+            lion.prefVelocity.copy(gameState.player.center).sub(lion.center).norm().scale(lion.maxSpeed);
         }
         if (Number.isNaN(lion.center.x) || Number.isNaN(lion.center.y)) {
             console.error(lion.center, ' is NaN');
@@ -656,26 +656,26 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         const target2 = new Vector2(-200, 200);
         const target3 = new Vector2(200, 0);
         const target4 = new Vector2(-200, 0);
-        if (lion1.center.distanceToSq(target1) >= lion1.radiusSq) {
-            lion1.prefVelocity.copy(target1.sub(lion1.center).normalize().scale(TEMPLION1_MAXSPEED));
+        if (lion1.center.distToSq(target1) >= lion1.radiusSq) {
+            lion1.prefVelocity.copy(target1.sub(lion1.center).norm().scale(TEMPLION1_MAXSPEED));
         } else {
             // lion1.prefVelocity.set(0, 0);
             lion1.maxSpeed = 0;
         }
-        if (lion2.center.distanceToSq(target2) >= lion2.radiusSq) {
-            lion2.prefVelocity.copy(target2.sub(lion2.center).normalize().scale(TEMPLIONX_MAXSPEED));
+        if (lion2.center.distToSq(target2) >= lion2.radiusSq) {
+            lion2.prefVelocity.copy(target2.sub(lion2.center).norm().scale(TEMPLIONX_MAXSPEED));
         } else {
             // lion2.prefVelocity.set(0, 0);
             lion2.maxSpeed = 0;
         }
-        if (lion3.center.distanceToSq(target3) >= lion3.radiusSq) {
-            lion3.prefVelocity.copy(target3.sub(lion3.center).normalize().scale(TEMPLIONX_MAXSPEED));
+        if (lion3.center.distToSq(target3) >= lion3.radiusSq) {
+            lion3.prefVelocity.copy(target3.sub(lion3.center).norm().scale(TEMPLIONX_MAXSPEED));
         } else {
             // lion3.prefVelocity.set(0, 0);
             lion3.maxSpeed = 0;
         }
-        if (lion4.center.distanceToSq(target4) >= lion4.radiusSq) {
-            lion4.prefVelocity.copy(target4.sub(lion4.center).normalize().scale(TEMPLIONX_MAXSPEED));
+        if (lion4.center.distToSq(target4) >= lion4.radiusSq) {
+            lion4.prefVelocity.copy(target4.sub(lion4.center).norm().scale(TEMPLIONX_MAXSPEED));
         } else {
             // lion4.prefVelocity.set(0, 0);
             lion4.maxSpeed = 0;
@@ -713,7 +713,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
                 const direction = constraint.direction, v = constraint.point;
                 const P_pos = v.clone().scale(TIME_HORIZON).add(pA);
                 const D_pos = direction.clone().scale(TIME_HORIZON);
-                const N = new Vector2(-D_pos.y, D_pos.x).negate().normalize();
+                const N = new Vector2(-D_pos.y, D_pos.x).neg().norm();
                 const P1 = P_pos.clone().add(D_pos.clone().scale(L));
                 const P2 = P_pos.clone().sub(D_pos.clone().scale(L));
                 const NF1 = P1.clone().add(N.clone().scale(L));
@@ -794,7 +794,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         ctx.fill();
 
         ctx.beginPath();
-        ctx.arc(thing.center.x, thing.center.y, thing.velocity.magnitude(), 0, _Math.TAU);
+        ctx.arc(thing.center.x, thing.center.y, thing.velocity.len(), 0, _Math.TAU);
         ctx.strokeStyle = '#ffffff';
         ctx.stroke();
 

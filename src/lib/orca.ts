@@ -107,14 +107,14 @@ export class AgentWorker {
         // TODO: use a k-d tree to find neighbors and implement pooling
         this.agentNeighbors = this.agentsRef.filter(agentB => agentA.id !== agentB.id).map(agentB => {
             const pB = agentB.center;
-            const distSq = pA.distanceToSq(pB);
+            const distSq = pA.distToSq(pB);
             return { distSq, agent: agentB };
         });
 
         // Compute agent neighbors
         // TODO: use a k-d tree to find neighbors and implement pooling
         this.obstacleNeighbors = this.obstaclesRef.map(obstacle => {
-            const distSq = pA.distanceToSq(obstacle.point);
+            const distSq = pA.distToSq(obstacle.point);
             return { distSq, obstacle };
         });
 
@@ -138,9 +138,9 @@ export class AgentWorker {
             for (let i = 0; i < this.lineIndex + 1; i++) {
                 const line = lines[i]!;
                 temp1.copy(pRelA).scale(invTimeHorizonObst).sub(line.point);
-                if (temp1.detUnchecked(line.direction) - rInvA >= _Math.NEG_EPSILON) {
+                if (temp1.det(line.direction) - rInvA >= _Math.NEG_EPSILON) {
                     temp1.copy(pRelB).scale(invTimeHorizonObst).sub(line.point);
-                    if (temp1.detUnchecked(line.direction) - rInvA >= _Math.NEG_EPSILON) {
+                    if (temp1.det(line.direction) - rInvA >= _Math.NEG_EPSILON) {
                         alreadyCovered = true;
                         break;
                     }
@@ -152,34 +152,34 @@ export class AgentWorker {
             // Obstacle vector
             temp2.copy(obstacleB.point).sub(obstacleA.point);
             // Negated relative agent position
-            temp1.copy(pRelA).negate();
+            temp1.copy(pRelA).neg();
             /** Closest point on (or next to) the obstacle segment with endpoints A and B. */
-            const s = temp1.dot(temp2) / temp2.magnitudeSq();
+            const s = temp1.dot(temp2) / temp2.lenSq();
             /** Distance from the relative agent position to the left endpoint of the obstacle segment. */
-            const distSqA = pRelA.magnitudeSq();
+            const distSqA = pRelA.lenSq();
             if (s < 0 && distSqA <= rSqA) {
                 // Collision with left endpoint, ignore if concave
                 if (obstacleA.isConvex) {
-                    lineTemp.copy(pRelA).rotate90DegCounter().normalize();
+                    lineTemp.copy(pRelA).rot90Counter().norm();
                     this.pushLine(lineTemp.x, lineTemp.y, 0, 0);
                 }
                 continue;
             }
             /** Distance from the relative agent position to the right endpoint of the obstacle segment. */
-            const distSqB = pRelB.magnitudeSq();
+            const distSqB = pRelB.lenSq();
             if (s > 0 && distSqB <= rSqA) {
                 // Collision with right endpoint, ignore if concave or agent to the right of B direction
-                if (obstacleB.isConvex && pRelB.detUnchecked(obstacleB.direction) >= 0) {
-                    lineTemp.copy(pRelB).rotate90DegCounter().normalize();
+                if (obstacleB.isConvex && pRelB.det(obstacleB.direction) >= 0) {
+                    lineTemp.copy(pRelB).rot90Counter().norm();
                     this.pushLine(lineTemp.x, lineTemp.y, 0, 0);
                 }
                 continue;
             }
             /** Distance from the (negated) relative agent position to the closest point on the obstacle segment. */
-            const distSqLine = temp1.sub(temp2.scale(s)).magnitudeSq();
+            const distSqLine = temp1.sub(temp2.scale(s)).lenSq();
             if (s >= 0 && s <= 1 && distSqLine <= rSqA) {
                 // Collision with obstacle segment
-                lineTemp.copy(obstacleA.direction).negate();
+                lineTemp.copy(obstacleA.direction).neg();
                 this.pushLine(lineTemp.x, lineTemp.y, 0, 0);
                 continue;
             }
@@ -216,7 +216,7 @@ export class AgentWorker {
                     temp1.set(xA * legA - yA * rA, xA * rA + yA * legA).scale(1 / distSqA);
                 } else {
                     // Left endpoint is concave, so the left leg extends the cut-off line
-                    temp1.copy(obstacleA.direction).negate();
+                    temp1.copy(obstacleA.direction).neg();
                 }
                 if (obstacleB.isConvex) {
                     const legB = Math.sqrt(distSqB - rSqA);
@@ -235,13 +235,13 @@ export class AgentWorker {
             let isLeftLegForeign = false;
             let isRightLegForeign = false;
             // Left neighbor negated direction
-            pRelA.copy(leftNeighbor.direction).negate();
-            if (obstacleA.isConvex && temp1.detUnchecked(pRelA) >= 0) {
+            pRelA.copy(leftNeighbor.direction).neg();
+            if (obstacleA.isConvex && temp1.det(pRelA) >= 0) {
                 // Left leg points into obstacle
                 temp1.copy(pRelA);
                 isLeftLegForeign = true;
             }
-            if (obstacleB.isConvex && temp2.detUnchecked(obstacleB.direction) <= 0) {
+            if (obstacleB.isConvex && temp2.det(obstacleB.direction) <= 0) {
                 // Right leg points into obstacle
                 temp2.copy(obstacleB.direction);
                 isRightLegForeign = true;
@@ -254,13 +254,13 @@ export class AgentWorker {
             // Project current velocity on VO, first check if VO is projected on cut-off circles
             velocity.copy(vA).sub(leftCutoff);
             /** Represents the projection of agent velocity onto the cut-off line, where 0 < t < 1 is on line. */
-            const t = obstacleA === obstacleB ? 0.5 : velocity.dot(pRelA) / pRelA.magnitudeSq();
+            const t = obstacleA === obstacleB ? 0.5 : velocity.dot(pRelA) / pRelA.lenSq();
             const tLeft = velocity.dot(temp1);
             const tRight = velocity.copy(vA).sub(rightCutoff).dot(temp2);
             if ((t < 0 && tLeft < 0) || (obstacleA == obstacleB && tLeft < 0 && tRight < 0)) {
                 // Project on left cut-off circle, agent velocity to the left and slow
                 // unitW (apex of VO or truncated cone)
-                pRelB.copy(vA).sub(leftCutoff).normalize();
+                pRelB.copy(vA).sub(leftCutoff).norm();
                 lineTemp.copy(leftCutoff).add(pRelB.scale(rInvA));
                 this.pushLine(pRelB.y, -pRelB.x, lineTemp.x, lineTemp.y);
                 continue;
@@ -268,7 +268,7 @@ export class AgentWorker {
             if (t > 1 && tRight < 0) {
                 // Project on right cut-off circle, agent velocity to the right and slow
                 // unitW (apex of VO or truncated cone)
-                pRelB.copy(vA).sub(rightCutoff).normalize();
+                pRelB.copy(vA).sub(rightCutoff).norm();
                 lineTemp.copy(rightCutoff).add(pRelB.scale(rInvA));
                 this.pushLine(pRelB.y, -pRelB.x, lineTemp.x, lineTemp.y);
                 continue;
@@ -282,27 +282,27 @@ export class AgentWorker {
             } else {
                 // Cut-off vector
                 pRelB.copy(pRelA);
-                distSqCutoff = velocity.copy(vA).sub(pRelB.scale(t).add(leftCutoff)).magnitudeSq();
+                distSqCutoff = velocity.copy(vA).sub(pRelB.scale(t).add(leftCutoff)).lenSq();
             }
             if (tLeft < 0) {
                 distSqLeft = Number.MAX_VALUE;
             } else {
                 // Left leg direction
                 pRelB.copy(temp1);
-                distSqLeft = velocity.copy(vA).sub(pRelB.scale(tLeft).add(leftCutoff)).magnitudeSq();
+                distSqLeft = velocity.copy(vA).sub(pRelB.scale(tLeft).add(leftCutoff)).lenSq();
             }
             if (tRight < 0) {
                 distSqRight = Number.MAX_VALUE;
             } else {
                 // Right leg direction
                 pRelB.copy(temp2);
-                distSqRight = velocity.copy(vA).sub(pRelB.scale(tRight).add(rightCutoff)).magnitudeSq();
+                distSqRight = velocity.copy(vA).sub(pRelB.scale(tRight).add(rightCutoff)).lenSq();
             }
             if (distSqCutoff <= distSqLeft && distSqCutoff <= distSqRight) {
                 // Closer to point on cut-off line than either left or right leg, project on cut-off
-                lineTemp.copy(obstacleA.direction).negate();
+                lineTemp.copy(obstacleA.direction).neg();
                 const directionX = lineTemp.x, directionY = lineTemp.y;
-                lineTemp.rotate90DegCounter().scale(rInvA).add(leftCutoff);
+                lineTemp.rot90Counter().scale(rInvA).add(leftCutoff);
                 this.pushLine(directionX, directionY, lineTemp.x, lineTemp.y);
                 continue;
             }
@@ -311,7 +311,7 @@ export class AgentWorker {
                 if (isLeftLegForeign) {
                     continue;
                 }
-                lineTemp.copy(temp1).rotate90DegCounter().scale(rInvA).add(leftCutoff);
+                lineTemp.copy(temp1).rot90Counter().scale(rInvA).add(leftCutoff);
                 this.pushLine(temp1.x, temp1.y, lineTemp.x, lineTemp.y);
                 continue;
             }
@@ -319,9 +319,9 @@ export class AgentWorker {
             if (isRightLegForeign) {
                 continue;
             }
-            lineTemp.copy(temp2).negate();
+            lineTemp.copy(temp2).neg();
             const directionX = lineTemp.x, directionY = lineTemp.y;
-            lineTemp.rotate90DegCounter().scale(rInvA).add(rightCutoff);
+            lineTemp.rot90Counter().scale(rInvA).add(rightCutoff);
             this.pushLine(directionX, directionY, lineTemp.x, lineTemp.y);
         }
 
@@ -339,7 +339,7 @@ export class AgentWorker {
             const pB = other.center, vB = other.velocity, rB = other.radius;
             pRel.copy(pB).sub(pA);
             vRel.copy(vA).sub(vB);
-            const distSq = pRel.magnitudeSq();
+            const distSq = pRel.lenSq();
             if (distSq === 0) {
                 console.error(pRel, pB, pA);
                 console.error(vRel);
@@ -350,19 +350,19 @@ export class AgentWorker {
             if (distSq > rSq) {
                 // No observed collision or overlap
                 apex.copy(vRel).sub(temp1Agent.copy(pRel).scale(invTimeHorizon));
-                const apexLengthSq = apex.magnitudeSq();
+                const apexLengthSq = apex.lenSq();
                 const dotProduct = apex.dot(pRel);
                 if (dotProduct < 0 && dotProduct * dotProduct > rSq * apexLengthSq) {
                     // Project on cut-off circle
                     const apexLength = Math.sqrt(apexLengthSq);
                     u.copy(apex).scale(1 / apexLength);
-                    lineTemp.copy(u).rotate90Deg();
+                    lineTemp.copy(u).rot90();
                     u.scale(r * invTimeHorizon - apexLength);
                 } else {
                     // No imminent collision, project velocity on nearest leg
                     const leg = Math.sqrt(distSq - rSq);
                     const pX = pRel.x, pY = pRel.y;
-                    if (pRel.detUnchecked(apex) > 0) {
+                    if (pRel.det(apex) > 0) {
                         // 2D cross product is positive, project on left leg
                         lineTemp.set(
                             pX * leg - pY * r,
@@ -373,7 +373,7 @@ export class AgentWorker {
                         lineTemp.set(
                             pX * leg + pY * r,
                             -pX * r + pY * leg
-                        ).negate().scale(1 / distSq);
+                        ).neg().scale(1 / distSq);
                     }
                     // Find shortest vector (adjusted velocity) on the ORCA constraint line
                     u.copy(lineTemp).scale(vRel.dot(lineTemp)).sub(vRel);
@@ -382,7 +382,7 @@ export class AgentWorker {
                 // Lions are on top of each other, define VO as entire plane
                 // Apex is now defined as the cutoff center to relative velocity
                 apex.copy(vRel).sub(temp1Agent.copy(pRel).scale(invDeltaTime));
-                const apexLength = apex.magnitude();
+                const apexLength = apex.len();
                 if (apexLength === 0) {
                     console.error('vRel', vRel);
                     console.error('pRel', pRel);
@@ -391,7 +391,7 @@ export class AgentWorker {
                     debugger;
                 }
                 u.copy(apex).scale(1 / apexLength);
-                lineTemp.copy(u).rotate90Deg();
+                lineTemp.copy(u).rot90();
                 u.scale(r * invDeltaTime - apexLength);
                 if (Number.isNaN(u.x) || Number.isNaN(u.y)) {
                     console.error(u, ' is NaN');
@@ -432,7 +432,7 @@ export class AgentWorker {
         for (let i = lineCount; i < totalLines; i++) {
             const line = lines[i]!;
             const n = line.direction, v = line.point;
-            if (n.detUnchecked(vTemp.copy(v).sub(result)) > distance) {
+            if (n.det(vTemp.copy(v).sub(result)) > distance) {
                 // Velocity does not satisfy constraint of the current line
                 // Reset the projected lines array
                 for (let j = 0; j < numObstLines; j++) {
@@ -442,7 +442,7 @@ export class AgentWorker {
                 for (let j = numObstLines; j < i; j++) {
                     const linePrev = lines[j]!;
                     const nPrev = linePrev.direction, vPrev = linePrev.point;
-                    const determinant = n.detUnchecked(nPrev);
+                    const determinant = n.det(nPrev);
                     if (Math.abs(determinant) <= _Math.EPSILON) {
                         // Lines are parallel
                         if (n.dot(nPrev) > 0) {
@@ -451,11 +451,11 @@ export class AgentWorker {
                         }
                         lineTemp.copy(v).add(vPrev).scale(0.5);
                     } else {
-                        vTemp.copy(n).scale(nPrev.detUnchecked(vOptTemp.copy(v).sub(vPrev)) / determinant)
+                        vTemp.copy(n).scale(nPrev.det(vOptTemp.copy(v).sub(vPrev)) / determinant)
                         lineTemp.copy(v).add(vTemp);
                     }
                     const pointX = lineTemp.x, pointY = lineTemp.y;
-                    lineTemp.copy(nPrev).sub(n).normalize();
+                    lineTemp.copy(nPrev).sub(n).norm();
                     // Push projected line
                     if (++this.projectedLineIndex >= projectedLines.length) {
                         // No empty slots, grow array
@@ -474,10 +474,10 @@ export class AgentWorker {
                     projectedLine.point.y = pointY;
                 }
                 vTemp.copy(result);
-                if (this.linearProgram2(maxSpeedA, true, vOptTemp.copy(n).rotate90DegCounter()) < this.projectedLineIndex + 1) {
+                if (this.linearProgram2(maxSpeedA, true, vOptTemp.copy(n).rot90Counter()) < this.projectedLineIndex + 1) {
                     result.copy(vTemp);
                 }
-                distance = n.detUnchecked(vTemp.copy(v).sub(result));
+                distance = n.det(vTemp.copy(v).sub(result));
             }
         }
         vA.copy(result);
@@ -490,7 +490,7 @@ export class AgentWorker {
         const lines = this.lines;
         const { direction: n, point: v } = lines[current]!;
         const alignment = v.dot(n);
-        const discriminantSq = alignment * alignment + maxSpeedSq - v.magnitudeSq();
+        const discriminantSq = alignment * alignment + maxSpeedSq - v.lenSq();
         if (discriminantSq < 0) {
             // Failure: maximum speed does not intersect with feasible line region
             return false;
@@ -503,8 +503,8 @@ export class AgentWorker {
             // Adjust above line segment to satisfy all previous constraints
             const constraintPrev = lines[i]!;
             const nPrev = constraintPrev.direction, vPrev = constraintPrev.point;
-            const denominator = n.detUnchecked(nPrev);
-            const numerator = nPrev.detUnchecked(temp.copy(v).sub(vPrev));
+            const denominator = n.det(nPrev);
+            const numerator = nPrev.det(temp.copy(v).sub(vPrev));
             if (Math.abs(denominator) <= _Math.EPSILON) {
                 // Lines are parallel or nearly parallel
                 if (numerator < 0) {
@@ -574,9 +574,9 @@ export class AgentWorker {
             lines = this.projectedLines;
             lineCount = this.projectedLineIndex + 1;
         } else {
-            if (optVelocity.magnitudeSq() > maxSpeedSq) {
+            if (optVelocity.lenSq() > maxSpeedSq) {
                 // Outside circle, optimize closest point
-                result.copy(optVelocity).normalize().scale(maxSpeed);
+                result.copy(optVelocity).norm().scale(maxSpeed);
             } else {
                 // Inside circle, optimize closest point
                 result.copy(optVelocity);
@@ -592,7 +592,7 @@ export class AgentWorker {
             //              ORCA lines
             // ORCA2
             const constraint = lines[i]!;
-            if (constraint.direction.detUnchecked(temp.copy(constraint.point).sub(result)) > 0) {
+            if (constraint.direction.det(temp.copy(constraint.point).sub(result)) > 0) {
                 // Optimal velocity is on the wrong side (left) of the ORCA constraint
                 // Next linear program
                 temp.copy(result);

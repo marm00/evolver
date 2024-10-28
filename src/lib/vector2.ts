@@ -55,15 +55,15 @@ export class Vector2 implements Resettable {
     }
 
     /** Sets the length of the vector via normalization and scaling. */
-    setLength(length: number): this {
-        return this.normalize().scale(length);
+    setLen(length: number): this {
+        return this.norm().scale(length);
     }
 
     /** 
      * Sets the coordinates of the vector from polar coordinates. 
      * 
      * @param direction The direction or angle in radians.
-     * @param magnitude The {@link Vector2.magnitude} or length of the vector.
+     * @param magnitude The {@link Vector2.len} or length of the vector.
      */
     setPolar(direction: number, magnitude = 1): this {
         this.x = Math.cos(direction) * magnitude;
@@ -131,9 +131,9 @@ export class Vector2 implements Resettable {
      * the cross product will be negative, left-hand = positive. Parallel/anti-parallel vectors have a zero cross product. Returns 0 if a zero
      * vector is given, since there is no meaningful area and the vectors are (anti-)parallel in a way.
      */
-    det(v: Vector2): number {
+    detNorm(v: Vector2): number {
         /** Magnitude as the sine demonimator. */
-        const denominator = Math.sqrt(this.magnitudeSq() * v.magnitudeSq());
+        const denominator = Math.sqrt(this.lenSq() * v.lenSq());
 
         // Return 0 in case of zero vector(s).
         if (denominator === 0) {
@@ -146,16 +146,16 @@ export class Vector2 implements Resettable {
 
     /** 
     * The determinant or 2D cross product returns a scalar unlike a vector in 3D, representing the signed area for normalized vectors.
-    * Variant of {@link Vector2.det} that processes the vectors 'as is' and therefore does not normalize. Given two normalized 
+    * Variant of {@link Vector2.detNorm} that processes the vectors 'as is' and therefore does not normalize. Given two normalized 
     * vectors, the determinant is the signed area of the parallelogram formed by the vectors equal to sin(theta). 
     */
-    detUnchecked(v: Vector2): number {
+    det(v: Vector2): number {
         return this.x * v.y - this.y * v.x;
     }
 
     /** Normalizes the vector to have a magnitude of 1 (unit or direction vector). Zero vectors are ignored. */
-    normalize(): this {
-        const length = this.magnitude();
+    norm(): this {
+        const length = this.len();
         if (length > 0) {
             this.x /= length;
             this.y /= length;
@@ -176,7 +176,7 @@ export class Vector2 implements Resettable {
     }
 
     /** Rotates the vector direction by the given angle in radians around the origin. */
-    rotate(angle: number): this {
+    rot(angle: number): this {
         const cos = Math.cos(angle);
         const sin = Math.sin(angle);
         const x = this.x, y = this.y;
@@ -191,7 +191,7 @@ export class Vector2 implements Resettable {
      * @param v The vector to rotate around.
      * @param angle The angle in radians to rotate by.
      */
-    rotateAround(v: Vector2, angle: number): this {
+    rotAround(v: Vector2, angle: number): this {
         const cos = Math.cos(angle);
         const sin = Math.sin(angle);
         const dx = this.x - v.x;
@@ -202,7 +202,7 @@ export class Vector2 implements Resettable {
     }
 
     /** Rotates the vector 90 degrees clockwise. */
-    rotate90Deg(): this {
+    rot90(): this {
         const x = this.x;
         this.x = this.y;
         this.y = -x;
@@ -210,7 +210,7 @@ export class Vector2 implements Resettable {
     }
 
     /** Rotates the vector 90 degrees counterclockwise. */
-    rotate90DegCounter(): this {
+    rot90Counter(): this {
         const x = this.x;
         this.x = -this.y;
         this.y = x;
@@ -218,19 +218,19 @@ export class Vector2 implements Resettable {
     }
 
     /** Squared magnitude from this to the given vector. */
-    distanceToSq(v: Vector2): number {
+    distToSq(v: Vector2): number {
         const dx = this.x - v.x;
         const dy = this.y - v.y;
         return dx * dx + dy * dy;
     }
 
     /** Magnitude from this to the given vector. */
-    distanceTo(v: Vector2): number {
-        return Math.sqrt(this.distanceToSq(v));
+    distTo(v: Vector2): number {
+        return Math.sqrt(this.distToSq(v));
     }
 
     /** Manhatten magnitude from this to the given vector. */
-    distanceToManhattan(v: Vector2): number {
+    distToMD(v: Vector2): number {
         return Math.abs(this.x - v.x) + Math.abs(this.y - v.y);
     }
 
@@ -260,22 +260,22 @@ export class Vector2 implements Resettable {
     }
 
     /** Squared magnitude or Euclidean distance from the origin (Pythagorean theorem). */
-    magnitudeSq(): number {
+    lenSq(): number {
         return this.x * this.x + this.y * this.y;
     }
 
     /** Magnitude or Euclidean distance from the origin (Pythagorean theorem). */
-    magnitude(): number {
-        return Math.sqrt(this.magnitudeSq());
+    len(): number {
+        return Math.sqrt(this.lenSq());
     }
 
     /** Returns the Manhatten distance from the origin (sum of the absolute values of the coordinates). */
-    magnitudeManhattan(): number {
+    lenMD(): number {
         return Math.abs(this.x) + Math.abs(this.y);
     }
 
     /** Direction or angle of the vector in radians. Normalized to the range [0, 2π]. */
-    direction(): number {
+    dir(): number {
         return Math.atan2(-this.y, -this.x) + Math.PI;  
     }
 
@@ -283,9 +283,9 @@ export class Vector2 implements Resettable {
      * Direction or angle of the vector in radians from this to the given vector. Returns {@link _Math.TAU} radians (or 0 or 360 degrees) 
      * if a zero vector is given. Automatically normalizes and clamps the dot product for a meaningful acosine result. 
      */
-    directionTo(v: Vector2): number {
+    dirToNorm(v: Vector2): number {
         /** Magnitude as the cosine denominator. */
-        const denominator = Math.sqrt(this.magnitudeSq() * v.magnitudeSq());
+        const denominator = Math.sqrt(this.lenSq() * v.lenSq());
 
         // Treat zero vectors as having the default direction (tau radians or 0 or 360 degrees), preventing further null checks.
         if (denominator === 0) {
@@ -304,15 +304,15 @@ export class Vector2 implements Resettable {
 
     /** 
      * Direction or angle of the vector in radians from this to the given vector.
-     * Variant of {@link Vector2.directionTo} that assumes the vectors are normalized (and therefore does not normalize). 
+     * Variant of {@link Vector2.dirToNorm} that assumes the vectors are normalized (and therefore does not normalize). 
      */
-    directionToUnchecked(v: Vector2): number {
+    dirTo(v: Vector2): number {
         return Math.acos(_Math.clamp(this.dot(v), -1, 1));
     }
 
     /** Sets this vector to the normalized direction from this vector to the given vector. */
-    directionVectorTo(v: Vector2): this {
-        return this.sub(v).normalize();
+    dirVectorTo(v: Vector2): this {
+        return this.sub(v).norm();
     }
 
     /** Clamps the vector to the given vector. */
@@ -323,7 +323,7 @@ export class Vector2 implements Resettable {
     }
 
     /** Reverses the direction of the vector. */
-    negate() {
+    neg() {
         this.x = -this.x;
         this.y = -this.y;
         return this;
@@ -331,11 +331,11 @@ export class Vector2 implements Resettable {
 
     /** Polar coordinates of the vector. */
     polar(): { direction: number, magnitude: number } {
-        return { direction: this.direction(), magnitude: this.magnitude() };
+        return { direction: this.dir(), magnitude: this.len() };
     }
 
     /** Returns true if the vector has the same coordinates as the given vector. */
-    equals(v: Vector2): boolean {
+    isEq(v: Vector2): boolean {
         return this.x === v.x && this.y === v.y;
     }
 
