@@ -224,10 +224,10 @@ export async function createGame(strategy: string): Promise<Game> {
         new Vector2(-10, 10)
     ];
     const vertices2: Vector2[] = [
-        new Vector2(-50, 200),
-        new Vector2(-200, 200),
-        new Vector2(-200, 50),
-        new Vector2(-50, 50)
+        new Vector2(-40, 140),
+        new Vector2(-140, 140),
+        new Vector2(-140, 40),
+        new Vector2(-40, 40)
     ];
 
     const obstacles: Obstacle[] = [];
@@ -271,7 +271,7 @@ export async function createGame(strategy: string): Promise<Game> {
         }
     }
 
-    // addObstacle(vertices);
+    addObstacle(vertices);
     addObstacle(vertices2);
 
     const agentWorker = new AgentWorker(lions, obstacles, TIME_HORIZON, OBST_TIME_HORIZON);
