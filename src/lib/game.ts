@@ -15,7 +15,7 @@ const AUTO_ATTACK = true;
 const METER_TO_PIXELS = 73.14;
 
 /** Pixels per second: 5m/s (avg run speed) * 73pixels/m (128px=1.75meters) = 365pixels/s. */
-const HUMAN_VELOCITY = 365;
+const HUMAN_VELOCITY = 384; // TODO: was 365, changed to divisible by 64
 const HUMAN_VELOCITY_DIAGONAL = HUMAN_VELOCITY * Math.SQRT1_2;
 const HUMAN_HEIGHT = 128;
 const HUMAN_WIDTH = 64;
@@ -66,9 +66,9 @@ const LION_VELOCITY = HUMAN_VELOCITY / 2;
 const TEMPLION1_MAXSPEED = LION_VELOCITY * 1;
 const TEMPLIONX_MAXSPEED = TEMPLION1_MAXSPEED * 1.0;
 
-const TIME_HORIZON = 2;
+const TIME_HORIZON = 1;
 const INV_TIME_HORIZON = 1 / TIME_HORIZON;
-const OBST_TIME_HORIZON = 10;
+const OBST_TIME_HORIZON = 20;
 const INV_OBST_TIME_HORIZON = 1 / OBST_TIME_HORIZON;
 
 // TODO: the game contains lists for different things (like spears), pools, and the partinioning contains references

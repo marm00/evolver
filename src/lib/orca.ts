@@ -119,6 +119,7 @@ export class AgentWorker {
         });
 
         // Compute obstacle constraints
+        // TODO: obstacle clipping with current game scenario
         const pRelA = v2Pool[0]!;
         const pRelB = v2Pool[1]!;
         const leftCutoff = v2Pool[2]!;
