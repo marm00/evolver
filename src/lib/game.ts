@@ -66,9 +66,10 @@ const LION_VELOCITY = HUMAN_VELOCITY / 2;
 const TEMPLION1_MAXSPEED = LION_VELOCITY * 1;
 const TEMPLIONX_MAXSPEED = TEMPLION1_MAXSPEED * 1.0;
 
-const TIME_HORIZON = 1;
+// TODO: settle on a low time/obst time horizon (given unusually high velocity-normally unit vectors)
+const TIME_HORIZON = 0.05;
 const INV_TIME_HORIZON = 1 / TIME_HORIZON;
-const OBST_TIME_HORIZON = 20;
+const OBST_TIME_HORIZON = 3;
 const INV_OBST_TIME_HORIZON = 1 / OBST_TIME_HORIZON;
 
 // TODO: the game contains lists for different things (like spears), pools, and the partinioning contains references
