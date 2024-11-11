@@ -42,6 +42,178 @@ interface AgentNeighbor {
     agent: Agent;
 }
 
+interface ObstacleTreeNode {
+    obstacle: Obstacle | null;
+    left: ObstacleTreeNode | null;
+    right: ObstacleTreeNode | null;
+}
+
+/** Use 2d cross product (det) to check if vector3 is left of line1-2. */
+function leftOf(line1: Vector2, line2: Vector2, vector3: Vector2) {
+    return (line1.x - vector3.x) * (line2.y - line1.y) -
+        (line1.y - vector3.y) * (line2.x - line1.x);
+}
+
+class KdTree {
+    // agents: Agent[];
+    // agentTree: AgentTreeNode[];
+    obstacleTree: ObstacleTreeNode | null;
+
+    constructor() {
+
+    }
+
+    buildObstacleTree() {
+        this.deleteObstacleTree(this.obstacleTree);
+        const obstacles: Obstacle[] = []; // TODO: get obstacles from game thread, separate from all?
+        this.obstacleTree = this.buildObstacleTreeRecursive(obstacles);
+        return;
+    }
+
+    buildObstacleTreeRecursive(obstacles: Obstacle[]) {
+        if (obstacles.length === 0) {
+            return null;
+        }
+        const node: ObstacleTreeNode = {
+            obstacle: null,
+            left: null,
+            right: null
+        }
+        let optimalSplit = 0;
+        let minLeft = obstacles.length;
+        let minRight = obstacles.length;
+        for (let i = 0; i < obstacles.length; i++) {
+            let leftSize = 0;
+            let rightSize = 0;
+            const obstacleI1 = obstacles[i]!;
+            const obstacleI2 = obstacleI1.next!;
+            // Compute optimal split mode
+            for (let j = 0; j < obstacles.length; j++) {
+                if (i === j) {
+                    continue;
+                }
+                const obstacleJ1 = obstacles[j]!;
+                const obstacleJ2 = obstacleJ1.next!;
+                const j1LeftOfI = leftOf(obstacleI1.point, obstacleI2.point, obstacleJ1.point);
+                const j2LeftOfI = leftOf(obstacleI1.point, obstacleI2.point, obstacleJ2.point);
+                if (j1LeftOfI >= _Math.NEG_EPSILON && j2LeftOfI >= _Math.NEG_EPSILON) {
+                    leftSize++;
+                } else if (j1LeftOfI <= _Math.EPSILON && j2LeftOfI <= _Math.NEG_EPSILON) {
+                    rightSize++;
+                } else {
+                    leftSize++;
+                    rightSize++;
+                }
+                const maxSize = Math.max(leftSize, rightSize);
+                const minSize = Math.min(leftSize, rightSize);
+                const maxDir = Math.max(minLeft, minRight);
+                const minDir = Math.min(minLeft, minRight);
+                if (maxSize > maxDir || (maxSize === maxDir && minSize >= minDir)) {
+                    break;
+                }
+            }
+            const maxSize = Math.max(leftSize, rightSize);
+            const minSize = Math.min(leftSize, rightSize);
+            const maxDir = Math.max(minLeft, minRight);
+            const minDir = Math.min(minLeft, minRight);
+            if (maxSize < maxDir || (maxSize === maxDir && minSize < minDir)) {
+                minLeft = leftSize;
+                minRight = rightSize;
+                optimalSplit = i;
+            }
+        }
+        // Build split node
+        const leftObstacles: (Obstacle | null)[] = Array(minLeft).fill(null) as null[];
+        const rightObstacles: (Obstacle | null)[] = Array(minRight).fill(null) as null[];
+        let leftCounter = 0;
+        let rightCounter = 0;
+        const i = optimalSplit;
+        const obstacleI1 = obstacles[i]!;
+        const obstacleI2 = obstacleI1.next!;
+        for (let j = 0; j < obstacles.length; j++) {
+            if (i === j) {
+                continue;
+            }
+            const obstacleJ1 = obstacles[j]!;
+            const obstacleJ2 = obstacleJ1.next!;
+            const j1LeftOfI = leftOf(obstacleI1.point, obstacleI2.point, obstacleJ1.point);
+            const j2LeftOfI = leftOf(obstacleI1.point, obstacleI2.point, obstacleJ2.point);
+            if (j1LeftOfI >= _Math.NEG_EPSILON && j2LeftOfI >= _Math.NEG_EPSILON) {
+                leftObstacles[leftCounter++] = obstacles[j]!;
+            } else if (j1LeftOfI <= _Math.EPSILON && j2LeftOfI <= _Math.EPSILON) {
+                rightObstacles[rightCounter++] = obstacles[j]!;
+            } else {
+                // Split obstacle j
+                const det1 = obstacleI2.point.clone().sub(obstacleI1.point).det(
+                    obstacleJ1.point.clone().sub(obstacleI1.point));
+                const det2 = obstacleI2.point.clone().sub(obstacleI1.point).det(
+                    obstacleJ1.point.clone().sub(obstacleJ2.point));
+                const t = det1 / det2;
+                const splitPoint = obstacleJ1.point.clone().add(
+                    obstacleJ2.point.clone().sub(obstacleJ1.point).scale(t));
+                const newObstacle = {
+                    id: allObstacles.length, // TODO: get all obstacles
+                    direction: obstacleJ1.direction,
+                    point: splitPoint,
+                    next: obstacleJ2,
+                    prev: obstacleJ1,
+                    isConvex: true
+                }
+                allObstacles.push(newObstacle);
+                obstacleJ1.next = newObstacle;
+                obstacleJ2.prev = newObstacle;
+                if (j1LeftOfI > 0) {
+                    leftObstacles[leftCounter++] = obstacleJ1;
+                    rightObstacles[rightCounter++] = newObstacle;
+                } else {
+                    rightObstacles[rightCounter++] = obstacleJ1;
+                    leftObstacles[leftCounter++] = newObstacle;
+                }
+            }
+        }
+        node.obstacle = obstacleI1;
+        node.left = this.buildObstacleTreeRecursive(leftObstacles as Obstacle[]);
+        node.right = this.buildObstacleTreeRecursive(rightObstacles as Obstacle[]);
+        return node;
+    }
+
+    deleteObstacleTree(node: ObstacleTreeNode | null): void {
+        // TODO: manage memory differently?
+        if (node !== null) {
+            this.deleteObstacleTree(node.left);
+            this.deleteObstacleTree(node.right);
+            node.left = null;
+            node.right = null;
+            node.obstacle = null;
+        }
+    }
+
+    computeObstacleNeighbors(agent: Agent, rangeSq: number) {
+        this.queryObstacleTreeRecursive(agent, rangeSq, this.obstacleTree);
+    }
+
+    queryObstacleTreeRecursive(agent: Agent, rangeSq: number, node: ObstacleTreeNode | null) {
+        if (node === null) {
+            return;
+        }
+        const obstacle1 = node.obstacle!;
+        const obstacle2 = obstacle1.next!;
+        const agentLeftOfLine = leftOf(obstacle1.point, obstacle2.point, agent.center);
+        this.queryObstacleTreeRecursive(agent, rangeSq, agentLeftOfLine >= 0 ? node.left : node.right);
+        const distSqLine = (agentLeftOfLine * agentLeftOfLine) /
+            obstacle2.point.clone().sub(obstacle1.point).lenSq();
+        if (distSqLine < rangeSq) {
+            if (agentLeftOfLine < 0) {
+                // Try obstacle at this node only if agent is on right side of obstacle
+                // and can see obstacle.
+                agent.addObstacleNeighbor(node.obstacle, rangeSq); // TODO fn
+            }
+            // Try other side of line
+            this.queryObstacleTreeRecursive(agent, rangeSq, agentLeftOfLine >= 0 ? node.right : node.left);
+        }
+    }
+}
+
 
 export class AgentWorker {
     /**
@@ -72,7 +244,9 @@ export class AgentWorker {
     // TODO: add a k-d tree with access to all agents and obstacles, to fill neighbors
     agentNeighbors: AgentNeighbor[] = [];
     obstacleNeighbors: ObstacleNeighbor[] = [];
+    kdTree: KdTree;
 
+    // TODO: for parallelization, implement a callback mechanism to merge added obstacles (if not all predetermined?)
     constructor(agentsRef: Agent[], obstaclesRef: Obstacle[], timeHorizon: number, obstTimeHorizon: number) {
         this.agentsRef = agentsRef;
         this.obstaclesRef = obstaclesRef;
@@ -344,7 +518,7 @@ export class AgentWorker {
             if (distSq === 0) {
                 console.error(pRel, pB, pA);
                 console.error(vRel);
-                debugger;    
+                debugger;
             }
             const r = rA + rB;
             const rSq = r * r;
