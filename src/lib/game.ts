@@ -4,7 +4,7 @@ import { Pool, Pool2 } from "./pool";
 import { _Math } from "./mathUtils";
 import { Matrix3 } from "./matrix3";
 import { Lion, Meteorite, Obsidian, Orb, RESOURCE_STATE, Spear, Thunderstorm, Wall } from "./spear";
-import { AgentWorker, Obstacle } from "./orca";
+import { AgentWorker, Obstacle, addObstacle, KdTree } from "./orca";
 
 const GAME_WIDTH = 6400;
 const GAME_HEIGHT = 6400;
@@ -93,6 +93,7 @@ interface Game {
     lions: Lion[]; // TODO: different data structure?
     agentWorker: AgentWorker;
     obstacles: Obstacle[];
+    kdTree: KdTree;
 }
 
 /**
@@ -232,50 +233,15 @@ export async function createGame(strategy: string): Promise<Game> {
     ];
 
     const obstacles: Obstacle[] = [];
+    addObstacle(vertices, obstacles);
+    addObstacle(vertices2, obstacles);
+    console.log(obstacles);
 
-    function addObstacle(vertices: Vector2[]): void {
-        const obstacleNo = obstacles.length;
-        const verticesLength = vertices.length;
-        for (let i = 0; i < verticesLength; i++) {
-            const point = vertices[i]!;
-            const obstacle: Obstacle = {
-                id: 0,
-                direction: new Vector2(),
-                point: point,
-                next: null,
-                prev: null,
-                isConvex: false
-            }
-            if (i !== 0) {
-                obstacle.prev = obstacles[obstacles.length - 1]!;
-                obstacle.prev.next = obstacle;
-            }
-            if (i === verticesLength - 1) {
-                obstacle.next = obstacles[obstacleNo]!;
-                obstacle.next.prev = obstacle;
-            }
-            const nextPoint = vertices[(i + 1) % verticesLength]!;
-            obstacle.direction.copy(nextPoint).sub(point).norm();
-            if (verticesLength === 2) {
-                obstacle.isConvex = true;
-            } else {
-                // Use 2d cross product (det) to check if point is left of prev->next and convex
-                const prevPoint = vertices[(i - 1 + verticesLength) % verticesLength]!;
-                const x1 = prevPoint.x - nextPoint.x;
-                const y1 = prevPoint.y - nextPoint.y;
-                const x2 = point.x - prevPoint.x;
-                const y2 = point.y - prevPoint.y;
-                obstacle.isConvex = (x1 * y2 - y1 * x2) >= 0;
-            }
-            obstacle.id = obstacles.length;
-            obstacles.push(obstacle);
-        }
-    }
+    const kdTree = new KdTree(null, lions, obstacles);
+    kdTree.buildObstacleTree();
 
-    addObstacle(vertices);
-    addObstacle(vertices2);
-
-    const agentWorker = new AgentWorker(lions, obstacles, TIME_HORIZON, OBST_TIME_HORIZON);
+    // TODO: try parallelization with web workers and shared buffers
+    const agentWorker = new AgentWorker(kdTree, lions, obstacles, TIME_HORIZON, OBST_TIME_HORIZON);
     return {
         world, player, m3Pool, v2Pool, v2Pool2, oRectPool, spearPool, spears: [],
         meteoritePool, meteorites: [], obsidianPool, obsidians: [], thunderstorm, orb, walls,
@@ -283,7 +249,8 @@ export async function createGame(strategy: string): Promise<Game> {
         // lions: [tempLion1, tempLion2, tempLion3, tempLion4]
         lions,
         agentWorker,
-        obstacles
+        obstacles,
+        kdTree
     };
 }
 

@@ -54,20 +54,63 @@ function leftOf(line1: Vector2, line2: Vector2, vector3: Vector2) {
         (line1.y - vector3.y) * (line2.x - line1.x);
 }
 
-class KdTree {
+/** Add an obstacle as defined by a list of vertices, to a shared array. */
+export function addObstacle(vertices: Vector2[], obstacles: Obstacle[]): void {
+    const obstacleNo = obstacles.length;
+    const verticesLength = vertices.length;
+    for (let i = 0; i < verticesLength; i++) {
+        const point = vertices[i]!;
+        const obstacle: Obstacle = {
+            id: 0,
+            direction: new Vector2(),
+            point: point,
+            next: null,
+            prev: null,
+            isConvex: false
+        }
+        if (i !== 0) {
+            obstacle.prev = obstacles[obstacles.length - 1]!;
+            obstacle.prev.next = obstacle;
+        }
+        if (i === verticesLength - 1) {
+            obstacle.next = obstacles[obstacleNo]!;
+            obstacle.next.prev = obstacle;
+        }
+        const nextPoint = vertices[(i + 1) % verticesLength]!;
+        obstacle.direction.copy(nextPoint).sub(point).norm();
+        if (verticesLength === 2) {
+            obstacle.isConvex = true;
+        } else {
+            // Use 2d cross product (det) to check if point is left of prev->next and convex
+            const prevPoint = vertices[(i - 1 + verticesLength) % verticesLength]!;
+            const x1 = prevPoint.x - nextPoint.x;
+            const y1 = prevPoint.y - nextPoint.y;
+            const x2 = point.x - prevPoint.x;
+            const y2 = point.y - prevPoint.y;
+            obstacle.isConvex = (x1 * y2 - y1 * x2) >= 0;
+        }
+        obstacle.id = obstacles.length;
+        obstacles.push(obstacle);
+    }
+}
+
+// Each agent worker shares a kdtree reference
+export class KdTree {
     // agents: Agent[];
     // agentTree: AgentTreeNode[];
     obstacleTree: ObstacleTreeNode | null;
+    readonly agentsRef: Agent[];
+    readonly obstaclesRef: Obstacle[];
 
-    constructor() {
-
+    constructor(obstacleTree: ObstacleTreeNode | null, agentsRef: Agent[], obstaclesRef: Obstacle[]) {
+        this.obstacleTree = obstacleTree;
+        this.agentsRef = agentsRef;
+        this.obstaclesRef = obstaclesRef;
     }
 
     buildObstacleTree() {
         this.deleteObstacleTree(this.obstacleTree);
-        const obstacles: Obstacle[] = []; // TODO: get obstacles from game thread, separate from all?
-        this.obstacleTree = this.buildObstacleTreeRecursive(obstacles);
-        return;
+        this.obstacleTree = this.buildObstacleTreeRecursive(this.obstaclesRef);
     }
 
     buildObstacleTreeRecursive(obstacles: Obstacle[]) {
@@ -93,7 +136,7 @@ class KdTree {
                     continue;
                 }
                 const obstacleJ1 = obstacles[j]!;
-                const obstacleJ2 = obstacleJ1.next!;
+                const obstacleJ2 = obstacleJ1.next!; // TODO: bugfix null state
                 const j1LeftOfI = leftOf(obstacleI1.point, obstacleI2.point, obstacleJ1.point);
                 const j2LeftOfI = leftOf(obstacleI1.point, obstacleI2.point, obstacleJ2.point);
                 if (j1LeftOfI >= _Math.NEG_EPSILON && j2LeftOfI >= _Math.NEG_EPSILON) {
@@ -152,14 +195,14 @@ class KdTree {
                 const splitPoint = obstacleJ1.point.clone().add(
                     obstacleJ2.point.clone().sub(obstacleJ1.point).scale(t));
                 const newObstacle = {
-                    id: allObstacles.length, // TODO: get all obstacles
+                    id: this.obstaclesRef.length,
                     direction: obstacleJ1.direction,
                     point: splitPoint,
                     next: obstacleJ2,
                     prev: obstacleJ1,
                     isConvex: true
                 }
-                allObstacles.push(newObstacle);
+                this.obstaclesRef.push(newObstacle); // TODO: confirm no side effects
                 obstacleJ1.next = newObstacle;
                 obstacleJ2.prev = newObstacle;
                 if (j1LeftOfI > 0) {
@@ -188,28 +231,55 @@ class KdTree {
         }
     }
 
-    computeObstacleNeighbors(agent: Agent, rangeSq: number) {
-        this.queryObstacleTreeRecursive(agent, rangeSq, this.obstacleTree);
+    // TODO: avoid having to pass the obstacleNeighbors array every time (store in kdtree?)
+    computeObstacleNeighbors(agent: Agent, rangeSq: number, obstacleNeighbors: ObstacleNeighbor[]) {
+        this.queryObstacleTreeRecursive(agent, rangeSq, this.obstacleTree, obstacleNeighbors);
     }
 
-    queryObstacleTreeRecursive(agent: Agent, rangeSq: number, node: ObstacleTreeNode | null) {
+    queryObstacleTreeRecursive(agent: Agent, rangeSq: number, node: ObstacleTreeNode | null, obstacleNeighbors: ObstacleNeighbor[]) {
         if (node === null) {
             return;
         }
+        const position = agent.center;
         const obstacle1 = node.obstacle!;
         const obstacle2 = obstacle1.next!;
-        const agentLeftOfLine = leftOf(obstacle1.point, obstacle2.point, agent.center);
-        this.queryObstacleTreeRecursive(agent, rangeSq, agentLeftOfLine >= 0 ? node.left : node.right);
+        const agentLeftOfLine = leftOf(obstacle1.point, obstacle2.point, position);
+        this.queryObstacleTreeRecursive(agent, rangeSq, agentLeftOfLine >= 0 ? node.left : node.right, obstacleNeighbors);
         const distSqLine = (agentLeftOfLine * agentLeftOfLine) /
             obstacle2.point.clone().sub(obstacle1.point).lenSq();
         if (distSqLine < rangeSq) {
             if (agentLeftOfLine < 0) {
                 // Try obstacle at this node only if agent is on right side of obstacle
                 // and can see obstacle.
-                agent.addObstacleNeighbor(node.obstacle, rangeSq); // TODO fn
+                // Insert obstacle neighbor
+                const obstacle = node.obstacle!;
+                const nextObstacle = obstacle.next!;
+                let distSq = 0;
+                const numerator = position.clone().sub(obstacle.point).dot(
+                    nextObstacle.point.clone().sub(obstacle.point));
+                const determinant = nextObstacle.point.clone().sub(obstacle.point).lenSq();
+                const r = numerator / determinant;
+                if (r < 0) {
+                    distSq = position.clone().sub(obstacle.point).lenSq();
+                } else if (r > 1) {
+                    distSq = position.clone().sub(nextObstacle.point).lenSq();
+                } else {
+                    distSq = position.clone().sub(obstacle.point.clone().add(
+                        nextObstacle.point.clone().sub(obstacle.point).scale(r))).lenSq();
+                }
+                if (distSq < rangeSq) {
+                    console.log('reached');
+                    obstacleNeighbors.push({ distSq, obstacle });
+                    let i = obstacleNeighbors.length - 1;
+                    while (i != 0 && distSq < obstacleNeighbors[i - 1]!.distSq) {
+                        obstacleNeighbors[i] = obstacleNeighbors[i - 1]!;
+                        --i;
+                    }
+                    obstacleNeighbors[i] = { distSq, obstacle };
+                }
             }
             // Try other side of line
-            this.queryObstacleTreeRecursive(agent, rangeSq, agentLeftOfLine >= 0 ? node.right : node.left);
+            this.queryObstacleTreeRecursive(agent, rangeSq, agentLeftOfLine >= 0 ? node.right : node.left, obstacleNeighbors);
         }
     }
 }
@@ -224,7 +294,7 @@ export class AgentWorker {
      * time horizon and vice versa, to prevent infeasible linear programs.
      */
     readonly timeHorizon: number;
-    readonly obstTimeHorizon: number;
+    readonly timeHorizonObst: number;
     readonly invTimeHorizon: number;
     readonly invTimeHorizonObst: number;
 
@@ -247,12 +317,14 @@ export class AgentWorker {
     kdTree: KdTree;
 
     // TODO: for parallelization, implement a callback mechanism to merge added obstacles (if not all predetermined?)
-    constructor(agentsRef: Agent[], obstaclesRef: Obstacle[], timeHorizon: number, obstTimeHorizon: number) {
+    // TODO: shared array buffer optional for web workers
+    constructor(kdTree: KdTree, agentsRef: Agent[], obstaclesRef: Obstacle[], timeHorizon: number, obstTimeHorizon: number) {
+        this.kdTree = kdTree;
         this.agentsRef = agentsRef;
         this.obstaclesRef = obstaclesRef;
         this.timeHorizon = timeHorizon;
         this.invTimeHorizon = 1 / timeHorizon;
-        this.obstTimeHorizon = obstTimeHorizon;
+        this.timeHorizonObst = obstTimeHorizon;
         this.invTimeHorizonObst = 1 / obstTimeHorizon;
         this.v2Pool = Array(this.v2PoolSize).fill(null).map(() => new Vector2());
         this.lines = Array(this.linesInitialSize).fill(null).map(() => ({ direction: new Vector2(), point: new Vector2() }));
@@ -279,19 +351,24 @@ export class AgentWorker {
 
         // Compute obstacle neighbors
         // TODO: use a k-d tree to find neighbors and implement pooling
+        this.obstacleNeighbors = [];
+        const range = this.timeHorizonObst * maxSpeedA + rA;
+        this.kdTree.computeObstacleNeighbors(agentA, range * range, this.obstacleNeighbors);
+        console.log(this.obstacleNeighbors);
+        debugger;
+        // this.obstacleNeighbors = this.obstaclesRef.map(obstacle => {
+        //     const distSq = pA.distToSq(obstacle.point);
+        //     return { distSq, obstacle };
+        // });
+
+        // Compute agent neighbors
+        // TODO: use a k-d tree to find neighbors and implement pooling
         this.agentNeighbors = this.agentsRef.filter(agentB => agentA.id !== agentB.id).map(agentB => {
             const pB = agentB.center;
             const distSq = pA.distToSq(pB);
             return { distSq, agent: agentB };
         });
-
-        // Compute agent neighbors
-        // TODO: use a k-d tree to find neighbors and implement pooling
-        this.obstacleNeighbors = this.obstaclesRef.map(obstacle => {
-            const distSq = pA.distToSq(obstacle.point);
-            return { distSq, obstacle };
-        });
-
+        
         // Compute obstacle constraints
         // TODO: obstacle clipping with current game scenario
         const pRelA = v2Pool[0]!;
