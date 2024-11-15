@@ -839,7 +839,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
 
 /** Represents the player (main character) in the game. */
 class Player {
-    center = new Vector2(150, 300);
+    center = new Vector2(150, 300); // Was 150, 300
     velocity = new Vector2(0, 0);
     acceleration = new Vector2(0, 0);
     radius = 25;

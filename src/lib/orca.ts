@@ -42,10 +42,41 @@ interface AgentNeighbor {
     agent: Agent;
 }
 
+interface AgentTreeNode {
+    begin: number;
+    end: number;
+    left: number;
+    right: number;
+    maxX: number;
+    maxY: number;
+    minX: number;
+    minY: number;
+}
+
 interface ObstacleTreeNode {
     obstacle: Obstacle | null;
     left: ObstacleTreeNode | null;
     right: ObstacleTreeNode | null;
+}
+
+function defaultAgentTreeNode(): AgentTreeNode {
+    return {
+        begin: 0,
+        end: 0,
+        left: 0,
+        right: 0,
+        maxX: 0,
+        maxY: 0,
+        minX: 0,
+        minY: 0
+    }
+}
+
+function defaultLine(): Line {
+    return {
+        direction: new Vector2(),
+        point: new Vector2()
+    }
 }
 
 /** Use 2d cross product (det) to check if vector3 is left of line1-2. */
@@ -99,13 +130,39 @@ export class KdTree {
     // agents: Agent[];
     // agentTree: AgentTreeNode[];
     obstacleTree: ObstacleTreeNode | null;
+    agentTree: AgentTreeNode[];
+    agents: Agent[];
     readonly agentsRef: Agent[];
     readonly obstaclesRef: Obstacle[];
 
     constructor(obstacleTree: ObstacleTreeNode | null, agentsRef: Agent[], obstaclesRef: Obstacle[]) {
         this.obstacleTree = obstacleTree;
+        this.agents = [];
         this.agentsRef = agentsRef;
+        this.agentTree = [];
         this.obstaclesRef = obstaclesRef;
+    }
+
+    buildAgentTree() {
+        const agents = this.agents;
+        if (agents.length < this.agentsRef.length) {
+            const agentsRef = this.agentsRef;
+            for (let i = agents.length; i < agentsRef.length; i++) {
+                agents.push(agentsRef[i]!);
+            }
+            const oldLength = this.agentTree.length;
+            const newLength = 2 * agents.length - 1;
+            for (let i = oldLength; i < newLength; i++) {
+                this.agentTree.push(defaultAgentTreeNode());
+            }
+        }
+        if (agents.length !== 0) {
+            this.buildAgentTreeRecursive(0, agents.length, 0);
+        }
+    }
+
+    buildAgentTreeRecursive(begin: number, end: number, node: number) {
+
     }
 
     buildObstacleTree() {
@@ -282,6 +339,7 @@ export class KdTree {
             this.queryObstacleTreeRecursive(agent, rangeSq, agentLeftOfLine >= 0 ? node.right : node.left, obstacleNeighbors);
         }
     }
+
 }
 
 
@@ -327,8 +385,8 @@ export class AgentWorker {
         this.timeHorizonObst = obstTimeHorizon;
         this.invTimeHorizonObst = 1 / obstTimeHorizon;
         this.v2Pool = Array(this.v2PoolSize).fill(null).map(() => new Vector2());
-        this.lines = Array(this.linesInitialSize).fill(null).map(() => ({ direction: new Vector2(), point: new Vector2() }));
-        this.projectedLines = Array(this.projectedLinesInitialSize).fill(null).map(() => ({ direction: new Vector2(), point: new Vector2() }));
+        this.lines = Array(this.linesInitialSize).fill(null).map(() => (defaultLine()));
+        this.projectedLines = Array(this.projectedLinesInitialSize).fill(null).map(() => (defaultLine()));
     }
 
     update(deltaTime: number) {
@@ -366,7 +424,7 @@ export class AgentWorker {
             const distSq = pA.distToSq(pB);
             return { distSq, agent: agentB };
         });
-        
+
         // Compute obstacle constraints
         // TODO: obstacle clipping with current game scenario
         const pRelA = v2Pool[0]!;
@@ -711,10 +769,8 @@ export class AgentWorker {
                         // No empty slots, grow array
                         console.warn('Projected lines pool exhausted at ' + projectedLines.length
                             + ', triggering reallocation by ' + this.projectedLinesGrowthN);
-                        const curLength = projectedLines.length;
-                        projectedLines.length += this.projectedLinesGrowthN;
-                        for (let i = curLength; i < projectedLines.length; i++) {
-                            projectedLines[i] = { direction: new Vector2(), point: new Vector2() };
+                        for (let i = 0; i < this.projectedLinesGrowthN; i++) {
+                            projectedLines.push(defaultLine());
                         }
                     }
                     const projectedLine = projectedLines[this.projectedLineIndex]!;
@@ -860,10 +916,9 @@ export class AgentWorker {
             // No empty slots, grow array
             console.warn('Lines pool exhausted at ' + this.lines.length
                 + ', triggering reallocation by ' + this.linesGrowthN);
-            const lines = this.lines, curLength = lines.length;
-            lines.length += this.linesGrowthN;
-            for (let i = curLength; i < lines.length; i++) {
-                lines[i] = { direction: new Vector2(), point: new Vector2() };
+            const lines = this.lines;
+            for (let i = 0; i < this.linesGrowthN; i++) {
+                lines.push(defaultLine());
             }
         }
         const line = this.lines[this.lineIndex]!;
