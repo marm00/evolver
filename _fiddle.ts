@@ -4,7 +4,7 @@ class A {
     x: number;
     y: number;
 
-    constructor(x = 0, y = 0) { 
+    constructor(x = 0, y = 0) {
         this.x = x;
         this.y = y;
     }
@@ -103,14 +103,76 @@ function setWithFlag(iterations: number) {
     return end - start;
 }
 
-const iterations = 1000000000;
+function getEmptyNode() {
+    return {
+        begin: 0,
+        end: 0,
+        left: 0,
+        right: 0,
+        maxX: 0,
+        maxY: 0,
+        minX: 0,
+        minY: 0
+    }
+}
+
+function manualGrow(iterations: number) {
+    const start = performance.now();
+    const agents = [];
+    const agentsRef = [];
+    const agentTree = [];
+    for (let i = 0; i < iterations; i++) {
+        for (let j = 0; j < 5; j++) {
+            agentsRef.push(getEmptyNode());
+        }
+        if (agents.length < agentsRef.length) {
+            agents.length += agentsRef.length - agents.length;
+            for (let i = 0; i < agents.length; i++) {
+                agents[i] = agentsRef[i]!;
+            }
+            const oldLen: number = agentTree.length;
+            agentTree.length += 2 * agents.length - 1;
+            for (let i = oldLen; i < agentTree.length; i++) {
+                agentTree[i] = getEmptyNode();
+            }
+        }
+    }
+    const end = performance.now();
+    return end - start;
+}
+
+function concatGrow(iterations: number) {
+    const start = performance.now();
+    let agents = [];
+    const agentsRef = [];
+    const agentTree = [];
+    for (let i = 0; i < iterations; i++) {
+        for (let j = 0; j < 5; j++) {
+            agentsRef.push(getEmptyNode());
+        }
+        if (agents.length < agentsRef.length) {
+            agents = agents.concat(agentsRef.splice(agents.length));
+            const newTreeSize = 2 * agents.length - 1;
+            while (agentTree.length < newTreeSize) {
+                agentTree.push(getEmptyNode());
+            }
+        }
+    }
+    const end = performance.now();
+    return end - start;
+}
+
+const iterations = 10;
 
 // console.log("No Flag:", setNoFlag(iterations), "ms");
 // console.log("With Flag:", setWithFlag(iterations), "ms");
 
-console.log("Class:", allocClass(iterations), "ms");
-console.log("Functional:", allocFunctional(iterations), "ms");
+// console.log("Class:", allocClass(iterations), "ms");
+// console.log("Functional:", allocFunctional(iterations), "ms");
 
 // console.log("Static:", staticZeros(iterations), "ms");
 // console.log("Clone:", cloneZeros(iterations), "ms");
 // console.log("New:", newZeros(iterations), "ms");
+
+console.log("Manual:", manualGrow(iterations), "ms");
+console.log("Concat:", concatGrow(iterations), "ms");
