@@ -134,6 +134,7 @@ export class KdTree {
     agents: Agent[];
     readonly agentsRef: Agent[];
     readonly obstaclesRef: Obstacle[];
+    readonly maxLeafSize = 10;
 
     constructor(obstacleTree: ObstacleTreeNode | null, agentsRef: Agent[], obstaclesRef: Obstacle[]) {
         this.obstacleTree = obstacleTree;
@@ -144,10 +145,10 @@ export class KdTree {
     }
 
     buildAgentTree() {
-        const agents = this.agents;
-        if (agents.length < this.agentsRef.length) {
-            const agentsRef = this.agentsRef;
-            for (let i = agents.length; i < agentsRef.length; i++) {
+        const agentsLength = this.agents.length;
+        if (agentsLength < this.agentsRef.length) {
+            const agents = this.agents, agentsRef = this.agentsRef;
+            for (let i = agentsLength; i < agentsRef.length; i++) {
                 agents.push(agentsRef[i]!);
             }
             const oldLength = this.agentTree.length;
@@ -156,13 +157,59 @@ export class KdTree {
                 this.agentTree.push(defaultAgentTreeNode());
             }
         }
-        if (agents.length !== 0) {
-            this.buildAgentTreeRecursive(0, agents.length, 0);
+        if (agentsLength !== 0) {
+            this.buildAgentTreeRecursive(0, agentsLength, 0);
         }
     }
 
     buildAgentTreeRecursive(begin: number, end: number, node: number) {
-
+        const currentNode = this.agentTree[node]!;
+        const agents = this.agents;
+        currentNode.begin = begin;
+        currentNode.end = end;
+        currentNode.minX = currentNode.maxX = agents[begin]!.center.x;
+        currentNode.minY = currentNode.maxY = agents[begin]!.center.y;
+        for (let i = begin + 1; i < end; i++) {
+            const ix = agents[i]!.center.x, iy = agents[i]!.center.y;
+            currentNode.maxX = Math.max(currentNode.maxX, ix);
+            currentNode.minX = Math.min(currentNode.minX, ix);
+            currentNode.maxY = Math.max(currentNode.maxY, iy);
+            currentNode.minY = Math.min(currentNode.minY, iy);
+        }
+        if (end - begin > this.maxLeafSize) {
+            const minX = currentNode.minX, maxX = currentNode.maxX;
+            const minY = currentNode.minY, maxY = currentNode.maxY;
+            // No leaf node
+            const isVertical = maxX - minX > maxY - minY;
+            const splitValue = 0.5 * (isVertical ? maxX + minX : maxY + minY);
+            let left = begin;
+            let right = end;
+            while (left < right) {
+                while (left < right && (isVertical ? agents[left]!.center.x
+                    : agents[left]!.center.y) < splitValue) {
+                    left++;
+                }
+                while (right > left && (isVertical ? agents[right - 1]!.center.x
+                    : agents[right - 1]!.center.y) >= splitValue) {
+                    right--;
+                }
+                if (left < right) {
+                    const oldLeft = agents[left]!;
+                    agents[left] = agents[right - 1]!;
+                    agents[right - 1] = oldLeft;
+                    left++;
+                    right--;
+                }
+            }
+            if (left == begin) {
+                left++;
+                right++;
+            }
+            currentNode.left = node + 1;
+            currentNode.right = node + 2 * (left - begin);
+            this.buildAgentTreeRecursive(begin, left, currentNode.left);
+            this.buildAgentTreeRecursive(left, end, currentNode.right);
+        }
     }
 
     buildObstacleTree() {
