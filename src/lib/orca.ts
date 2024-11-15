@@ -110,6 +110,7 @@ export class KdTree {
 
     buildObstacleTree() {
         this.deleteObstacleTree(this.obstacleTree);
+        // TODO: confirm that passing the global obstaclesRef has no side effects
         this.obstacleTree = this.buildObstacleTreeRecursive(this.obstaclesRef);
     }
 
@@ -136,16 +137,16 @@ export class KdTree {
                     continue;
                 }
                 const obstacleJ1 = obstacles[j]!;
-                const obstacleJ2 = obstacleJ1.next!; // TODO: bugfix null state
+                const obstacleJ2 = obstacleJ1.next!;
                 const j1LeftOfI = leftOf(obstacleI1.point, obstacleI2.point, obstacleJ1.point);
                 const j2LeftOfI = leftOf(obstacleI1.point, obstacleI2.point, obstacleJ2.point);
                 if (j1LeftOfI >= _Math.NEG_EPSILON && j2LeftOfI >= _Math.NEG_EPSILON) {
-                    leftSize++;
-                } else if (j1LeftOfI <= _Math.EPSILON && j2LeftOfI <= _Math.NEG_EPSILON) {
-                    rightSize++;
+                    ++leftSize;
+                } else if (j1LeftOfI <= _Math.EPSILON && j2LeftOfI <= _Math.EPSILON) {
+                    ++rightSize;
                 } else {
-                    leftSize++;
-                    rightSize++;
+                    ++leftSize;
+                    ++rightSize;
                 }
                 const maxSize = Math.max(leftSize, rightSize);
                 const minSize = Math.min(leftSize, rightSize);
@@ -268,7 +269,6 @@ export class KdTree {
                         nextObstacle.point.clone().sub(obstacle.point).scale(r))).lenSq();
                 }
                 if (distSq < rangeSq) {
-                    console.log('reached');
                     obstacleNeighbors.push({ distSq, obstacle });
                     let i = obstacleNeighbors.length - 1;
                     while (i != 0 && distSq < obstacleNeighbors[i - 1]!.distSq) {
@@ -354,8 +354,6 @@ export class AgentWorker {
         this.obstacleNeighbors = [];
         const range = this.timeHorizonObst * maxSpeedA + rA;
         this.kdTree.computeObstacleNeighbors(agentA, range * range, this.obstacleNeighbors);
-        console.log(this.obstacleNeighbors);
-        debugger;
         // this.obstacleNeighbors = this.obstaclesRef.map(obstacle => {
         //     const distSq = pA.distToSq(obstacle.point);
         //     return { distSq, obstacle };
