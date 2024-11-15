@@ -154,6 +154,38 @@ function concatGrow(iterations: number) {
             agents = agents.concat(agentsRef.splice(agents.length));
             const newTreeSize = 2 * agents.length - 1;
             while (agentTree.length < newTreeSize) {
+                agentTree.push({
+                    begin: 0,
+                    end: 0,
+                    left: 0,
+                    right: 0,
+                    maxX: 0,
+                    maxY: 0,
+                    minX: 0,
+                    minY: 0
+                });
+            }
+        }
+    }
+    const end = performance.now();
+    return end - start;
+}
+
+function hybridGrow(iterations: number) {
+    const start = performance.now();
+    let agents = [];
+    const agentsRef = [];
+    const agentTree = [];
+    for (let i = 0; i < iterations; i++) {
+        for (let j = 0; j < 5; j++) {
+            agentsRef.push(getEmptyNode());
+        }
+        if (agents.length < agentsRef.length) {
+            for (let j = 0; j < agentsRef.length; j++) {
+                agents.push(agentsRef[j]);
+            }
+            const newTreeSize = 2 * agents.length - 1;
+            while (agentTree.length < newTreeSize) {
                 agentTree.push(getEmptyNode());
             }
         }
@@ -162,7 +194,7 @@ function concatGrow(iterations: number) {
     return end - start;
 }
 
-const iterations = 10;
+const iterations = 1000;
 
 // console.log("No Flag:", setNoFlag(iterations), "ms");
 // console.log("With Flag:", setWithFlag(iterations), "ms");
@@ -176,3 +208,4 @@ const iterations = 10;
 
 console.log("Manual:", manualGrow(iterations), "ms");
 console.log("Concat:", concatGrow(iterations), "ms");
+console.log("Hybrid:", hybridGrow(iterations), "ms");
