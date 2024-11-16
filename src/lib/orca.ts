@@ -251,7 +251,34 @@ export class KdTree {
                 }
             }
         } else {
-            
+            const ax = agentA.center.x, ay = agentA.center.y;
+            const currLeft = this.agentTree[currentNode.left]!;
+            const currRight = this.agentTree[currentNode.right]!;
+            const distLeftMinX = Math.max(0, currLeft.minX - ax);
+            const distLeftMaxX = Math.max(0, ax - currLeft.maxX);
+            const distLeftMinY = Math.max(0, currLeft.minY - ay);
+            const distLeftMaxY = Math.max(0, ay - currLeft.maxY);
+            const distSqLeft = distLeftMinX * distLeftMinX + distLeftMaxX * distLeftMaxX
+                + distLeftMinY * distLeftMinY + distLeftMaxY * distLeftMaxY;
+            const distRightMinX = Math.max(0, currRight.minX - ax);
+            const distRightMaxX = Math.max(0, ax - currRight.maxX);
+            const distRightMinY = Math.max(0, currRight.minY - ay);
+            const distRightMaxY = Math.max(0, ay - currRight.maxY);
+            const distSqRight = distRightMinX * distRightMinX + distRightMaxX * distRightMaxX
+                + distRightMinY * distRightMinY + distRightMaxY * distRightMaxY;
+            if (distSqLeft < distSqRight) {
+                if (distSqLeft < rangeSq) {
+                    this.queryAgentTreeRecursive(agentA, rangeSq, currentNode.left, agentNeighbors);
+                    if (distSqRight < rangeSq) {
+                        this.queryAgentTreeRecursive(agentA, rangeSq, currentNode.right, agentNeighbors);
+                    }
+                }
+            } else if (distSqRight < rangeSq) {
+                this.queryAgentTreeRecursive(agentA, rangeSq, currentNode.right, agentNeighbors);
+                if (distSqLeft < rangeSq) {
+                    this.queryAgentTreeRecursive(agentA, rangeSq, currentNode.left, agentNeighbors);
+                }
+            }
         }
     }
 
@@ -500,7 +527,9 @@ export class AgentWorker {
         // Compute agent neighbors
         // TODO: optimize (pooling etc.)
         this.agentNeighbors = [];
+        // TODO: fix jittering
         if (agentA.maxNeighbors > 0) {
+            this.kdTree.computeAgentNeighbors(agentA, agentA.neighborDistSq, this.agentNeighbors);
         }
         // this.agentNeighbors = this.agentsRef.filter(agentB => agentA.id !== agentB.id).map(agentB => {
         //     const pB = agentB.center;
