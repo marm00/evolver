@@ -35,6 +35,8 @@ interface Agent {
     radiusSq: number;
     maxSpeed: number;
     prefVelocity: Vector2;
+    maxNeighbors: number;
+    neighborDistSq: number;
 }
 
 interface AgentNeighbor {
@@ -177,9 +179,9 @@ export class KdTree {
             currentNode.minY = Math.min(currentNode.minY, iy);
         }
         if (end - begin > this.maxLeafSize) {
+            // No leaf node
             const minX = currentNode.minX, maxX = currentNode.maxX;
             const minY = currentNode.minY, maxY = currentNode.maxY;
-            // No leaf node
             const isVertical = maxX - minX > maxY - minY;
             const splitValue = 0.5 * (isVertical ? maxX + minX : maxY + minY);
             let left = begin;
@@ -216,6 +218,41 @@ export class KdTree {
         this.deleteObstacleTree(this.obstacleTree);
         // TODO: confirm that passing the global obstaclesRef has no side effects
         this.obstacleTree = this.buildObstacleTreeRecursive(this.obstaclesRef);
+    }
+
+    computeAgentNeighbors(agentA: Agent, rangeSq: number, agentNeighbors: AgentNeighbor[]) {
+        this.queryAgentTreeRecursive(agentA, rangeSq, 0, agentNeighbors);
+    }
+
+    // TODO: optimize agentNeighbors (prevent constant passing)
+    queryAgentTreeRecursive(agentA: Agent, rangeSq: number, node: number, agentNeighbors: AgentNeighbor[]) {
+        const currentNode = this.agentTree[node]!;
+        if (currentNode.end - currentNode.begin <= this.maxLeafSize) {
+            for (let i = currentNode.begin; i < currentNode.end; i++) {
+                const agentB = this.agents[i]!;
+                if (agentA.id === agentB.id) {
+                    continue;
+                }
+                const distSq = agentA.center.clone().sub(agentB.center).lenSq();
+                if (distSq < rangeSq) {
+                    continue;
+                }
+                if (agentNeighbors.length < agentA.maxNeighbors) {
+                    agentNeighbors.push({ distSq, agent: agentB });
+                }
+                let j = agentNeighbors.length - 1;
+                while (j !== 0 && distSq < agentNeighbors[j - 1]!.distSq) {
+                    agentNeighbors[j] = agentNeighbors[j - 1]!;
+                    j--;
+                }
+                agentNeighbors[j] = { distSq, agent: agentB };
+                if (agentNeighbors.length === agentA.maxNeighbors) {
+                    rangeSq = agentNeighbors[agentNeighbors.length - 1]!.distSq;
+                }
+            }
+        } else {
+            
+        }
     }
 
     buildObstacleTreeRecursive(obstacles: Obstacle[]) {
@@ -455,22 +492,21 @@ export class AgentWorker {
         const rInvA = rA * invTimeHorizonObst;
 
         // Compute obstacle neighbors
-        // TODO: use a k-d tree to find neighbors and implement pooling
+        // TODO: optimize (pooling etc.)
         this.obstacleNeighbors = [];
         const range = this.timeHorizonObst * maxSpeedA + rA;
         this.kdTree.computeObstacleNeighbors(agentA, range * range, this.obstacleNeighbors);
-        // this.obstacleNeighbors = this.obstaclesRef.map(obstacle => {
-        //     const distSq = pA.distToSq(obstacle.point);
-        //     return { distSq, obstacle };
-        // });
 
         // Compute agent neighbors
-        // TODO: use a k-d tree to find neighbors and implement pooling
-        this.agentNeighbors = this.agentsRef.filter(agentB => agentA.id !== agentB.id).map(agentB => {
-            const pB = agentB.center;
-            const distSq = pA.distToSq(pB);
-            return { distSq, agent: agentB };
-        });
+        // TODO: optimize (pooling etc.)
+        this.agentNeighbors = [];
+        if (agentA.maxNeighbors > 0) {
+        }
+        // this.agentNeighbors = this.agentsRef.filter(agentB => agentA.id !== agentB.id).map(agentB => {
+        //     const pB = agentB.center;
+        //     const distSq = pA.distToSq(pB);
+        //     return { distSq, agent: agentB };
+        // });
 
         // Compute obstacle constraints
         // TODO: obstacle clipping with current game scenario

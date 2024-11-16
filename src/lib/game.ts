@@ -658,6 +658,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     // const invTimeHorizon = 1 / timeHorizon;
     // const obstTimeHorizon = 10;
     // const invTimeHorizonObst = 1 / obstTimeHorizon;
+    gameState.kdTree.buildAgentTree();
     for (let i = 0; i < gameState.lions.length; i++) {
         const lionA = gameState.lions[i]!;
         const pA = lionA.center, rA = lionA.radius, vA = lionA.velocity;
@@ -670,7 +671,9 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             radius: lionA.radius,
             radiusSq: lionA.radiusSq,
             maxSpeed: lionA.maxSpeed,
-            prefVelocity: lionA.prefVelocity
+            prefVelocity: lionA.prefVelocity,
+            maxNeighbors: 10,
+            neighborDistSq: _Math.pow2(15)
         }, deltaTime, 1 / deltaTime);
         if (i === 2) {
             console.log('Contraints:', constraints.length)
