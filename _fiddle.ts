@@ -194,7 +194,36 @@ function hybridGrow(iterations: number) {
     return end - start;
 }
 
-const iterations = 1000;
+function mathSq (iterations: number) {
+    const start = performance.now();
+    for (let i = 0; i < iterations; i++) {
+        Math.pow(i, 2);
+    }
+    const end = performance.now();
+    return end-start;
+}
+
+
+function manSq (iterations: number) {
+    const start = performance.now();
+    for (let i = 0; i < iterations; i++) {
+        i ** 2;
+    }
+    const end = performance.now();
+    return end-start;
+}
+
+
+function selfSq (iterations: number) {
+    const start = performance.now();
+    for (let i = 0; i < iterations; i++) {
+        i * i;
+    }
+    const end = performance.now();
+    return end-start;
+}
+
+const iterations = 10000;
 
 // console.log("No Flag:", setNoFlag(iterations), "ms");
 // console.log("With Flag:", setWithFlag(iterations), "ms");
@@ -206,6 +235,10 @@ const iterations = 1000;
 // console.log("Clone:", cloneZeros(iterations), "ms");
 // console.log("New:", newZeros(iterations), "ms");
 
-console.log("Manual:", manualGrow(iterations), "ms");
-console.log("Concat:", concatGrow(iterations), "ms");
-console.log("Hybrid:", hybridGrow(iterations), "ms");
+// console.log("Manual:", manualGrow(iterations), "ms");
+// console.log("Concat:", concatGrow(iterations), "ms");
+// console.log("Hybrid:", hybridGrow(iterations), "ms");
+
+console.log("Math Square:", mathSq(iterations), "ms");
+console.log("Self Square:", selfSq(iterations), "ms");
+console.log("Manual Square:", manSq(iterations), "ms");

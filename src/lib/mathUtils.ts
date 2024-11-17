@@ -125,7 +125,7 @@ export const _Math: _Math = {
         return this.lerp(toMin, toMax, this.inverseLerp(fromMin, fromMax, value));
     },
     pow2(x: number): number {
-        return Math.pow(x, 2);
+        return x * x;
     },
     easeOutCubic(x: number): number {
         return 1 - Math.pow(1 - x, 3);
