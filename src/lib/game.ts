@@ -65,8 +65,11 @@ const LION_RADIUS = 16;
 const LION_VELOCITY = HUMAN_VELOCITY / 2;
 const TEMPLION1_MAXSPEED = LION_VELOCITY * 1;
 const TEMPLIONX_MAXSPEED = TEMPLION1_MAXSPEED * 1.0;
+const LION_MAX_NEIGHBORS = 10;
+const LION_NEIGHBOR_DIST_SQ = _Math.pow2(15);
 
 // TODO: settle on a low time/obst time horizon (given unusually high velocity-normally unit vectors)
+// const TIME_HORIZON = 0.05;
 const TIME_HORIZON = 0.05;
 const INV_TIME_HORIZON = 1 / TIME_HORIZON;
 const OBST_TIME_HORIZON = 3;
@@ -175,8 +178,8 @@ export async function createGame(strategy: string): Promise<Game> {
         new Meteorite(ox, oy, tx, ty, radius, lifetime, displayRadius), 0);
     const obsidianPool = new Pool<Obsidian>((cx = 0, cy = 0, radius = 0, velocityScalar = 0, displayRadius = 0) =>
         new Obsidian(cx, cy, radius, velocityScalar, displayRadius), 0);
-    const lionPool = new Pool<Lion>((cx = 0, cy = 0, radius = 0, maxSpeed = 0) =>
-        new Lion(cx, cy, radius, maxSpeed), 0);
+    const lionPool = new Pool<Lion>((cx = 0, cy = 0, radius = 0, maxSpeed = 0, maxNeighbors = 0, neighborDistSq = 0) =>
+        new Lion(cx, cy, radius, maxSpeed, maxNeighbors, neighborDistSq), 0);
 
 
     const world = new SingleCell();
@@ -209,13 +212,13 @@ export async function createGame(strategy: string): Promise<Game> {
     world.insert(new Rect(new Vector2(0, 256), new Vector2(0, 0), new Vector2(0, 0), 512, 512));
     world.insert(new Circle(new Vector2(-64, -128), new Vector2(Math.SQRT1_2, Math.SQRT1_2), new Vector2(0, 0), 64));
 
-    const tempLion1 = new Lion(-200, 0, LION_RADIUS, TEMPLION1_MAXSPEED);
+    const tempLion1 = new Lion(-200, 0, LION_RADIUS, TEMPLION1_MAXSPEED, LION_MAX_NEIGHBORS, LION_NEIGHBOR_DIST_SQ);
     // tempLion1.prefVelocity.set(200, 0).normalize().scale(TEMPLION1_MAXSPEED);
-    const tempLion2 = new Lion(200, 0, LION_RADIUS, TEMPLIONX_MAXSPEED);
+    const tempLion2 = new Lion(200, 0, LION_RADIUS, TEMPLIONX_MAXSPEED, LION_MAX_NEIGHBORS, LION_NEIGHBOR_DIST_SQ);
     // tempLion2.prefVelocity.set(-200, 0).normalize().scale(TEMPLIONX_MAXSPEED);
-    const tempLion3 = new Lion(-200, 200, LION_RADIUS, TEMPLIONX_MAXSPEED);
+    const tempLion3 = new Lion(-200, 200, LION_RADIUS, TEMPLIONX_MAXSPEED, LION_MAX_NEIGHBORS, LION_NEIGHBOR_DIST_SQ);
     // tempLion3.prefVelocity.set(200, 200).normalize().scale(TEMPLIONX_MAXSPEED);
-    const tempLion4 = new Lion(200, 200, LION_RADIUS, TEMPLIONX_MAXSPEED);
+    const tempLion4 = new Lion(200, 200, LION_RADIUS, TEMPLIONX_MAXSPEED, LION_MAX_NEIGHBORS, LION_NEIGHBOR_DIST_SQ);
     // tempLion4.prefVelocity.set(-200, 200).normalize().scale(TEMPLIONX_MAXSPEED);
 
     const lions = [tempLion1, tempLion2, tempLion3, tempLion4];
@@ -302,7 +305,7 @@ export function spawnOrb(orb: Orb) {
 
 export function spawnLion(target: Vector2, lionPool: Pool<Lion>, lions: Lion[]) {
     const randMaxSpeed = Math.random() * (LION_VELOCITY * 0.5) + (LION_VELOCITY * 1.5);
-    const lion = lionPool.alloc(target.x, target.y, LION_RADIUS, randMaxSpeed); // TODO: manage max speed var
+    const lion = lionPool.alloc(target.x, target.y, LION_RADIUS, randMaxSpeed, LION_MAX_NEIGHBORS, LION_NEIGHBOR_DIST_SQ); // TODO: manage max speed var
     lions.push(lion);
 }
 
@@ -606,6 +609,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     for (const lion of gameState.lions) {
         if (lion.center.distToSq(gameState.player.center) <= lion.radiusSq * 2) {
             lion.prefVelocity.set(0, 0);
+            // lion.maxSpeed = 0;
         } else {
             lion.prefVelocity.copy(gameState.player.center).sub(lion.center).norm().scale(lion.maxSpeed);
         }
@@ -672,8 +676,8 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             radiusSq: lionA.radiusSq,
             maxSpeed: lionA.maxSpeed,
             prefVelocity: lionA.prefVelocity,
-            maxNeighbors: 10,
-            neighborDistSq: _Math.pow2(15)
+            maxNeighbors: lionA.maxNeighbors,
+            neighborDistSq: lionA.neighborDistSq
         }, deltaTime, 1 / deltaTime);
         if (i === 2) {
             console.log('Contraints:', constraints.length)

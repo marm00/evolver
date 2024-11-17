@@ -139,6 +139,8 @@ export class Lion {
     radiusSq: number;
     maxSpeed: number;
     maxSpeedSq: number;
+    maxNeighbors: number;
+    neighborDistSq: number;
     id: number;
     // velocityScalar: number;
     // acceleration: Vector2;
@@ -150,7 +152,7 @@ export class Lion {
     // with the exception of high density areas (estimates have to be made)
     // TODO: clean up lion class
 
-    constructor(cx: number, cy: number, radius: number, maxSpeed: number) {
+    constructor(cx: number, cy: number, radius: number, maxSpeed: number, maxNeighbors: number, neighborDistSq: number) {
         this.center = new Vector2(cx, cy);
         this.velocity = new Vector2();
         this.prefVelocity = new Vector2();
@@ -158,6 +160,8 @@ export class Lion {
         this.radiusSq = radius * radius;
         this.maxSpeed = maxSpeed;
         this.maxSpeedSq = maxSpeed * maxSpeed;
+        this.maxNeighbors = maxNeighbors;
+        this.neighborDistSq = neighborDistSq;
         this.id = Math.random(); // TODO: better id generation
         // this.velocityScalar = velocityScalar;
         // this.acceleration = new Vector2();
@@ -165,12 +169,14 @@ export class Lion {
         // this.optimalVelocity = new Vector2();
     }
 
-    set(cx: number, cy: number, radius: number, maxSpeed: number): this {
+    set(cx: number, cy: number, radius: number, maxSpeed: number, maxNeighbors: number, neighborDistSq: number): this {
         this.center.set(cx, cy);
         this.radius = radius;
         this.radiusSq = radius * radius;
         this.maxSpeed = maxSpeed;
         this.maxSpeedSq = maxSpeed * maxSpeed;
+        this.maxNeighbors = maxNeighbors;
+        this.neighborDistSq = neighborDistSq;
         // this.velocityScalar = velocityScalar;
         return this;
     }
