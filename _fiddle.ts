@@ -197,7 +197,8 @@ function hybridGrow(iterations: number) {
 function mathSq (iterations: number) {
     const start = performance.now();
     for (let i = 0; i < iterations; i++) {
-        Math.pow(i, 2);
+        let x = i + Math.random();
+        Math.pow(x, 2);
     }
     const end = performance.now();
     return end-start;
@@ -207,7 +208,8 @@ function mathSq (iterations: number) {
 function manSq (iterations: number) {
     const start = performance.now();
     for (let i = 0; i < iterations; i++) {
-        i ** 2;
+        let x = i + Math.random();
+        x ** 2;
     }
     const end = performance.now();
     return end-start;
@@ -217,13 +219,14 @@ function manSq (iterations: number) {
 function selfSq (iterations: number) {
     const start = performance.now();
     for (let i = 0; i < iterations; i++) {
-        i * i;
+        let x = i + Math.random();
+        x * x;
     }
     const end = performance.now();
     return end-start;
 }
 
-const iterations = 10000;
+const iterations = 1000000;
 
 // console.log("No Flag:", setNoFlag(iterations), "ms");
 // console.log("With Flag:", setWithFlag(iterations), "ms");
