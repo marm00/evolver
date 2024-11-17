@@ -220,12 +220,12 @@ export class KdTree {
         this.obstacleTree = this.buildObstacleTreeRecursive(this.obstaclesRef);
     }
 
-    computeAgentNeighbors(agentA: Agent, rangeSq: number, agentNeighbors: AgentNeighbor[]) {
+    computeAgentNeighbors(agentA: Agent, rangeSq: { reference: number }, agentNeighbors: AgentNeighbor[]) {
         this.queryAgentTreeRecursive(agentA, rangeSq, 0, agentNeighbors);
     }
 
     // TODO: optimize agentNeighbors (prevent constant passing)
-    queryAgentTreeRecursive(agentA: Agent, rangeSq: number, node: number, agentNeighbors: AgentNeighbor[]) {
+    queryAgentTreeRecursive(agentA: Agent, rangeSq: { reference: number }, node: number, agentNeighbors: AgentNeighbor[]) {
         const currentNode = this.agentTree[node]!;
         if (currentNode.end - currentNode.begin <= this.maxLeafSize) {
             for (let i = currentNode.begin; i < currentNode.end; i++) {
@@ -234,7 +234,7 @@ export class KdTree {
                     continue;
                 }
                 const distSq = agentA.center.clone().sub(agentB.center).lenSq();
-                if (distSq < rangeSq) {
+                if (distSq >= rangeSq.reference) {
                     continue;
                 }
                 if (agentNeighbors.length < agentA.maxNeighbors) {
@@ -247,7 +247,7 @@ export class KdTree {
                 }
                 agentNeighbors[j] = { distSq, agent: agentB };
                 if (agentNeighbors.length === agentA.maxNeighbors) {
-                    rangeSq = agentNeighbors[agentNeighbors.length - 1]!.distSq;
+                    rangeSq.reference = agentNeighbors[agentNeighbors.length - 1]!.distSq;
                 }
             }
         } else {
@@ -267,15 +267,15 @@ export class KdTree {
             const distSqRight = distRightMinX * distRightMinX + distRightMaxX * distRightMaxX
                 + distRightMinY * distRightMinY + distRightMaxY * distRightMaxY;
             if (distSqLeft < distSqRight) {
-                if (distSqLeft < rangeSq) {
+                if (distSqLeft < rangeSq.reference) {
                     this.queryAgentTreeRecursive(agentA, rangeSq, currentNode.left, agentNeighbors);
-                    if (distSqRight < rangeSq) {
+                    if (distSqRight < rangeSq.reference) {
                         this.queryAgentTreeRecursive(agentA, rangeSq, currentNode.right, agentNeighbors);
                     }
                 }
-            } else if (distSqRight < rangeSq) {
+            } else if (distSqRight < rangeSq.reference) {
                 this.queryAgentTreeRecursive(agentA, rangeSq, currentNode.right, agentNeighbors);
-                if (distSqLeft < rangeSq) {
+                if (distSqLeft < rangeSq.reference) {
                     this.queryAgentTreeRecursive(agentA, rangeSq, currentNode.left, agentNeighbors);
                 }
             }
@@ -527,9 +527,10 @@ export class AgentWorker {
         // Compute agent neighbors
         // TODO: optimize (pooling etc.)
         this.agentNeighbors = [];
-        // TODO: fix jittering
+        // TODO: fix jittering caused by the compute agent approach
         if (agentA.maxNeighbors > 0) {
-            this.kdTree.computeAgentNeighbors(agentA, agentA.neighborDistSq, this.agentNeighbors);
+            const rangeSqObj = { reference: agentA.neighborDistSq };
+            this.kdTree.computeAgentNeighbors(agentA, rangeSqObj, this.agentNeighbors);
         }
         // this.agentNeighbors = this.agentsRef.filter(agentB => agentA.id !== agentB.id).map(agentB => {
         //     const pB = agentB.center;

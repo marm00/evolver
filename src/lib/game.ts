@@ -66,7 +66,7 @@ const LION_VELOCITY = HUMAN_VELOCITY / 2;
 const TEMPLION1_MAXSPEED = LION_VELOCITY * 1;
 const TEMPLIONX_MAXSPEED = TEMPLION1_MAXSPEED * 1.0;
 const LION_MAX_NEIGHBORS = 10;
-const LION_NEIGHBOR_DIST_SQ = _Math.pow2(15);
+const LION_NEIGHBOR_DIST_SQ = _Math.pow2(50);
 
 // TODO: settle on a low time/obst time horizon (given unusually high velocity-normally unit vectors)
 // const TIME_HORIZON = 0.05;
