@@ -238,7 +238,6 @@ export async function createGame(strategy: string): Promise<Game> {
     const obstacles: Obstacle[] = [];
     addObstacle(vertices, obstacles);
     addObstacle(vertices2, obstacles);
-    console.log(obstacles);
 
     const kdTree = new KdTree(null, lions, obstacles);
     kdTree.buildObstacleTree();
@@ -680,7 +679,6 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             neighborDistSq: lionA.neighborDistSq
         }, deltaTime, 1 / deltaTime);
         if (i === 2) {
-            console.log('Contraints:', constraints.length)
             ctx.strokeStyle = '#09ff00';
             const L = 1000;
             const opacityStep = Math.min(1 / constraints.length, 1 / 3).toFixed(1);

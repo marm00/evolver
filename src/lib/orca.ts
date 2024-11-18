@@ -81,6 +81,13 @@ function defaultLine(): Line {
     }
 }
 
+function defaultObstacleNeighbor(): ObstacleNeighbor {
+    return {
+        distSq: 0,
+        obstacle: null!
+    }
+}
+
 /** Use 2d cross product (det) to check if vector3 is left of line1-2. */
 function leftOf(line1: Vector2, line2: Vector2, vector3: Vector2) {
     return (line1.x - vector3.x) * (line2.y - line1.y) -
@@ -127,23 +134,22 @@ export function addObstacle(vertices: Vector2[], obstacles: Obstacle[]): void {
     }
 }
 
-// Each agent worker shares a kdtree reference
+// Each agent worker shares a kdtree reference (parallelizable operations)
 export class KdTree {
-    // agents: Agent[];
-    // agentTree: AgentTreeNode[];
+    readonly maxLeafSize = 10;
+    readonly agentsRef: Agent[];
+    readonly obstaclesRef: Obstacle[];
     obstacleTree: ObstacleTreeNode | null;
     agentTree: AgentTreeNode[];
     agents: Agent[];
-    readonly agentsRef: Agent[];
-    readonly obstaclesRef: Obstacle[];
-    readonly maxLeafSize = 10;
+    readonly obstacleNeighborsGrowth = 4;
 
     constructor(obstacleTree: ObstacleTreeNode | null, agentsRef: Agent[], obstaclesRef: Obstacle[]) {
+        this.agentsRef = agentsRef;
+        this.obstaclesRef = obstaclesRef;
         this.obstacleTree = obstacleTree;
         this.agents = [];
-        this.agentsRef = agentsRef;
         this.agentTree = [];
-        this.obstaclesRef = obstaclesRef;
     }
 
     buildAgentTree() {
@@ -402,18 +408,18 @@ export class KdTree {
 
     // TODO: avoid having to pass the obstacleNeighbors array every time (store in kdtree?)
     computeObstacleNeighbors(agent: Agent, rangeSq: number, obstacleNeighbors: ObstacleNeighbor[]) {
-        this.queryObstacleTreeRecursive(agent, rangeSq, this.obstacleTree, obstacleNeighbors);
+        return this.queryObstacleTreeRecursive(agent, rangeSq, this.obstacleTree, obstacleNeighbors, -1);
     }
 
-    queryObstacleTreeRecursive(agent: Agent, rangeSq: number, node: ObstacleTreeNode | null, obstacleNeighbors: ObstacleNeighbor[]) {
+    queryObstacleTreeRecursive(agent: Agent, rangeSq: number, node: ObstacleTreeNode | null, obstacleNeighbors: ObstacleNeighbor[], index: number): number {
         if (node === null) {
-            return;
+            return index;
         }
         const position = agent.center;
         const obstacle1 = node.obstacle!;
         const obstacle2 = obstacle1.next!;
         const agentLeftOfLine = leftOf(obstacle1.point, obstacle2.point, position);
-        this.queryObstacleTreeRecursive(agent, rangeSq, agentLeftOfLine >= 0 ? node.left : node.right, obstacleNeighbors);
+        index = this.queryObstacleTreeRecursive(agent, rangeSq, agentLeftOfLine >= 0 ? node.left : node.right, obstacleNeighbors, index);
         const distSqLine = (agentLeftOfLine * agentLeftOfLine) /
             obstacle2.point.clone().sub(obstacle1.point).lenSq();
         if (distSqLine < rangeSq) {
@@ -437,18 +443,30 @@ export class KdTree {
                         nextObstacle.point.clone().sub(obstacle.point).scale(r))).lenSq();
                 }
                 if (distSq < rangeSq) {
-                    obstacleNeighbors.push({ distSq, obstacle });
-                    let i = obstacleNeighbors.length - 1;
-                    while (i != 0 && distSq < obstacleNeighbors[i - 1]!.distSq) {
+                    // Insertion sort
+                    if (++index >= obstacleNeighbors.length) {
+                        // No empty slots, grow array
+                        console.warn('Obstacle neighbor pool exhausted at ' + obstacleNeighbors.length
+                            + ', triggering reallocation by ' + this.obstacleNeighborsGrowth);
+                        for (let i = 0; i < this.obstacleNeighborsGrowth; i++) {
+                            obstacleNeighbors.push(defaultObstacleNeighbor());
+                        }
+                    }
+                    const newNeighbor = obstacleNeighbors[index]!;
+                    newNeighbor.distSq = distSq;
+                    newNeighbor.obstacle = obstacle;
+                    let i = index;
+                    while (i !== 0 && distSq < obstacleNeighbors[i - 1]!.distSq) {
                         obstacleNeighbors[i] = obstacleNeighbors[i - 1]!;
                         --i;
                     }
-                    obstacleNeighbors[i] = { distSq, obstacle };
+                    obstacleNeighbors[i] = newNeighbor;
                 }
             }
             // Try other side of line
-            this.queryObstacleTreeRecursive(agent, rangeSq, agentLeftOfLine >= 0 ? node.right : node.left, obstacleNeighbors);
+            index = this.queryObstacleTreeRecursive(agent, rangeSq, agentLeftOfLine >= 0 ? node.right : node.left, obstacleNeighbors, index);
         }
+        return index;
     }
 
 }
@@ -468,21 +486,26 @@ export class AgentWorker {
     readonly invTimeHorizonObst: number;
 
     readonly v2Pool: Vector2[];
-    readonly lines: Line[];
-    readonly projectedLines: Line[];
     readonly v2PoolSize = 8;
-    readonly linesInitialSize = 32;
-    readonly projectedLinesInitialSize = 16;
-    readonly linesGrowthN = 8;
-    readonly projectedLinesGrowthN = 4;
+    readonly lines: Line[];
+    readonly linesInit = 32;
+    readonly linesGrowth = 8;
+    readonly projectedLines: Line[];
+    readonly projectedLinesInit = 16;
+    readonly projectedLinesGrowth = 4;
+    readonly obstacleNeighbors: ObstacleNeighbor[];
+    readonly obstacleNeighborsInit = 2;
+    /** Value needs to match highest amount of maxNeighbors. */
+    readonly maxAgentNeighbors = 10;
+
     lineIndex = -1;
     projectedLineIndex = -1;
+    obstacleNeighborIndex = -1;
 
     readonly agentsRef: Agent[];
     readonly obstaclesRef: Obstacle[];
     // TODO: add a k-d tree with access to all agents and obstacles, to fill neighbors
     agentNeighbors: AgentNeighbor[] = [];
-    obstacleNeighbors: ObstacleNeighbor[] = [];
     kdTree: KdTree;
 
     // TODO: for parallelization, implement a callback mechanism to merge added obstacles (if not all predetermined?)
@@ -496,8 +519,9 @@ export class AgentWorker {
         this.timeHorizonObst = obstTimeHorizon;
         this.invTimeHorizonObst = 1 / obstTimeHorizon;
         this.v2Pool = Array(this.v2PoolSize).fill(null).map(() => new Vector2());
-        this.lines = Array(this.linesInitialSize).fill(null).map(() => (defaultLine()));
-        this.projectedLines = Array(this.projectedLinesInitialSize).fill(null).map(() => (defaultLine()));
+        this.lines = Array(this.linesInit).fill(null).map(() => defaultLine());
+        this.projectedLines = Array(this.projectedLinesInit).fill(null).map(() => defaultLine());
+        this.obstacleNeighbors = Array(this.obstacleNeighborsInit).fill(null).map(() => defaultObstacleNeighbor());
     }
 
     update(deltaTime: number) {
@@ -507,7 +531,6 @@ export class AgentWorker {
     }
 
     processAgent(agentA: Agent, deltaTime: number, invDeltaTime: number): Line[] { // TODO: dont return Line[] probably
-        this.lineIndex = -1;
         const lines = this.lines;
         const projectedLines = this.projectedLines;
         const invTimeHorizonObst = this.invTimeHorizonObst;
@@ -520,17 +543,16 @@ export class AgentWorker {
 
         // Compute obstacle neighbors
         // TODO: optimize (pooling etc.)
-        this.obstacleNeighbors = [];
+        this.obstacleNeighborIndex = -1;
         const range = this.timeHorizonObst * maxSpeedA + rA;
-        this.kdTree.computeObstacleNeighbors(agentA, range * range, this.obstacleNeighbors);
-
+        const obstacleNeighborCount = this.kdTree.computeObstacleNeighbors(agentA, range * range, this.obstacleNeighbors) + 1;
+        
         // Compute agent neighbors
         // TODO: optimize (pooling etc.)
         this.agentNeighbors = [];
-        // TODO: fix jittering caused by the compute agent approach
         if (agentA.maxNeighbors > 0) {
-            const rangeSqObj = { reference: agentA.neighborDistSq };
-            this.kdTree.computeAgentNeighbors(agentA, rangeSqObj, this.agentNeighbors);
+            // TODO: perhaps reimplement rangeSq architecture (no passing 1 var object)
+            this.kdTree.computeAgentNeighbors(agentA, { reference: agentA.neighborDistSq }, this.agentNeighbors);
         }
         // this.agentNeighbors = this.agentsRef.filter(agentB => agentA.id !== agentB.id).map(agentB => {
         //     const pB = agentB.center;
@@ -539,7 +561,7 @@ export class AgentWorker {
         // });
 
         // Compute obstacle constraints
-        // TODO: obstacle clipping with current game scenario
+        this.lineIndex = -1;
         const pRelA = v2Pool[0]!;
         const pRelB = v2Pool[1]!;
         const leftCutoff = v2Pool[2]!;
@@ -548,8 +570,9 @@ export class AgentWorker {
         const temp1 = v2Pool[5]!;
         const temp2 = v2Pool[6]!;
         const lineTemp = v2Pool[7]!;
-        for (const obstacleNeighbor of this.obstacleNeighbors) {
+        for (let i = 0; i < obstacleNeighborCount; i++) {
             // Obstacles A and B, two vertices, define a restricted Line/polygon edge 
+            const obstacleNeighbor = this.obstacleNeighbors[i]!;
             let obstacleA = obstacleNeighbor.obstacle;
             let obstacleB = obstacleA.next!;
             pRelA.copy(obstacleA.point).sub(pA);
@@ -841,13 +864,13 @@ export class AgentWorker {
         }
         const vTemp = v2Pool[3]!;
         const vOptTemp = v2Pool[4]!;
-        // If not enough empty slots, grow array to lowest value divisible by projectedLinesGrowthN
+        // If not enough empty slots, grow array to lowest value divisible by projectedLinesGrowth
         if (projectedLines.length < numObstLines) {
             console.warn('More obstacle lines' + numObstLines + ' than projected lines'
                 + projectedLines.length + ', growing array to'
-                + Math.ceil(numObstLines / this.projectedLinesGrowthN) * this.projectedLinesGrowthN);
+                + Math.ceil(numObstLines / this.projectedLinesGrowth) * this.projectedLinesGrowth);
             // No need to initialize undefined slots, as each gets a reference to lines[j] below
-            projectedLines.length = Math.ceil(numObstLines / this.projectedLinesGrowthN) * this.projectedLinesGrowthN;
+            projectedLines.length = Math.ceil(numObstLines / this.projectedLinesGrowth) * this.projectedLinesGrowth;
         }
         let distance = 0;
         for (let i = lineCount; i < totalLines; i++) {
@@ -881,8 +904,8 @@ export class AgentWorker {
                     if (++this.projectedLineIndex >= projectedLines.length) {
                         // No empty slots, grow array
                         console.warn('Projected lines pool exhausted at ' + projectedLines.length
-                            + ', triggering reallocation by ' + this.projectedLinesGrowthN);
-                        for (let i = 0; i < this.projectedLinesGrowthN; i++) {
+                            + ', triggering reallocation by ' + this.projectedLinesGrowth);
+                        for (let i = 0; i < this.projectedLinesGrowth; i++) {
                             projectedLines.push(defaultLine());
                         }
                     }
@@ -1028,9 +1051,9 @@ export class AgentWorker {
         if (++this.lineIndex >= this.lines.length) {
             // No empty slots, grow array
             console.warn('Lines pool exhausted at ' + this.lines.length
-                + ', triggering reallocation by ' + this.linesGrowthN);
+                + ', triggering reallocation by ' + this.linesGrowth);
             const lines = this.lines;
-            for (let i = 0; i < this.linesGrowthN; i++) {
+            for (let i = 0; i < this.linesGrowth; i++) {
                 lines.push(defaultLine());
             }
         }
