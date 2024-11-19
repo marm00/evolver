@@ -230,7 +230,7 @@ export class KdTree {
         this.queryAgentTreeRecursive(agentA, rangeSq, 0, agentNeighbors);
     }
 
-    // TODO: optimize agentNeighbors (prevent constant passing)
+    // TODO: optimize vectors
     queryAgentTreeRecursive(agentA: Agent, rangeSq: { reference: number }, node: number, agentNeighbors: AgentNeighbor[]) {
         const currentNode = this.agentTree[node]!;
         if (currentNode.end - currentNode.begin <= this.maxLeafSize) {
@@ -288,6 +288,7 @@ export class KdTree {
         }
     }
 
+    // TODO: optimize perhaps, only called once
     buildObstacleTreeRecursive(obstacles: Obstacle[]) {
         if (obstacles.length === 0) {
             return null;
@@ -406,11 +407,11 @@ export class KdTree {
         }
     }
 
-    // TODO: avoid having to pass the obstacleNeighbors array every time (store in kdtree?)
-    computeObstacleNeighbors(agent: Agent, rangeSq: number, obstacleNeighbors: ObstacleNeighbor[]) {
+    computeObstacleNeighbors(agent: Agent, rangeSq: number, obstacleNeighbors: ObstacleNeighbor[]): number {
         return this.queryObstacleTreeRecursive(agent, rangeSq, this.obstacleTree, obstacleNeighbors, -1);
     }
 
+    // TODO: optimize vectors
     queryObstacleTreeRecursive(agent: Agent, rangeSq: number, node: ObstacleTreeNode | null, obstacleNeighbors: ObstacleNeighbor[], index: number): number {
         if (node === null) {
             return index;
@@ -443,7 +444,6 @@ export class KdTree {
                         nextObstacle.point.clone().sub(obstacle.point).scale(r))).lenSq();
                 }
                 if (distSq < rangeSq) {
-                    // Insertion sort
                     if (++index >= obstacleNeighbors.length) {
                         // No empty slots, grow array
                         console.warn('Obstacle neighbor pool exhausted at ' + obstacleNeighbors.length
@@ -455,6 +455,7 @@ export class KdTree {
                     const newNeighbor = obstacleNeighbors[index]!;
                     newNeighbor.distSq = distSq;
                     newNeighbor.obstacle = obstacle;
+                    // Insertion sort
                     let i = index;
                     while (i !== 0 && distSq < obstacleNeighbors[i - 1]!.distSq) {
                         obstacleNeighbors[i] = obstacleNeighbors[i - 1]!;
@@ -546,7 +547,7 @@ export class AgentWorker {
         this.obstacleNeighborIndex = -1;
         const range = this.timeHorizonObst * maxSpeedA + rA;
         const obstacleNeighborCount = this.kdTree.computeObstacleNeighbors(agentA, range * range, this.obstacleNeighbors) + 1;
-        
+
         // Compute agent neighbors
         // TODO: optimize (pooling etc.)
         this.agentNeighbors = [];
