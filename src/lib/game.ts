@@ -654,19 +654,12 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     }
 
     // ORCA Move Lions
-    // Optimal Reciprocal Collision Avoidance inspired by https://gamma.cs.unc.edu/ORCA/publications/ORCA.pdf
-    // TODO: parallelize and obviously different data structure (k-d tree partitioning, etc.)
-    /** Time horizon (steps) for the ORCA algorithm. */
-    // const timeHorizon = 10;
-    // const invTimeHorizon = 1 / timeHorizon;
-    // const obstTimeHorizon = 10;
-    // const invTimeHorizonObst = 1 / obstTimeHorizon;
+    // Optimal Reciprocal Collision Avoidance as defined in https://gamma.cs.unc.edu/ORCA/publications/ORCA.pdf
     gameState.kdTree.buildAgentTree();
     for (let i = 0; i < gameState.lions.length; i++) {
         const lionA = gameState.lions[i]!;
         const pA = lionA.center, rA = lionA.radius, vA = lionA.velocity;
         const maxSpeed = lionA.maxSpeed, maxSpeedSq = lionA.maxSpeedSq;
-        // TODO: bug on bottom and right side of obstacle (collision)
         const constraints = gameState.agentWorker.processAgent({
             id: lionA.id,
             center: pA,

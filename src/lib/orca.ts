@@ -505,7 +505,6 @@ export class AgentWorker {
 
     readonly agentsRef: Agent[];
     readonly obstaclesRef: Obstacle[];
-    // TODO: add a k-d tree with access to all agents and obstacles, to fill neighbors
     agentNeighbors: AgentNeighbor[] = [];
     kdTree: KdTree;
 
