@@ -468,7 +468,6 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         t = _Math.easeOutQuad(t);
         meteorite.center.lerpVectors(meteorite.origin, meteorite.target, t);
         const displayRadius = _Math.lerp(0.5, 1, t) * METEORITE_DISPLAY_RADIUS;
-
         ctx.beginPath();
         ctx.strokeStyle = '#ffffff';
         ctx.moveTo(meteorite.origin.x, meteorite.origin.y);
@@ -618,6 +617,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         }
     }
 
+    // TODO: create simulator like in RVO2
     const lion1 = gameState.lions[0]!;
     const lion2 = gameState.lions[1]!;
     const lion3 = gameState.lions[2]!;
