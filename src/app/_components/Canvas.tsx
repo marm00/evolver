@@ -80,7 +80,9 @@ export function Canvas() {
                 'ArrowUp': () => { gameState.player.pressingUp = false; },
                 'w': () => { gameState.player.pressingUp = false; },
                 'ArrowDown': () => { gameState.player.pressingDown = false; },
-                's': () => { gameState.player.pressingDown = false; }
+                's': () => { gameState.player.pressingDown = false; },
+                // Testing
+                'x': () => { gameState.simulationCycle(); }
             };
 
             const handleKeyDown = (e: KeyboardEvent) => {

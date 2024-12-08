@@ -75,6 +75,9 @@ const INV_TIME_HORIZON = 1 / TIME_HORIZON;
 const OBST_TIME_HORIZON = 3;
 const INV_OBST_TIME_HORIZON = 1 / OBST_TIME_HORIZON;
 
+const SIMULATION_POSITIONS = [new Vector2(0, 0), new Vector2(300, 300)];
+let simulationIndex = 0;
+
 // TODO: the game contains lists for different things (like spears), pools, and the partinioning contains references
 interface Game {
     world: PartitionStrategy;
@@ -97,6 +100,7 @@ interface Game {
     agentWorker: AgentWorker;
     obstacles: Obstacle[];
     kdTree: KdTree;
+    simulationCycle: () => void;
 }
 
 /**
@@ -240,10 +244,17 @@ export async function createGame(strategy: string): Promise<Game> {
     addObstacle(vertices2, obstacles);
 
     const kdTree = new KdTree(null, lions, obstacles);
-    kdTree.buildObstacleTree();
+    // kdTree.buildObstacleTree();
 
     // TODO: try parallelization with web workers and shared buffers
     const agentWorker = new AgentWorker(kdTree, lions, obstacles, TIME_HORIZON, OBST_TIME_HORIZON);
+
+    function simulationCycle() {
+        const newPosition = SIMULATION_POSITIONS[(++simulationIndex % SIMULATION_POSITIONS.length)]!;
+        player.center.copy(newPosition);
+        return;
+    }
+
     return {
         world, player, m3Pool, v2Pool, v2Pool2, oRectPool, spearPool, spears: [],
         meteoritePool, meteorites: [], obsidianPool, obsidians: [], thunderstorm, orb, walls,
@@ -252,7 +263,8 @@ export async function createGame(strategy: string): Promise<Game> {
         lions,
         agentWorker,
         obstacles,
-        kdTree
+        kdTree,
+        simulationCycle
     };
 }
 
