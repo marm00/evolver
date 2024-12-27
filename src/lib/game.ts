@@ -244,7 +244,7 @@ export async function createGame(strategy: string): Promise<Game> {
     addObstacle(vertices2, obstacles);
 
     const kdTree = new KdTree(null, lions, obstacles);
-    // kdTree.buildObstacleTree();
+    kdTree.buildObstacleTree();
 
     // TODO: try parallelization with web workers and shared buffers
     const agentWorker = new AgentWorker(kdTree, lions, obstacles, TIME_HORIZON, OBST_TIME_HORIZON);

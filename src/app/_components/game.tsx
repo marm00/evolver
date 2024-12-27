@@ -16,7 +16,7 @@ export function Game() {
     const [gameStatePointer, setGameStatePointer] = useState<game.Game>(null!);
     const [frameCount, setFrameCount] = useState(0);
     const [showDebug, setShowDebug] = useState(true);
-    const [paused, setPaused] = useState(false);
+    const [paused, setPaused] = useState(false); // TODO: store paused in gameState?
     const pausedRef = useRef(false);
 
     useEffect(() => { pausedRef.current = paused }, [paused]);
