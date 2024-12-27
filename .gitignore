@@ -3,6 +3,9 @@
 # TODO: ignoring public for now until assets are finalized
 /public/
 
+# fiddle js
+_fiddle.js
+
 # dependencies
 /node_modules
 /.pnp

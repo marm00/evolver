@@ -3,8 +3,8 @@ import "~/styles/globals.css";
 import { GeistSans } from "geist/font/sans";
 
 export const metadata = {
-  title: "Evolver Game - Reverse Bullet Hell Roguelike",
-  description: "Dive into the dynamic world of Evolver, a reality-based reverse bullet hell roguelike game. Experience intense gameplay, adaptive enemies, and a richly detailed environment.",
+  title: "Evolver Game - Realistic Reverse Bullet Hell",
+  description: "Evolver is a bullet heaven game set in a richly detailed, realistic world. Inspired by Halls of Torment.",
   icons: [{ rel: "icon", url: "/favicon.ico" }],
 };
 
