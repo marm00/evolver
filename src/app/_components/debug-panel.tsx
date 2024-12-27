@@ -17,7 +17,7 @@ export function DebugPanel({ gameState, frameCount }: { gameState: game.Game, fr
     return (
         <div className="fixed top-5 right-5 p-5 select-none hover:select-text focus:select-text outline-none
         focus:ring-2 focus:ring-slate-500 bg-slate-300/25 text-white font-mono flex flex-col text-right 
-        overflow-auto max-h-screen max-w-full whitespace-pre-wrap text-base" tabIndex={0}>
+        overflow-auto max-h-screen max-w-full whitespace-pre-wrap" tabIndex={0}>
             <div className="grid grid-cols-[auto_auto] gap-x-2">
                 <span>XY:</span>
                 <span>{formatV2(gs.player.center).value}</span>
@@ -28,7 +28,7 @@ export function DebugPanel({ gameState, frameCount }: { gameState: game.Game, fr
                 <span>Thunderstorm:</span>
                 <span>{formatV2(gs.thunderstorm.active ? gs.thunderstorm.center : Vector2.zero()).value}</span>
                 <span>Mouse angle:</span>
-                <span>{mouseDirRad.toFixed(2)}, {mouseDirDeg.toFixed(2)}&#176;</span>
+                <span>{mouseDirRad.toFixed(2)}, {mouseDirDeg.toFixed(2).padStart(6, '\u00A0')}&#176;</span>
             </div>
             <hr className="my-2" />
             <div className="grid grid-cols-[auto_auto] gap-x-2">

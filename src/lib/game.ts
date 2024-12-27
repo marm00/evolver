@@ -371,19 +371,19 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         }
     }
 
-    // TODO: how to iterate over all shapes in the world, use an Iterator for spatial partiioning or separate arrays, or just over partitions
-    const allShapes = gameState.world.all();
-    for (const thing of allShapes) {
-        const tc = thing.center, tv = thing.velocity;
-        if (!tv.isZero()) {
-            const p_tv = gameState.v2Pool2.alloc();
-            tc.add(p_tv.copy(tv).scale(deltaTime));
-            gameState.v2Pool2.free(p_tv);
-            if (thing instanceof OrientedRect) {
-                thing.update();
-            }
-        }
-    }
+    // TODO: (legacy) iterate over all shapes in the world, use an Iterator for spatial partiioning or separate arrays, or just over partitions
+    // const allShapes = gameState.world.all();
+    // for (const thing of allShapes) {
+    //     const tc = thing.center, tv = thing.velocity;
+    //     if (!tv.isZero()) {
+    //         const p_tv = gameState.v2Pool2.alloc();
+    //         tc.add(p_tv.copy(tv).scale(deltaTime));
+    //         gameState.v2Pool2.free(p_tv);
+    //         if (thing instanceof OrientedRect) {
+    //             thing.update();
+    //         }
+    //     }
+    // }
 
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     // ctx.drawImage(sprite, 128 * imageOffset[0]!, 128 * imageOffset[1]!, gameState.player.displayWidth, gameState.player.displayHeight, dx, dy - gameState.player.displayHeight/2, gameState.player.displayWidth, gameState.player.displayHeight);
@@ -588,6 +588,8 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
 
     // Check walls
     for (const wall of gameState.walls) {
+        // TODO: cleanup
+        continue;
         ctx.beginPath();
         ctx.strokeStyle = '#fa8585';
         const vertices = wall.vertices;
@@ -759,7 +761,8 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         ctx.stroke();
     }
 
-    for (const thing of [...thingsToRender, gameState.player]) {
+    // for (const thing of [...thingsToRender, gameState.player]) {
+    for (const thing of [gameState.player]) {
         // TODO: obviously dont update velocity here, but rather in the game loop
         // thing.center.add(thing.velocity.setLength(HUMAN_VELOCITY).clone().scale(deltaTime));
         const direction = thing.center.clone().add(thing.velocity);
