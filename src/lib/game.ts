@@ -79,7 +79,7 @@ const SIMULATION_POSITIONS = [new Vector2(0, 0), new Vector2(300, 300)];
 let simulationIndex = 0;
 
 // TODO: the game contains lists for different things (like spears), pools, and the partinioning contains references
-interface Game {
+export interface Game {
     world: PartitionStrategy;
     player: Player;
     m3Pool: Pool2<Matrix3>;

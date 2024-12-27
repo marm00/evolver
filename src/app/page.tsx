@@ -1,14 +1,14 @@
 import Link from "next/link";
-import { Canvas } from "./_components/Canvas";
+import { Game } from "./_components/game";
 
 export const dynamic = "force-dynamic";
 
 export default function HomePage() {
 
   return (
-    <main className="">
-      <Canvas>
-      </Canvas>
+    <main className="relative">
+      <Game>
+      </Game>
     </main>
     // <canvas ref={gameCanvas} className="h-screen w-screen bg-blue-950"></canvas> 
     // <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#2e026d] to-[#15162c] text-white">

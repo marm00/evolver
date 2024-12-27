@@ -1,17 +1,25 @@
 'use client';
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as game from "~/lib/game";
+import { DebugPanel } from "./debug-panel";
+import { PauseMenu } from "./pause-menu";
 
-export function Canvas() {
+export function Game() {
     /** Guard to prevent multiple games from being created in React strict mode. */
     const _devRunOnce = useRef(Boolean(1));
     const _devGameCreated = useRef(false);
 
-    /** Canvas to render the game to. */
-    const gameCanvas = useRef<HTMLCanvasElement>(null);
-
     type KeyAction = () => void;
+
+    const gameCanvas = useRef<HTMLCanvasElement>(null);
+    const [gameStatePointer, setGameStatePointer] = useState<game.Game>(null!);
+    const [frameCount, setFrameCount] = useState(0);
+    const [showDebug, setShowDebug] = useState(true);
+    const [paused, setPaused] = useState(false);
+    const pausedRef = useRef(false);
+
+    useEffect(() => { pausedRef.current = paused }, [paused]);
 
     useEffect(() => {
         if (_devRunOnce.current === true) {
@@ -69,7 +77,8 @@ export function Canvas() {
                 'ArrowUp': () => { gameState.player.pressingUp = true; },
                 'w': () => { gameState.player.pressingUp = true; },
                 'ArrowDown': () => { gameState.player.pressingDown = true; },
-                's': () => { gameState.player.pressingDown = true; }
+                's': () => { gameState.player.pressingDown = true; },
+                'Escape': () => { setPaused(current => !current); }
             };
 
             const keyUpActions: Record<string, KeyAction> = {
@@ -99,6 +108,12 @@ export function Canvas() {
                 }
             }
 
+            const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+                // TODO: handle crash/closure
+                // navigator.sendBeacon('/log-closure', JSON.stringify({ status: 'closed' }));
+            }
+
+            setGameStatePointer(gameState); // Capture state once as a reference
             handleResize(); // Resize once to set the projected bounds
             /** 
              * TODO: find a better way to show FPS
@@ -120,7 +135,10 @@ export function Canvas() {
                 // console.log('FPS:', fps);
                 // console.log(deltaTime);
 
-                game.updateGame(ctx, gameState, elapsedTime, deltaTime).then().catch(console.error);
+                if (!pausedRef.current) {
+                    game.updateGame(ctx, gameState, elapsedTime, deltaTime).then().catch(console.error);
+                }
+                setFrameCount(current => current + 1); // TODO: better way for manual render trigger?
                 window.requestAnimationFrame(frame);
             };
 
@@ -129,6 +147,7 @@ export function Canvas() {
                 window.requestAnimationFrame(frame);
             });
 
+            window.addEventListener('beforeunload', handleBeforeUnload);
             window.addEventListener('resize', handleResize);
             window.addEventListener('keydown', handleKeyDown);
             window.addEventListener('keyup', handleKeyUp);
@@ -137,6 +156,7 @@ export function Canvas() {
             ctx.canvas.addEventListener('mouseup', handleMouseUp);
 
             return () => {
+                window.removeEventListener('beforeunload', handleBeforeUnload);
                 window.removeEventListener('resize', handleResize);
                 window.removeEventListener('keydown', handleKeyDown);
                 window.removeEventListener('keyup', handleKeyUp);
@@ -148,6 +168,17 @@ export function Canvas() {
     }, []);
 
     return (
-        <canvas ref={gameCanvas} className="h-screen w-screen bg-blue-950"></canvas>
+        <>
+            <canvas ref={gameCanvas} className="h-screen w-screen bg-blue-950"></canvas>
+            {showDebug && gameStatePointer ?
+                <DebugPanel
+                    gameState={gameStatePointer}
+                    frameCount={frameCount}
+                />
+                : null}
+            {paused ?
+                <PauseMenu />
+                : null}
+        </>
     );
 }
