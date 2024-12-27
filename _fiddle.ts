@@ -143,7 +143,7 @@ function manualGrow(iterations: number) {
 
 function concatGrow(iterations: number) {
     const start = performance.now();
-    let agents = [];
+    let agents: any[] = [];
     const agentsRef = [];
     const agentTree = [];
     for (let i = 0; i < iterations; i++) {
