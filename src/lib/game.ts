@@ -338,7 +338,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     const thingsToRender = gameState.world.query(pp.x - cx, pp.y - cy, pp.x + cx, pp.y + cy);
 
     const sprite: HTMLImageElement | null = gameState.player.sprite;
-    if (!sprite) return;
+    // if (!sprite) return;
     const dx = (ctx.canvas.width - gameState.player.displayWidth) / 2;
     const dy = (ctx.canvas.height - gameState.player.displayHeight) / 2;
     let imageOffset: number[] = [0, 0];
@@ -406,13 +406,13 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     ctx.stroke();
     ctx.strokeStyle = '#ffffff';
 
-    if (true) {
+    if (false) {
         // TODO: replace this with image data manipulation and backImageData putting
         // TODO: replace player sprites with 3D ones
         ctx.translate(pp.x, pp.y + gameState.player.displayHeight / 2);
         ctx.scale(1, -1);
         ctx.drawImage(
-            sprite,
+            sprite!,
             (128 * imageOffset[0]!),
             (128 * imageOffset[1]!),
             gameState.player.displayWidth,
@@ -885,7 +885,8 @@ class Player {
 
     async loadSprite() {
         // TODO: webp vs avif (vs png?)
-        this.sprite = await loadImage('Nomad_Atlas.webp');
+        // this.sprite = await loadImage('Nomad_Atlas.webp');
+        this.sprite = null;
     }
 }
 
