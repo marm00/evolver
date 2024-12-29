@@ -4,7 +4,7 @@ import { Pool, Pool2 } from "./pool";
 import { _Math } from "./mathUtils";
 import { Matrix3 } from "./matrix3";
 import { Lion, Meteorite, Obsidian, Orb, RESOURCE_STATE, Spear, Thunderstorm, Wall } from "./spear";
-import { AgentWorker, Obstacle, addObstacle, KdTree } from "./orca";
+import { AgentWorker, Obstacle, addObstacle, KdTree, addCircle } from "./orca";
 
 const GAME_WIDTH = 6400;
 const GAME_HEIGHT = 6400;
@@ -242,6 +242,8 @@ export async function createGame(strategy: string): Promise<Game> {
     const obstacles: Obstacle[] = [];
     addObstacle(vertices, obstacles);
     addObstacle(vertices2, obstacles);
+    addCircle(new Vector2(0, 500), 60, 8, obstacles);
+    addCircle(new Vector2(500, 600), 60, 12, obstacles);
 
     const kdTree = new KdTree(null, lions, obstacles);
     kdTree.buildObstacleTree();

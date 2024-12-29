@@ -88,6 +88,24 @@ function defaultObstacleNeighbor(): ObstacleNeighbor {
     }
 }
 
+/** Regular polygon approximation of a circle. */
+export function addCircle(point: Vector2, radius: number, nSides: number, obstaclesRef: Obstacle[]): void {
+    const angle = _Math.TAU / nSides;
+    const vertices = [];
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const cx = point.x, cy = point.y;
+    let x = cx + radius;
+    let y = cy;
+    for (let i = 0; i < nSides; i++) {
+        vertices.push(new Vector2(x, y));
+        const dx = x - cx, dy = y - cy;
+        x = cx + dx * cos - dy * sin;
+        y = cy + dx * sin + dy * cos;
+    }
+    addObstacle(vertices, obstaclesRef);
+}
+
 /** Use 2d cross product (det) to check if vector3 is left of line1-2. */
 function leftOf(line1: Vector2, line2: Vector2, vector3: Vector2) {
     return (line1.x - vector3.x) * (line2.y - line1.y) -
@@ -895,7 +913,7 @@ export class AgentWorker {
                         }
                         lineTemp.copy(v).add(vPrev).scale(0.5);
                     } else {
-                        vTemp.copy(n).scale(nPrev.det(vOptTemp.copy(v).sub(vPrev)) / determinant)
+                        vTemp.copy(n).scale(nPrev.det(vOptTemp.copy(v).sub(vPrev)) / determinant);
                         lineTemp.copy(v).add(vTemp);
                     }
                     const pointX = lineTemp.x, pointY = lineTemp.y;
