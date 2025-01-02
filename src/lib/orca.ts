@@ -560,6 +560,7 @@ export class AgentWorker {
         const rInvA = rA * invTimeHorizonObst;
 
         // Compute obstacle neighbors
+        // TODO: maybe do navmesh instead of orca obstacle avoidance
         // TODO: optimize (pooling etc.)
         this.obstacleNeighborIndex = -1;
         const range = this.timeHorizonObst * maxSpeedA + rA;

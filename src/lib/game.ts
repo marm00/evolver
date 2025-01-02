@@ -3,7 +3,7 @@ import { Shape, Circle, OrientedRect, Rect } from "./shape";
 import { Pool, Pool2 } from "./pool";
 import { _Math } from "./mathUtils";
 import { Matrix3 } from "./matrix3";
-import { Lion, Meteorite, Obsidian, Orb, RESOURCE_STATE, Spear, Thunderstorm, Wall } from "./spear";
+import { Lion, Meteorite, Obsidian, Orb, RESOURCE_STATE, Rupture, Spear, Thunderstorm, Wall } from "./spear";
 import { AgentWorker, Obstacle, addObstacle, KdTree, addCircle } from "./orca";
 
 const GAME_WIDTH = 6400;
@@ -94,6 +94,7 @@ export interface Game {
     obsidians: Obsidian[]; // TODO: different data structure?
     thunderstorm: Thunderstorm;
     orb: Orb;
+    rupture: Rupture;
     walls: Wall[]; // TODO: different data structure?
     lionPool: Pool<Lion>;
     lions: Lion[]; // TODO: different data structure?
@@ -191,6 +192,7 @@ export async function createGame(strategy: string): Promise<Game> {
     // world.insert(player); // TODO: player to world?
     const thunderstorm = new Thunderstorm(0, 0, THUNDERSTORM_RADIUS, THUNDERSTORM_OFFSET);
     const orb = new Orb(0, 0, ORB_RADIUS, ORB_OFFSET, ORB_VELOCITY);
+    const rupture = new Rupture(4, 20, 30, 300, 50);
     const walls = [new Wall(300, 100, 50, 100, _Math.TAU * (2 / 3))];
     // const walls = [new Wall(300, 100, 50, 100, _Math.TAU)];
 
@@ -259,7 +261,7 @@ export async function createGame(strategy: string): Promise<Game> {
 
     return {
         world, player, m3Pool, v2Pool, v2Pool2, oRectPool, spearPool, spears: [],
-        meteoritePool, meteorites: [], obsidianPool, obsidians: [], thunderstorm, orb, walls,
+        meteoritePool, meteorites: [], obsidianPool, obsidians: [], thunderstorm, orb, rupture, walls,
         lionPool,
         // lions: [tempLion1, tempLion2, tempLion3, tempLion4]
         lions,
@@ -313,6 +315,12 @@ export function spawnOrb(orb: Orb) {
         orb.active = true;
     } else {
         orb.centers.push(new Vector2());
+    }
+}
+
+export function spawnRupture(rupture: Rupture) {
+    if (!rupture.active) {
+        rupture.active = true;
     }
 }
 
@@ -586,6 +594,35 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
         ctx.arc(pp.x, pp.y, o, 0, _Math.TAU);
         ctx.stroke();
         ctx.strokeStyle = '#ffffff';
+    }
+
+    // Move rupture
+    if (gameState.rupture.active) {
+        const rupture = gameState.rupture;
+        if (rupture.fissureIndex === -1) {
+            const angleStep = rupture.angleStep;
+            const startingAngle = Math.random() * _Math.TAU;
+            rupture.startingAngle = startingAngle;
+            const cos = Math.cos(angleStep);
+            const sin = Math.sin(angleStep);
+            const cx = pp.x, cy = pp.y;
+            let x = cx + pr * Math.cos(startingAngle);
+            let y = cy + pr * Math.sin(startingAngle);
+            for (let i = 0; i < rupture.fissureCount; i++) {
+                const root = rupture.fissures[i]![0]!.start;
+                root.set(x, y);
+                const dx = x - cx, dy = y - cy;
+                x = cx + dx * cos - dy * sin; // Rotate around the center
+                y = cy + dx * sin + dy * cos;
+            }
+            rupture.fissureIndex = 0;
+        }
+        for (let i = 0; i < rupture.fissureCount; i++) {
+            ctx.beginPath();
+            ctx.arc(rupture.fissures[i]![0]!.start.x, rupture.fissures[i]![0]!.start.y, 8, 0, _Math.TAU);
+            ctx.fill();
+            ctx.closePath();
+        }
     }
 
     // Check walls

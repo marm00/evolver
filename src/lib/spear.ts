@@ -307,6 +307,52 @@ export class Orb {
     }
 }
 
+interface Line {
+    start: Vector2;
+    end: Vector2;
+}
+
+type Fissure = Line[];
+
+function emptyFissure(len: number) {
+    return Array(len).fill(null).map(() => {
+        return {
+            start: new Vector2(),
+            end: new Vector2()
+        }
+    })
+}
+export class Rupture {
+    fissures: Fissure[];
+    fissureCount: number;
+    /** Keep track of active lines. */
+    fissureIndex: number;
+    stepLength: number;
+    maxLength: number;
+    width: number;
+    startingAngle: number;
+    angleStep: number;
+    fissureBound: number;
+    cooldown: number;
+    active = false;
+
+    constructor(fissureCount: number, stepLength: number, width: number, maxLength: number, cooldown: number) {
+        const steps = Math.floor(maxLength / stepLength);
+        // TODO: do we need to store this many vectors?
+        this.fissures = Array(fissureCount).fill(null).map(() => emptyFissure(steps));
+        this.fissureCount = fissureCount;
+        this.stepLength = stepLength;
+        this.fissureIndex = -1;
+        this.width = width;
+        this.maxLength = maxLength;
+        this.cooldown = cooldown;
+        this.startingAngle = _Math.TAU;
+        this.angleStep = _Math.TAU / fissureCount;
+        this.fissureBound = this.angleStep / 2;
+    }
+
+}
+
 interface Tree {
     center: Vector2;
     radius: number;
