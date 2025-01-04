@@ -318,6 +318,7 @@ interface FissureStep {
     point: Vector2;
     vertices: [Vector2, Vector2, Vector2, Vector2];
     axes: [Vector2, Vector2]; // Rotation matrix with [0] as direction
+    direction: number;
 }
 
 type Fissure = FissureStep[];
@@ -327,7 +328,8 @@ function defaultFissure(len: number): Fissure {
         return {
             point: new Vector2(),
             vertices: [new Vector2(), new Vector2(), new Vector2(), new Vector2()],
-            axes: [new Vector2(), new Vector2()]
+            axes: [new Vector2(), new Vector2()],
+            direction: _Math.TAU
         }
     })
 }
@@ -347,12 +349,13 @@ export class Rupture {
     angleStepCos: number;
     fissureBound: number;
     stepInterval: number;
+    stepCount: number;
     active = false;
 
     constructor(fissureCount: number, stepLength: number, width: number, maxLength: number, stepInterval: number) {
-        const steps = Math.floor(maxLength / stepLength);
+        this.stepCount = Math.floor(maxLength / stepLength);
         // TODO: do we need to store this many vectors?
-        this.fissures = Array(fissureCount).fill(null).map(() => defaultFissure(steps));
+        this.fissures = Array(fissureCount).fill(null).map(() => defaultFissure(this.stepCount));
         this.fissureCount = fissureCount;
         this.stepLength = stepLength;
         this.stepHalfLength = Math.floor(stepLength / 2);
