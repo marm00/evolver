@@ -75,6 +75,12 @@ const INV_TIME_HORIZON = 1 / TIME_HORIZON;
 const OBST_TIME_HORIZON = 3;
 const INV_OBST_TIME_HORIZON = 1 / OBST_TIME_HORIZON;
 
+const FISSURE_COUNT = 4;
+const FISSURE_WIDTH = 20;
+const FISSURE_STEP_LENGTH = 30;
+const FISSURE_MAX_LENGTH = 300;
+const FISSURE_INTERVAL = 50; // ms
+
 const SIMULATION_POSITIONS = [new Vector2(0, 0), new Vector2(300, 300)];
 let simulationIndex = 0;
 
@@ -192,7 +198,7 @@ export async function createGame(strategy: string): Promise<Game> {
     // world.insert(player); // TODO: player to world?
     const thunderstorm = new Thunderstorm(0, 0, THUNDERSTORM_RADIUS, THUNDERSTORM_OFFSET);
     const orb = new Orb(0, 0, ORB_RADIUS, ORB_OFFSET, ORB_VELOCITY);
-    const rupture = new Rupture(4, 20, 30, 300, 50);
+    const rupture = new Rupture(FISSURE_COUNT, FISSURE_STEP_LENGTH, FISSURE_WIDTH, FISSURE_MAX_LENGTH, FISSURE_INTERVAL);
     const walls = [new Wall(300, 100, 50, 100, _Math.TAU * (2 / 3))];
     // const walls = [new Wall(300, 100, 50, 100, _Math.TAU)];
 
@@ -599,29 +605,57 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     // Move rupture
     if (gameState.rupture.active) {
         const rupture = gameState.rupture;
-        if (rupture.fissureIndex === -1) {
+        const fissures = rupture.fissures;
+        const fissureCount = rupture.fissureCount;
+        const hw = rupture.halfWidth, hh = rupture.stepHalfLength;
+        if (rupture.stepIndex === -1) {
             const angleStep = rupture.angleStep;
             const startingAngle = Math.random() * _Math.TAU;
             rupture.startingAngle = startingAngle;
-            const cos = Math.cos(angleStep);
-            const sin = Math.sin(angleStep);
             const cx = pp.x, cy = pp.y;
-            let x = cx + pr * Math.cos(startingAngle);
-            let y = cy + pr * Math.sin(startingAngle);
-            for (let i = 0; i < rupture.fissureCount; i++) {
-                const root = rupture.fissures[i]![0]!.start;
-                root.set(x, y);
-                const dx = x - cx, dy = y - cy;
-                x = cx + dx * cos - dy * sin; // Rotate around the center
-                y = cy + dx * sin + dy * cos;
+            for (let i = 0; i < fissureCount; i++) {
+                const currentAngle = startingAngle + i * angleStep;
+                const cos = Math.cos(currentAngle);
+                const sin = Math.sin(currentAngle);
+                const x = cx + pr * cos;
+                const y = cy + pr * sin;
+                const tangCos = -sin;
+                const tangSin = cos;
+                const root = fissures[i]![0]!;
+                root.point.set(x, y);
+                root.axes[0].set(tangCos, tangSin); // Primary axis = tangent
+                root.axes[1].set(-tangSin, tangCos); // Orthogonal axis = normal
+                // Compute rotated offsets for rectangle corners
+                const offsetXsubY = tangCos * hw - tangSin * hh;
+                const offsetXaddY = tangCos * hw + tangSin * hh;
+                const offsetYaddX = tangSin * hw + tangCos * hh;
+                const offsetYsubX = tangSin * hw - tangCos * hh;
+                root.vertices[0].set(x + offsetXaddY, y + offsetYsubX);
+                root.vertices[1].set(x - offsetXsubY, y - offsetYaddX);
+                root.vertices[2].set(x - offsetXaddY, y - offsetYsubX);
+                root.vertices[3].set(x + offsetXsubY, y + offsetYaddX);
             }
-            rupture.fissureIndex = 0;
+            rupture.stepIndex = 0;
         }
-        for (let i = 0; i < rupture.fissureCount; i++) {
+
+        for (let i = 0; i < fissureCount; i++) {
+            const root = fissures[i]![0]!;
             ctx.beginPath();
-            ctx.arc(rupture.fissures[i]![0]!.start.x, rupture.fissures[i]![0]!.start.y, 8, 0, _Math.TAU);
+            ctx.arc(root.point.x, root.point.y, 8, 0, _Math.TAU);
             ctx.fill();
             ctx.closePath();
+            ctx.beginPath();
+            for (let j = 0; j < root.vertices.length; j++) {
+                const vertex = root.vertices[j]!;
+                ctx.fillText(String.fromCharCode(65 + j), vertex.x, vertex.y); // A, B, C, D
+                if (j === 0) {
+                    ctx.moveTo(vertex.x, vertex.y);
+                } else {
+                    ctx.lineTo(vertex.x, vertex.y);
+                }
+            }
+            ctx.closePath();
+            ctx.stroke();
         }
     }
 

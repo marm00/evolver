@@ -10,6 +10,7 @@ export class Spear {
     center: Vector2;
     vertices: [Vector2, Vector2, Vector2, Vector2];
     axes: [Vector2, Vector2];
+    // TODO: use axes and remove rotation matrix probably
     rotationMatrix: Matrix2;
 
     velocity: Vector2;
@@ -308,17 +309,25 @@ export class Orb {
 }
 
 interface Line {
-    start: Vector2;
-    end: Vector2;
+    direction: Vector2;
+    point: Vector2;
 }
 
-type Fissure = Line[];
+/** Line segment (step) of fissure, storing an OBB. */
+interface FissureStep {
+    point: Vector2;
+    vertices: [Vector2, Vector2, Vector2, Vector2];
+    axes: [Vector2, Vector2]; // Rotation matrix with [0] as direction
+}
 
-function emptyFissure(len: number) {
+type Fissure = FissureStep[];
+
+function defaultFissure(len: number): Fissure {
     return Array(len).fill(null).map(() => {
         return {
-            start: new Vector2(),
-            end: new Vector2()
+            point: new Vector2(),
+            vertices: [new Vector2(), new Vector2(), new Vector2(), new Vector2()],
+            axes: [new Vector2(), new Vector2()]
         }
     })
 }
@@ -326,28 +335,36 @@ export class Rupture {
     fissures: Fissure[];
     fissureCount: number;
     /** Keep track of active lines. */
-    fissureIndex: number;
+    stepIndex: number;
     stepLength: number;
+    stepHalfLength: number;
     maxLength: number;
     width: number;
+    halfWidth: number;
     startingAngle: number;
     angleStep: number;
+    angleStepSin: number;
+    angleStepCos: number;
     fissureBound: number;
-    cooldown: number;
+    stepInterval: number;
     active = false;
 
-    constructor(fissureCount: number, stepLength: number, width: number, maxLength: number, cooldown: number) {
+    constructor(fissureCount: number, stepLength: number, width: number, maxLength: number, stepInterval: number) {
         const steps = Math.floor(maxLength / stepLength);
         // TODO: do we need to store this many vectors?
-        this.fissures = Array(fissureCount).fill(null).map(() => emptyFissure(steps));
+        this.fissures = Array(fissureCount).fill(null).map(() => defaultFissure(steps));
         this.fissureCount = fissureCount;
         this.stepLength = stepLength;
-        this.fissureIndex = -1;
+        this.stepHalfLength = Math.floor(stepLength / 2);
+        this.stepIndex = -1;
         this.width = width;
+        this.halfWidth = Math.floor(width / 2);
         this.maxLength = maxLength;
-        this.cooldown = cooldown;
+        this.stepInterval = stepInterval;
         this.startingAngle = _Math.TAU;
         this.angleStep = _Math.TAU / fissureCount;
+        this.angleStepSin = Math.sin(this.angleStep);
+        this.angleStepCos = Math.cos(this.angleStep);
         this.fissureBound = this.angleStep / 2;
     }
 
