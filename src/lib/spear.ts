@@ -318,20 +318,26 @@ interface FissureStep {
     point: Vector2;
     vertices: [Vector2, Vector2, Vector2, Vector2];
     axes: [Vector2, Vector2]; // Rotation matrix with [0] as direction
-    direction: number;
+    angle: number;
 }
 
-type Fissure = FissureStep[];
+interface Fissure {
+    startingAngle: number;
+    steps: FissureStep[];
+}
 
 function defaultFissure(len: number): Fissure {
-    return Array(len).fill(null).map(() => {
-        return {
-            point: new Vector2(),
-            vertices: [new Vector2(), new Vector2(), new Vector2(), new Vector2()],
-            axes: [new Vector2(), new Vector2()],
-            direction: _Math.TAU
-        }
-    })
+    return {
+        startingAngle: _Math.TAU,
+        steps: Array(len).fill(null).map(() => {
+            return {
+                point: new Vector2(),
+                vertices: [new Vector2(), new Vector2(), new Vector2(), new Vector2()],
+                axes: [new Vector2(), new Vector2()],
+                angle: _Math.TAU
+            }
+        })
+    }
 }
 export class Rupture {
     fissures: Fissure[];
@@ -343,7 +349,6 @@ export class Rupture {
     maxLength: number;
     width: number;
     halfWidth: number;
-    startingAngle: number;
     angleStep: number;
     angleStepSin: number;
     angleStepCos: number;
@@ -364,10 +369,10 @@ export class Rupture {
         this.halfWidth = Math.floor(width / 2);
         this.maxLength = maxLength;
         this.stepInterval = stepInterval;
-        this.startingAngle = _Math.TAU;
         this.angleStep = _Math.TAU / fissureCount;
         this.angleStepSin = Math.sin(this.angleStep);
         this.angleStepCos = Math.cos(this.angleStep);
+        // The available space for a fissure step is within the angle step, so a bound is half that
         this.fissureBound = this.angleStep / 2;
     }
 
