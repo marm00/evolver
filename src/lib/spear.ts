@@ -326,7 +326,7 @@ interface Fissure {
     steps: FissureStep[];
 }
 
-function defaultFissure(len: number): Fissure {
+export function defaultFissure(len: number): Fissure {
     return {
         startingAngle: _Math.TAU,
         steps: Array(len).fill(null).map(() => {
@@ -350,14 +350,16 @@ export class Rupture {
     width: number;
     halfWidth: number;
     angleStep: number;
-    angleStepSin: number;
-    angleStepCos: number;
     fissureBound: number;
     stepInterval: number;
+    stepTime: number;
     stepCount: number;
+    time: number;
+    cooldown: number;
+    fissuresToAdd: number;
     active = false;
 
-    constructor(fissureCount: number, stepLength: number, width: number, maxLength: number, stepInterval: number) {
+    constructor(fissureCount: number, stepLength: number, width: number, maxLength: number, stepInterval: number, cooldown: number) {
         this.stepCount = Math.floor(maxLength / stepLength);
         // TODO: do we need to store this many vectors?
         this.fissures = Array(fissureCount).fill(null).map(() => defaultFissure(this.stepCount));
@@ -370,12 +372,13 @@ export class Rupture {
         this.maxLength = maxLength;
         this.stepInterval = stepInterval;
         this.angleStep = _Math.TAU / fissureCount;
-        this.angleStepSin = Math.sin(this.angleStep);
-        this.angleStepCos = Math.cos(this.angleStep);
         // The available space for a fissure step is within the angle step, so a bound is half that
         this.fissureBound = this.angleStep / 2;
+        this.stepTime = stepInterval;
+        this.cooldown = cooldown;
+        this.time = cooldown;
+        this.fissuresToAdd = 0;
     }
-
 }
 
 interface Tree {

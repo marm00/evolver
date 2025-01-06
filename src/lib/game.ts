@@ -3,7 +3,7 @@ import { Shape, Circle, OrientedRect, Rect } from "./shape";
 import { Pool, Pool2 } from "./pool";
 import { _Math } from "./mathUtils";
 import { Matrix3 } from "./matrix3";
-import { Lion, Meteorite, Obsidian, Orb, RESOURCE_STATE, Rupture, Spear, Thunderstorm, Wall } from "./spear";
+import { defaultFissure, Lion, Meteorite, Obsidian, Orb, RESOURCE_STATE, Rupture, Spear, Thunderstorm, Wall } from "./spear";
 import { AgentWorker, Obstacle, addObstacle, KdTree, addCircle } from "./orca";
 
 const GAME_WIDTH = 6400;
@@ -75,11 +75,15 @@ const INV_TIME_HORIZON = 1 / TIME_HORIZON;
 const OBST_TIME_HORIZON = 3;
 const INV_OBST_TIME_HORIZON = 1 / OBST_TIME_HORIZON;
 
-const FISSURE_COUNT = 5;
+// NOTE: as fissure count grows, the width and max (step) delta will eventually
+// cause the fissures to overlap. This is probably a desired behavior, as
+// decreasing the width is unintuitive
+const RUPTURE_COOLDOWN = 1; // sec
+const FISSURE_COUNT = 1;
 const FISSURE_WIDTH = 25;
 const FISSURE_STEP_LENGTH = 45;
 const FISSURE_MAX_LENGTH = 300;
-const FISSURE_INTERVAL = 50; // ms
+const FISSURE_INTERVAL = 1 / 7; // sec
 /** Maximum (abs) difference between step angles in radians. */
 const FISSURE_MAX_DELTA = _Math.degToRad(30);
 
@@ -200,7 +204,7 @@ export async function createGame(strategy: string): Promise<Game> {
     // world.insert(player); // TODO: player to world?
     const thunderstorm = new Thunderstorm(0, 0, THUNDERSTORM_RADIUS, THUNDERSTORM_OFFSET);
     const orb = new Orb(0, 0, ORB_RADIUS, ORB_OFFSET, ORB_VELOCITY);
-    const rupture = new Rupture(FISSURE_COUNT, FISSURE_STEP_LENGTH, FISSURE_WIDTH, FISSURE_MAX_LENGTH, FISSURE_INTERVAL);
+    const rupture = new Rupture(FISSURE_COUNT, FISSURE_STEP_LENGTH, FISSURE_WIDTH, FISSURE_MAX_LENGTH, FISSURE_INTERVAL, RUPTURE_COOLDOWN);
     const walls = [new Wall(300, 100, 50, 100, _Math.TAU * (2 / 3))];
     // const walls = [new Wall(300, 100, 50, 100, _Math.TAU)];
 
@@ -329,6 +333,8 @@ export function spawnOrb(orb: Orb) {
 export function spawnRupture(rupture: Rupture) {
     if (!rupture.active) {
         rupture.active = true;
+    } else {
+        rupture.fissuresToAdd++;
     }
 }
 
@@ -605,88 +611,100 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     }
 
     // Move rupture
-    // TODO: add delay and stuff
     // TODO: transform underlying pixels for quake effect
     if (gameState.rupture.active) {
         const rupture = gameState.rupture;
         const fissures = rupture.fissures;
-        const fissureCount = rupture.fissureCount;
-        const hw = rupture.halfWidth, hh = rupture.stepHalfLength;
-        const angleStep = rupture.angleStep;
-        if (rupture.stepIndex === -1) {
-            const startingAngle = Math.random() * _Math.TAU;
-            const cx = pp.x, cy = pp.y;
-            for (let i = 0; i < fissureCount; i++) {
-                const currentAngle = (startingAngle + i * angleStep) % _Math.TAU;
-                const cos = Math.cos(currentAngle);
-                const sin = Math.sin(currentAngle);
-                // Rotate along player radius to the current angle
-                const x = cx + pr * cos;
-                const y = cy + pr * sin;
-                const tangCos = -sin;
-                const tangSin = cos;
-                const root = fissures[i]!.steps[0]!;
-                root.point.set(x, y);
-                root.axes[0].set(tangCos, tangSin); // Primary axis = tangent
-                root.axes[1].set(-tangSin, tangCos); // Orthogonal axis = normal
-                root.angle = currentAngle;
-                fissures[i]!.startingAngle = currentAngle;
-                // Compute rotated offsets for rectangle corners
-                const offsetXsubY = tangCos * hw - tangSin * hh;
-                const offsetXaddY = tangCos * hw + tangSin * hh;
-                const offsetYaddX = tangSin * hw + tangCos * hh;
-                const offsetYsubX = tangSin * hw - tangCos * hh;
-                root.vertices[0].set(x + offsetXaddY, y + offsetYsubX);
-                root.vertices[1].set(x - offsetXsubY, y - offsetYaddX);
-                root.vertices[2].set(x - offsetXaddY, y - offsetYsubX);
-                root.vertices[3].set(x + offsetXsubY, y + offsetYaddX);
-            }
-            rupture.stepIndex = 0;
-        } else {
-            // TODO: small optimizations in this branch
-            if (++rupture.stepIndex >= rupture.stepCount) {
-                rupture.stepIndex = -1;
-                // console.log(fissures.map((f) => f.steps));
-                // debugger;
-            } else {
-                const stepLen = rupture.stepLength;
-                const fissureBound = rupture.fissureBound;
-                for (let i = 0; i < fissureCount; i++) {
-                    const fissure = fissures[i]!;
-                    const step = fissure.steps[rupture.stepIndex]!;
-                    const prev = fissure.steps[rupture.stepIndex - 1]!;
-                    const startingAngle = fissure.startingAngle;
-                    const prevAngle = prev.angle;
-                    const delta = (Math.random() * 2 - 1) * FISSURE_MAX_DELTA;
-                    let newAngle = prevAngle + delta;
-                    // Reflect into bounds and wrap around Tau
-                    if (Math.abs(newAngle - startingAngle) > fissureBound) {
-                        newAngle = prevAngle - delta;
+        if ((rupture.stepIndex === -1 && (rupture.time += deltaTime) >= rupture.cooldown) ||
+            (rupture.stepIndex >= 0 && (rupture.stepTime += deltaTime) >= rupture.stepInterval)) {
+            rupture.stepTime = 0;
+            const hw = rupture.halfWidth, hh = rupture.stepHalfLength;
+            if (rupture.stepIndex === -1) {
+                rupture.time = 0;
+                if (rupture.fissuresToAdd > 0) {
+                    for (let i = 0; i < rupture.fissuresToAdd; i++) {
+                        fissures.push(defaultFissure(rupture.stepCount));
                     }
-                    newAngle = (newAngle + _Math.TAU) % _Math.TAU;
-                    step.angle = newAngle;
-                    const cos = Math.cos(newAngle);
-                    const sin = Math.sin(newAngle);
-                    const x = prev.point.x + stepLen * cos;
-                    const y = prev.point.y + stepLen * sin;
-                    step.point.set(x, y);
+                    rupture.fissureCount += rupture.fissuresToAdd;
+                    rupture.angleStep = _Math.TAU / rupture.fissureCount;
+                    rupture.fissureBound = rupture.angleStep / 2;
+                    rupture.fissuresToAdd = 0;
+                }
+                const startingAngle = Math.random() * _Math.TAU;
+                const cx = pp.x, cy = pp.y;
+                for (let i = 0; i < rupture.fissureCount; i++) {
+                    const currentAngle = (startingAngle + i * rupture.angleStep) % _Math.TAU;
+                    const cos = Math.cos(currentAngle);
+                    const sin = Math.sin(currentAngle);
+                    // Rotate along player radius to the current angle
+                    const x = cx + pr * cos;
+                    const y = cy + pr * sin;
                     const tangCos = -sin;
                     const tangSin = cos;
-                    step.axes[0].set(tangCos, tangSin);
-                    step.axes[1].set(-tangSin, tangCos);
+                    const root = fissures[i]!.steps[0]!;
+                    root.point.set(x, y);
+                    root.axes[0].set(tangCos, tangSin); // Primary axis = tangent
+                    root.axes[1].set(-tangSin, tangCos); // Orthogonal axis = normal
+                    root.angle = currentAngle;
+                    fissures[i]!.startingAngle = currentAngle;
+                    // Compute rotated offsets for rectangle corners
                     const offsetXsubY = tangCos * hw - tangSin * hh;
                     const offsetXaddY = tangCos * hw + tangSin * hh;
                     const offsetYaddX = tangSin * hw + tangCos * hh;
                     const offsetYsubX = tangSin * hw - tangCos * hh;
-                    step.vertices[0].set(x + offsetXaddY, y + offsetYsubX);
-                    step.vertices[1].set(x - offsetXsubY, y - offsetYaddX);
-                    step.vertices[2].set(x - offsetXaddY, y - offsetYsubX);
-                    step.vertices[3].set(x + offsetXsubY, y + offsetYaddX);
+                    root.vertices[0].set(x + offsetXaddY, y + offsetYsubX);
+                    root.vertices[1].set(x - offsetXsubY, y - offsetYaddX);
+                    root.vertices[2].set(x - offsetXaddY, y - offsetYsubX);
+                    root.vertices[3].set(x + offsetXsubY, y + offsetYaddX);
+                }
+                rupture.stepIndex = 0;
+            } else {
+                // TODO: small optimizations in this branch
+                if (++rupture.stepIndex >= rupture.stepCount) {
+                    rupture.stepIndex = -1;
+                    // console.log(fissures.map((f) => f.steps));
+                    // debugger;
+                } else {
+                    const stepLen = rupture.stepLength;
+                    const fissureBound = rupture.fissureBound;
+                    for (let i = 0; i < rupture.fissureCount; i++) {
+                        const fissure = fissures[i]!;
+                        const step = fissure.steps[rupture.stepIndex]!;
+                        const prev = fissure.steps[rupture.stepIndex - 1]!;
+                        const startingAngle = fissure.startingAngle;
+                        const prevAngle = prev.angle;
+                        const delta = (Math.random() * 2 - 1) * FISSURE_MAX_DELTA;
+                        let newAngle = prevAngle + delta;
+                        // Reflect into bounds and wrap around Tau
+                        if (Math.abs(newAngle - startingAngle) > fissureBound) {
+                            newAngle = prevAngle - delta;
+                        }
+                        newAngle = (newAngle + _Math.TAU) % _Math.TAU;
+                        step.angle = newAngle;
+                        const cos = Math.cos(newAngle);
+                        const sin = Math.sin(newAngle);
+                        const x = prev.point.x + stepLen * cos;
+                        const y = prev.point.y + stepLen * sin;
+                        step.point.set(x, y);
+                        const tangCos = -sin;
+                        const tangSin = cos;
+                        step.axes[0].set(tangCos, tangSin);
+                        step.axes[1].set(-tangSin, tangCos);
+                        const offsetXsubY = tangCos * hw - tangSin * hh;
+                        const offsetXaddY = tangCos * hw + tangSin * hh;
+                        const offsetYaddX = tangSin * hw + tangCos * hh;
+                        const offsetYsubX = tangSin * hw - tangCos * hh;
+                        step.vertices[0].set(x + offsetXaddY, y + offsetYsubX);
+                        step.vertices[1].set(x - offsetXsubY, y - offsetYaddX);
+                        step.vertices[2].set(x - offsetXaddY, y - offsetYsubX);
+                        step.vertices[3].set(x + offsetXsubY, y + offsetYaddX);
+                    }
                 }
             }
         }
 
-        for (let i = 0; i < fissureCount; i++) {
+
+        for (let i = 0; i < rupture.fissureCount; i++) {
             const fissure = fissures[i]!;
             for (let j = 0; j < rupture.stepIndex + 1; j++) {
                 const step = fissure.steps[j]!;
@@ -697,7 +715,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
                 ctx.beginPath();
                 for (let k = 0; k < step.vertices.length; k++) {
                     const vertex = step.vertices[k]!;
-                    ctx.fillText(String.fromCharCode(65 + k), vertex.x, vertex.y); // A, B, C, D
+                    // ctx.fillText(String.fromCharCode(65 + k), vertex.x, vertex.y); // A, B, C, D
                     if (k === 0) {
                         ctx.moveTo(vertex.x, vertex.y);
                     } else {
@@ -709,7 +727,6 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
             }
         }
     }
-
     // Check walls
     for (const wall of gameState.walls) {
         // TODO: cleanup
