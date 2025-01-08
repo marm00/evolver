@@ -116,6 +116,27 @@ export interface Game {
     simulationCycle: () => void;
 }
 
+interface Display {
+    ctx: CanvasRenderingContext2D;
+    backCtx: OffscreenCanvasRenderingContext2D;
+    backImageData: ImageData;
+}
+
+export function createDisplay(ctx: CanvasRenderingContext2D, width: number, height: number): Display {
+    const backImageData = new ImageData(width, height);
+    backImageData.data.fill(255);
+    const backCanvas = new OffscreenCanvas(width, height);
+    const backCtx = backCanvas.getContext('2d');
+    if (backCtx === null) throw new Error('2D context not found');
+    backCtx.imageSmoothingEnabled = false;
+    return {
+        ctx,
+        backCtx,
+        backImageData
+    };
+}
+
+
 /**
  * The `PartitionStrategy` interface defines a spatial partitioning algorithm that
  * models the game objects. The goal is to divide the world into smaller regions
@@ -344,7 +365,7 @@ export function spawnLion(target: Vector2, lionPool: Pool<Lion>, lions: Lion[]) 
     lions.push(lion);
 }
 
-export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game, elapsedTime: number, deltaTime: number) {
+export async function updateGame(display: Display, gameState: Game, elapsedTime: number, deltaTime: number) {
     const cx = gameState.player.canvasCenterX, cy = gameState.player.canvasCenterY;
     const pp = gameState.player.center, pv = gameState.player.velocity;
     const pr = gameState.player.radius, prSq = gameState.player.radiusSq;
@@ -357,6 +378,8 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
     // const p_pv = v2Pool2.alloc();
     // pp.add(p_pv.copy(pv).scale(deltaTime));
     // v2Pool2.free(p_pv);
+
+    const ctx = display.ctx;
 
     const inverseDeltaTime = 1 / deltaTime;
     const thingsToRender = gameState.world.query(pp.x - cx, pp.y - cy, pp.x + cx, pp.y + cy);
@@ -715,7 +738,7 @@ export async function updateGame(ctx: CanvasRenderingContext2D, gameState: Game,
                 ctx.beginPath();
                 for (let k = 0; k < step.vertices.length; k++) {
                     const vertex = step.vertices[k]!;
-                    // ctx.fillText(String.fromCharCode(65 + k), vertex.x, vertex.y); // A, B, C, D
+                    ctx.fillText(String.fromCharCode(65 + k), vertex.x, vertex.y); // A, B, C, D
                     if (k === 0) {
                         ctx.moveTo(vertex.x, vertex.y);
                     } else {

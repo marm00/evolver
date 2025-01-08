@@ -31,21 +31,34 @@ export function Game() {
         }
 
         if (!gameCanvas.current) throw new Error('Canvas not found');
-        gameCanvas.current.width = window.innerWidth;
-        gameCanvas.current.height = window.innerHeight;
+        const windowWidth = window.innerWidth;
+        const windowHeight = window.innerHeight;
+        gameCanvas.current.width = windowWidth;
+        gameCanvas.current.height = windowHeight;
         const ctx = gameCanvas.current.getContext('2d');
         if (!ctx) throw new Error('2D context not found');
+        ctx.imageSmoothingEnabled = false;
+        const display = game.createDisplay(ctx, windowWidth, windowHeight);
 
         game.createGame("singlecell").then((gameState) => {
             /** Update the canvas dimensions and store the center in game state. */
             const handleResize = (_?: Event) => {
                 const canvas = gameCanvas.current;
                 if (!canvas) throw new Error('Canvas not found');
-                canvas.width = window.innerWidth;
-                canvas.height = window.innerHeight;
-                gameState.player.canvasCenterX = canvas.width / 2;
-                gameState.player.canvasCenterY = canvas.height / 2;
+                const newWidth = window.innerWidth;
+                const newHeight = window.innerHeight;
+                canvas.width = newWidth;
+                canvas.height = newHeight;
+                gameState.player.canvasCenterX = newWidth / 2;
+                gameState.player.canvasCenterY = newHeight / 2;
                 if (!canvas.getContext('2d')) throw new Error('2D context not found');
+                const newImageData = new ImageData(newWidth, newHeight);
+                newImageData.data.fill(255);
+                display.backImageData = newImageData;
+                const offscreenCanvas = display.backCtx.canvas;
+                offscreenCanvas.width = newWidth;
+                offscreenCanvas.height = newHeight;
+                display.backCtx.imageSmoothingEnabled = false;
             };
 
             /** Sets the mouse center offset for faster mouse projection every frame. */
@@ -56,7 +69,6 @@ export function Game() {
 
             /** TODO: Forward mouse clicks to the game state. */
             const handleMouseDown = (_: MouseEvent) => {
-                console.log('Clicked at :', gameState.player.mousePosition.x, gameState.player.mousePosition.y);
                 game.attack(gameState.player.mousePosition, gameState.player, gameState.world, gameState.oRectPool, gameState.v2Pool2, gameState.v2Pool, gameState.spearPool, gameState.spears);
                 game.launchMeteorite(gameState.player.mousePosition, gameState.player.center, gameState.meteoritePool, gameState.meteorites);
                 game.dropObsidian(gameState.player.mousePosition, gameState.obsidianPool, gameState.obsidians);
@@ -67,8 +79,9 @@ export function Game() {
             }
 
             const handleMouseUp = (_: MouseEvent) => {
-                console.log('Released at:', gameState.player.mousePosition.x, gameState.player.mousePosition.y);
             }
+
+            // TODO: case insensitive actions
 
             const keyDownActions: Record<string, KeyAction> = {
                 'ArrowLeft': () => { gameState.player.pressingLeft = true; },
@@ -137,7 +150,7 @@ export function Game() {
                 // console.log(deltaTime);
 
                 if (!pausedRef.current) {
-                    game.updateGame(ctx, gameState, elapsedTime, deltaTime).then().catch(console.error);
+                    game.updateGame(display, gameState, elapsedTime, deltaTime).then().catch(console.error);
                 }
                 setFrameCount(current => current + 1); // TODO: better way for manual render trigger?
                 window.requestAnimationFrame(frame);
