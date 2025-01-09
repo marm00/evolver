@@ -79,6 +79,7 @@ export function Game() {
             }
 
             const handleMouseUp = (_: MouseEvent) => {
+                return;
             }
 
             // TODO: case insensitive actions
