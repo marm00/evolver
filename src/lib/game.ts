@@ -309,7 +309,7 @@ export async function createGame(strategy: string): Promise<Game> {
         playerImageData
     ];
 
-    const sprites = []!;
+    const sprites = [] as Sprite[];
 
     return {
         world, player, m3Pool, v2Pool, v2Pool2, oRectPool, spearPool, spears: [],

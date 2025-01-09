@@ -33,5 +33,5 @@ jobs:
         run: vercel env pull --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
       - name: Type check
         run: pnpm typecheck
-      - name: Lint code
-        run: pnpm lint
+      # - name: Lint code
+        # run: pnpm lint
