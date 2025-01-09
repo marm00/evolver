@@ -53,7 +53,13 @@ export function Game() {
                 gameState.player.canvasCenterY = newHeight / 2;
                 if (!canvas.getContext('2d')) throw new Error('2D context not found');
                 const newBackImageData = new ImageData(newWidth, newHeight);
-                newBackImageData.data.fill(255 * 0.1);
+                // bg-blue-950 tailwind
+                for (let i = 0; i < newBackImageData.data.length; i += 4) {
+                    newBackImageData.data[i + 0] = 23;
+                    newBackImageData.data[i + 1] = 37;
+                    newBackImageData.data[i + 2] = 85;
+                    newBackImageData.data[i + 3] = 255;
+                }
                 display.backImageData = newBackImageData;
                 const offscreenCanvas = display.backCtx.canvas;
                 offscreenCanvas.width = newWidth;

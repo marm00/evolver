@@ -133,7 +133,7 @@ interface Display {
 
 export function createDisplay(ctx: CanvasRenderingContext2D, width: number, height: number): Display {
     const backImageData = new ImageData(width, height);
-    backImageData.data.fill(0);
+    backImageData.data.fill(255);
     const backCanvas = new OffscreenCanvas(width, height);
     const backCtx = backCanvas.getContext('2d');
     if (backCtx === null) throw new Error('2D context not found');
