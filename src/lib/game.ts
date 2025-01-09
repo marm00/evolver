@@ -114,6 +114,15 @@ export interface Game {
     obstacles: Obstacle[];
     kdTree: KdTree;
     simulationCycle: () => void;
+    assets: Asset[];
+    sprites: Sprite[];
+}
+
+type Asset = ImageData;
+
+interface Sprite {
+    asset: Asset;
+    position: Vector2;
 }
 
 interface Display {
@@ -124,7 +133,7 @@ interface Display {
 
 export function createDisplay(ctx: CanvasRenderingContext2D, width: number, height: number): Display {
     const backImageData = new ImageData(width, height);
-    backImageData.data.fill(255);
+    backImageData.data.fill(0);
     const backCanvas = new OffscreenCanvas(width, height);
     const backCtx = backCanvas.getContext('2d');
     if (backCtx === null) throw new Error('2D context not found');
@@ -292,6 +301,16 @@ export async function createGame(strategy: string): Promise<Game> {
         return;
     }
 
+    const [playerImageData] = await Promise.all([
+        loadImageData('grass.png')
+    ]);
+
+    const assets = [
+        playerImageData
+    ];
+
+    const sprites = []!;
+
     return {
         world, player, m3Pool, v2Pool, v2Pool2, oRectPool, spearPool, spears: [],
         meteoritePool, meteorites: [], obsidianPool, obsidians: [], thunderstorm, orb, rupture, walls,
@@ -301,7 +320,9 @@ export async function createGame(strategy: string): Promise<Game> {
         agentWorker,
         obstacles,
         kdTree,
-        simulationCycle
+        simulationCycle,
+        assets,
+        sprites
     };
 }
 
@@ -385,7 +406,7 @@ export async function updateGame(display: Display, gameState: Game, elapsedTime:
     const thingsToRender = gameState.world.query(pp.x - cx, pp.y - cy, pp.x + cx, pp.y + cy);
 
     const sprite: HTMLImageElement | null = gameState.player.sprite;
-    // if (!sprite) return;
+    if (!sprite) return;
     const dx = (ctx.canvas.width - gameState.player.displayWidth) / 2;
     const dy = (ctx.canvas.height - gameState.player.displayHeight) / 2;
     let imageOffset: number[] = [0, 0];
@@ -417,6 +438,7 @@ export async function updateGame(display: Display, gameState: Game, elapsedTime:
             imageOffset = [0, 3];
         }
     }
+    
 
     // TODO: (legacy) iterate over all shapes in the world, use an Iterator for spatial partiioning or separate arrays, or just over partitions
     // const allShapes = gameState.world.all();
@@ -433,6 +455,35 @@ export async function updateGame(display: Display, gameState: Game, elapsedTime:
     // }
 
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+    // TODO: refactor
+    if (true) {
+        const sprite = {
+            asset: gameState.assets[0],
+            position: new Vector2(cx, cy)
+        }
+        const asset = sprite.asset!;
+        const src = asset.data;
+        const dest = display.backImageData.data;
+        const sx = 2*sprite.position.x;
+        const sy = sprite.position.y;
+        const width = asset.width;
+        const height = asset.height;
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const srcPosition = (y * width + x) * 4;
+                const bx = sx + x;
+                const by = sy + y;
+                const destPosition = (by * display.backImageData.width + bx) * 4;
+                const alpha = src[srcPosition + 3]! / 255;
+                dest[destPosition + 0] = dest[destPosition + 0]! * (1 - alpha) + src[srcPosition + 0]! * alpha;
+                dest[destPosition + 1] = dest[destPosition + 1]! * (1 - alpha) + src[srcPosition + 1]! * alpha;
+                dest[destPosition + 2] = dest[destPosition + 2]! * (1 - alpha) + src[srcPosition + 2]! * alpha;
+            }
+        }
+        display.backCtx.putImageData(display.backImageData, 0, 0);
+        display.ctx.drawImage(display.backCtx.canvas, 0, 0, display.backCtx.canvas.width, display.backCtx.canvas.height);
+    }
     // ctx.drawImage(sprite, 128 * imageOffset[0]!, 128 * imageOffset[1]!, gameState.player.displayWidth, gameState.player.displayHeight, dx, dy - gameState.player.displayHeight/2, gameState.player.displayWidth, gameState.player.displayHeight);
 
     ctx.save();
@@ -478,6 +529,7 @@ export async function updateGame(display: Display, gameState: Game, elapsedTime:
             cy + pp.y  // Vertical translation to center player y
         );
     }
+    
 
 
     // Move all spears
@@ -1049,8 +1101,8 @@ class Player {
 
     async loadSprite() {
         // TODO: webp vs avif (vs png?)
-        // this.sprite = await loadImage('Nomad_Atlas.webp');
-        this.sprite = null;
+        this.sprite = await loadImage('grass.png');
+        // this.sprite = null;
     }
 }
 
@@ -1135,10 +1187,22 @@ class SpatialHashGrid implements PartitionStrategy {
 
 // Spatial Grid, BVH, QuadTree
 
-// TODO: make this a proper function and load player/spritesheet sprites better
-async function loadImage(src: string) {
+// TODO: load player/spritesheet sprites better
+
+async function loadImage(src: string): Promise<HTMLImageElement> {
     const img = new Image();
     img.src = src;
-    await img.decode();
-    return img;
+    return new Promise((resolve, reject) => {
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+    });
+}
+
+async function loadImageData(url: string): Promise<ImageData> {
+    const image = await loadImage(url);
+    const canvas = new OffscreenCanvas(image.width, image.height);
+    const ctx = canvas.getContext('2d');
+    if (ctx === null) throw new Error('2D context not found');
+    ctx.drawImage(image, 0, 0);
+    return ctx.getImageData(0, 0, image.width, image.height);
 }

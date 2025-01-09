@@ -52,9 +52,9 @@ export function Game() {
                 gameState.player.canvasCenterX = newWidth / 2;
                 gameState.player.canvasCenterY = newHeight / 2;
                 if (!canvas.getContext('2d')) throw new Error('2D context not found');
-                const newImageData = new ImageData(newWidth, newHeight);
-                newImageData.data.fill(255);
-                display.backImageData = newImageData;
+                const newBackImageData = new ImageData(newWidth, newHeight);
+                newBackImageData.data.fill(255 * 0.1);
+                display.backImageData = newBackImageData;
                 const offscreenCanvas = display.backCtx.canvas;
                 offscreenCanvas.width = newWidth;
                 offscreenCanvas.height = newHeight;
