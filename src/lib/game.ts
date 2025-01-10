@@ -3,7 +3,7 @@ import { Shape, Circle, OrientedRect, Rect } from "./shape";
 import { Pool, Pool2 } from "./pool";
 import { _Math } from "./mathUtils";
 import { Matrix3 } from "./matrix3";
-import { defaultFissure, Lion, Meteorite, Obsidian, Orb, RESOURCE_STATE, Rupture, Spear, Thunderstorm, Wall } from "./spear";
+import { defaultFissure, Lion, Meteorite, Obsidian, Orb, Rectangle, RESOURCE_STATE, Rupture, Spear, Thunderstorm, Wall } from "./spear";
 import { AgentWorker, Obstacle, addObstacle, KdTree, addCircle } from "./orca";
 
 const GAME_WIDTH = 6400;
@@ -127,7 +127,7 @@ interface Sprite {
     position: Vector2;
 }
 
-interface Display {
+export interface Display {
     ctx: CanvasRenderingContext2D;
     backCtx: OffscreenCanvasRenderingContext2D;
     backImageData: ImageData;
@@ -425,58 +425,10 @@ export async function updateGame(display: Display, gameState: Game, elapsedTime:
     // v2Pool2.free(p_pv);
 
     const ctx = display.ctx;
-
     const inverseDeltaTime = 1 / deltaTime;
     const thingsToRender = gameState.world.query(pp.x - cx, pp.y - cy, pp.x + cx, pp.y + cy);
-
-    const sprite: HTMLImageElement | null = gameState.player.sprite;
-    if (!sprite) return;
     const dx = (ctx.canvas.width - gameState.player.displayWidth) / 2;
     const dy = (ctx.canvas.height - gameState.player.displayHeight) / 2;
-    let imageOffset: number[] = [0, 0];
-
-    // We probably dont want to update the player direction directly here, maybe use a separate vector or scalar
-    if (gameState.player.playerDirection !== DIR_9.Idle) {
-        if (gameState.player.playerDirection === DIR_9.N) {
-            imageOffset = [3, 2];
-        }
-        if (gameState.player.playerDirection === DIR_9.S) {
-            imageOffset = [2, 3];
-        }
-        if (gameState.player.playerDirection === DIR_9.W) {
-            imageOffset = [3, 3];
-        }
-        if (gameState.player.playerDirection === DIR_9.E) {
-            imageOffset = [0, 2];
-        }
-        if (gameState.player.playerDirection === DIR_9.NW) {
-            imageOffset = [2, 2];
-        }
-        if (gameState.player.playerDirection === DIR_9.NE) {
-            imageOffset = [1, 2];
-        }
-        if (gameState.player.playerDirection === DIR_9.SW) {
-            imageOffset = [1, 3];
-        }
-        if (gameState.player.playerDirection === DIR_9.SE) {
-            imageOffset = [0, 3];
-        }
-    }
-
-
-    // TODO: (legacy) iterate over all shapes in the world, use an Iterator for spatial partiioning or separate arrays, or just over partitions
-    // const allShapes = gameState.world.all();
-    // for (const thing of allShapes) {
-    //     const tc = thing.center, tv = thing.velocity;
-    //     if (!tv.isZero()) {
-    //         const p_tv = gameState.v2Pool2.alloc();
-    //         tc.add(p_tv.copy(tv).scale(deltaTime));
-    //         gameState.v2Pool2.free(p_tv);
-    //         if (thing instanceof OrientedRect) {
-    //             thing.update();
-    //         }
-    //     }
-    // }
 
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
@@ -485,7 +437,7 @@ export async function updateGame(display: Display, gameState: Game, elapsedTime:
         const dir9 = gameState.player.playerDirection;
         const assetName = dir9 === 0 ? 'Nomad_Idle_5_01' : `Nomad_StartRun_${dir9}_01`;
         const sprite = {
-            asset: gameState.assets.get(assetName), 
+            asset: gameState.assets.get(assetName),
             position: new Vector2(cx, cy)
         }
         const asset = sprite.asset!;
@@ -494,7 +446,7 @@ export async function updateGame(display: Display, gameState: Game, elapsedTime:
         const width = asset.width;
         const height = asset.height;
         const sx = sprite.position.x * 2 - width / 2;
-        const sy = sprite.position.y - height / 2;
+        const sy = sprite.position.y - height;
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
                 const srcPosition = (y * width + x) * 4;
@@ -510,53 +462,10 @@ export async function updateGame(display: Display, gameState: Game, elapsedTime:
         display.backCtx.putImageData(display.backImageData, 0, 0);
         display.ctx.drawImage(display.backCtx.canvas, 0, 0, display.backCtx.canvas.width, display.backCtx.canvas.height);
     }
-    // ctx.drawImage(sprite, 128 * imageOffset[0]!, 128 * imageOffset[1]!, gameState.player.displayWidth, gameState.player.displayHeight, dx, dy - gameState.player.displayHeight/2, gameState.player.displayWidth, gameState.player.displayHeight);
-
-    ctx.save();
-    ctx.transform(
-        1, 0,      // Horizontal scaling and skewing
-        0, -1,     // Vertical scaling and skewing
-        cx - pp.x, // Horizontal translation to center player x
-        cy + pp.y  // Vertical translation to center player y
-    );
-    // TODO: use off screen canvas/ctx for rendering even the dev mode elements
 
     // Move player
     const p_pv = gameState.v2Pool.alloc(pv.x, pv.y);
     pp.add(p_pv.scale(deltaTime));
-    ctx.beginPath();
-    ctx.strokeStyle = '#00ccff';
-    ctx.arc(pp.x, pp.y, gameState.player.radius, 0, _Math.TAU);
-    ctx.stroke();
-    ctx.strokeStyle = '#ffffff';
-
-    if (false) {
-        // TODO: replace this with image data manipulation and backImageData putting
-        // TODO: replace player sprites with 3D ones
-        ctx.translate(pp.x, pp.y + gameState.player.displayHeight / 2);
-        ctx.scale(1, -1);
-        ctx.drawImage(
-            sprite!,
-            (128 * imageOffset[0]!),
-            (128 * imageOffset[1]!),
-            gameState.player.displayWidth,
-            gameState.player.displayHeight,
-            -gameState.player.displayWidth / 2,
-            -gameState.player.displayHeight / 2 + 10,
-            gameState.player.displayWidth,
-            gameState.player.displayHeight
-        );
-        ctx.restore();
-        ctx.save();
-        ctx.transform(
-            1, 0,      // Horizontal scaling and skewing
-            0, -1,     // Vertical scaling and skewing
-            cx - pp.x, // Horizontal translation to center player x
-            cy + pp.y  // Vertical translation to center player y
-        );
-    }
-
-
 
     // Move all spears
     const p_previousCenter = gameState.v2Pool.alloc(0, 0);
@@ -580,17 +489,11 @@ export async function updateGame(display: Display, gameState: Game, elapsedTime:
         v[3].add(p_velocity);
         // TODO: collision checks and stuff after every object position is updated
         // TODO: only draw if in view
-        ctx.beginPath();
-        ctx.moveTo(v[0].x, v[0].y);
-        ctx.lineTo(v[1].x, v[1].y);
-        ctx.lineTo(v[2].x, v[2].y);
-        ctx.lineTo(v[3].x, v[3].y);
-        ctx.stroke();
     }
     gameState.v2Pool.free(p_previousCenter);
     gameState.v2Pool.free(p_velocity);
 
-    // Move all meteorites
+    // Move meteorites
     for (const meteorite of gameState.meteorites) {
         meteorite.lifetime -= deltaTime;
         if (meteorite.lifetime <= 0) {
@@ -605,19 +508,6 @@ export async function updateGame(display: Display, gameState: Game, elapsedTime:
         t = _Math.easeOutQuad(t);
         meteorite.center.lerpVectors(meteorite.origin, meteorite.target, t);
         const displayRadius = _Math.lerp(0.5, 1, t) * METEORITE_DISPLAY_RADIUS;
-        ctx.beginPath();
-        ctx.strokeStyle = '#ffffff';
-        ctx.moveTo(meteorite.origin.x, meteorite.origin.y);
-        ctx.lineTo(meteorite.target.x, meteorite.target.y);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.fillStyle = '#ff7b00';
-        ctx.arc(meteorite.center.x, meteorite.center.y, displayRadius, 0, _Math.TAU);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.strokeStyle = '#ff0000';
-        ctx.arc(meteorite.target.x, meteorite.target.y, meteorite.radius, 0, _Math.TAU);
-        ctx.stroke();
     }
 
     // Collect/move obsidians
@@ -637,12 +527,6 @@ export async function updateGame(display: Display, gameState: Game, elapsedTime:
                 if (c.distToSq(jump) < OBSIDIAN_THRESHOLD) {
                     obsidian.resourceState = RESOURCE_STATE.Collecting;
                 }
-                ctx.strokeStyle = '#47ff5f';
-                ctx.beginPath();
-                ctx.arc(jump.x, jump.y, obsidian.displayRadius, 0, _Math.TAU);
-                ctx.stroke();
-                ctx.closePath();
-                ctx.strokeStyle = '#ffffff';
                 break;
             }
             case RESOURCE_STATE.Collecting: {
@@ -654,15 +538,9 @@ export async function updateGame(display: Display, gameState: Game, elapsedTime:
                     gameState.obsidianPool.free(obsidian);
                     // TODO: add resource to player
                 }
-                ctx.strokeStyle = '#bc75ff';
                 break;
             }
         }
-        ctx.beginPath();
-        ctx.moveTo(c.x, c.y);
-        ctx.arc(c.x, c.y, obsidian.displayRadius, 0, _Math.TAU);
-        ctx.stroke();
-        ctx.strokeStyle = '#ffffff';
     }
 
     // Move thunderstorm
@@ -677,15 +555,6 @@ export async function updateGame(display: Display, gameState: Game, elapsedTime:
             deceleration = _Math.easeOutQuad(deceleration);
             c.add(v.copy(pp).sub(c).norm().scale(THUNDERSTORM_VELOCITY * deceleration * deltaTime));
         }
-        ctx.beginPath();
-        ctx.strokeStyle = '#141313f8';
-        ctx.arc(c.x, c.y, r, 0, _Math.TAU);
-        ctx.stroke();
-        ctx.strokeStyle = '#ffffff44';
-        ctx.beginPath();
-        ctx.arc(c.x, c.y + storm.offset, r, 0, _Math.TAU);
-        ctx.stroke();
-        ctx.strokeStyle = '#ffffff';
     }
 
     // Move orbs
@@ -699,16 +568,8 @@ export async function updateGame(display: Display, gameState: Game, elapsedTime:
             // TODO: probably some optimization possible (reduce trig?)
             orb.angle += tauStep;
             c.set(Math.cos(orb.angle), Math.sin(orb.angle)).scale(o).add(pp);
-            ctx.strokeStyle = '#b3ff00';
-            ctx.beginPath();
-            ctx.arc(c.x, c.y, orb.radius, 0, _Math.TAU);
-            ctx.stroke();
         }
         orb.angle %= _Math.TAU; // Normalize radians to range [0, 2π)
-        ctx.beginPath();
-        ctx.arc(pp.x, pp.y, o, 0, _Math.TAU);
-        ctx.stroke();
-        ctx.strokeStyle = '#ffffff';
     }
 
     // Move rupture
@@ -803,62 +664,7 @@ export async function updateGame(display: Display, gameState: Game, elapsedTime:
                 }
             }
         }
-
-
-        for (let i = 0; i < rupture.fissureCount; i++) {
-            const fissure = fissures[i]!;
-            for (let j = 0; j < rupture.stepIndex + 1; j++) {
-                const step = fissure.steps[j]!;
-                ctx.beginPath();
-                ctx.arc(step.point.x, step.point.y, 8, 0, _Math.TAU);
-                ctx.fill();
-                ctx.closePath();
-                ctx.beginPath();
-                for (let k = 0; k < step.vertices.length; k++) {
-                    const vertex = step.vertices[k]!;
-                    ctx.fillText(String.fromCharCode(65 + k), vertex.x, vertex.y); // A, B, C, D
-                    if (k === 0) {
-                        ctx.moveTo(vertex.x, vertex.y);
-                    } else {
-                        ctx.lineTo(vertex.x, vertex.y);
-                    }
-                }
-                ctx.closePath();
-                ctx.stroke();
-            }
-        }
     }
-    // Check walls
-    for (const wall of gameState.walls) {
-        // TODO: cleanup
-        continue;
-        ctx.beginPath();
-        ctx.strokeStyle = '#fa8585';
-        const vertices = wall.vertices;
-        const colorArray = ['#ff0000', '#00ff00', '#0000ff', '#ffff00'];
-        for (let i = 0; i < 4; i++) {
-            ctx.fillStyle = colorArray[i % 4]!;
-            ctx.beginPath();
-            ctx.moveTo(vertices[i]!.x, vertices[i]!.y);
-            ctx.arc(vertices[i]!.x, vertices[i]!.y, 4, 0, _Math.TAU);
-            ctx.fill();
-            ctx.closePath();
-            ctx.lineTo(vertices[(i + 1) % 4]!.x, vertices[(i + 1) % 4]!.y);
-            ctx.stroke();
-        }
-        const p_axis = gameState.v2Pool.alloc(0, 0);
-        for (let i = 0; i < 2; i++) {
-            const a = wall.axes[i]!;
-            p_axis.copy(a).scale(40).add(wall.center);
-            ctx.strokeStyle = colorArray[i]!;
-            ctx.beginPath();
-            ctx.moveTo(wall.center.x, wall.center.y);
-            ctx.lineTo(p_axis.x, p_axis.y);
-            ctx.stroke();
-        }
-        gameState.v2Pool.free(p_axis);
-    }
-    ctx.strokeStyle = '#ffffff';
 
     for (const lion of gameState.lions) {
         if (lion.center.distToSq(gameState.player.center) <= lion.radiusSq * 2) {
@@ -927,47 +733,167 @@ export async function updateGame(display: Display, gameState: Game, elapsedTime:
             maxNeighbors: lionA.maxNeighbors,
             neighborDistSq: lionA.neighborDistSq
         }, deltaTime, 1 / deltaTime);
-        if (i === 2) {
-            ctx.strokeStyle = '#09ff00';
-            const L = 1000;
-            const opacityStep = Math.min(1 / constraints.length, 1 / 3).toFixed(1);
-            for (const constraint of constraints) {
-                const direction = constraint.direction, v = constraint.point;
-                const P_pos = v.clone().scale(TIME_HORIZON).add(pA);
-                const D_pos = direction.clone().scale(TIME_HORIZON);
-                const N = new Vector2(-D_pos.y, D_pos.x).neg().norm();
-                const P1 = P_pos.clone().add(D_pos.clone().scale(L));
-                const P2 = P_pos.clone().sub(D_pos.clone().scale(L));
-                const NF1 = P1.clone().add(N.clone().scale(L));
-                const NF2 = P2.clone().add(N.clone().scale(L));
-                ctx.beginPath();
-                ctx.moveTo(P1.x, P1.y);
-                ctx.lineTo(P2.x, P2.y);
-                ctx.strokeStyle = 'red';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-                ctx.beginPath();
-                ctx.moveTo(P1.x, P1.y);
-                ctx.lineTo(NF1.x, NF1.y);
-                ctx.lineTo(NF2.x, NF2.y);
-                ctx.lineTo(P2.x, P2.y);
-                ctx.closePath();
-                ctx.fillStyle = `rgba(255, 0, 0, ${opacityStep})`;
-                ctx.fill();
-
-            }
-            ctx.strokeStyle = '#000000ff';
-            ctx.beginPath();
-            ctx.moveTo(pA.x, pA.y);
-            const nV = pA.clone().add(vA.clone().scale(TIME_HORIZON));
-            ctx.lineTo(nV.x, nV.y);
-            ctx.lineWidth = 3;
-            ctx.stroke();
-            ctx.lineWidth = 1;
-            ctx.strokeStyle = '#ffffff';
-        }
     }
 
+    for (const lion of gameState.lions) {
+        if (Number.isNaN(lion.velocity.x) || Number.isNaN(lion.velocity.y)) {
+            console.error(lion);
+            console.error('velocity', lion.velocity, ' is NaN');
+            debugger;
+        }
+        lion.center.add(lion.velocity.clone().scale(deltaTime));
+    }
+}
+
+export function renderShapes(ctx: CanvasRenderingContext2D, gameState: Game, elapsedTime: number, deltaTime: number) {
+    const player = gameState.player;
+    const pp = player.center;
+    // First we need to prepare the canvas for the cartesian system
+    ctx.save();
+    ctx.transform(
+        1, 0,                        // Horizontal scaling and skewing
+        0, -1,                       // Vertical scaling and skewing
+        player.canvasCenterX - pp.x, // Horizontal translation to center player x
+        player.canvasCenterY + pp.y  // Vertical translation to center player y
+    );
+    // Now we can render world space coordinates directly
+    // Draw player
+    ctx.strokeStyle = '#00ccff';
+    ctx.fillStyle = '#ffffff';
+    renderPoint(ctx, pp, player.radius);
+    renderLine(ctx, pp, player.mousePosition);
+    renderPoint(ctx, pp, player.velocity.len());
+    const direction = pp.clone().add(player.velocity);
+    renderLine(ctx, pp, direction);
+    const angle = Math.atan2(direction.y - pp.y, direction.x - pp.x);
+    const arrowSize = 8;
+    ctx.beginPath();
+    ctx.moveTo(direction.x, direction.y);
+    ctx.lineTo(
+        direction.x - arrowSize * Math.cos(angle - Math.PI / 6),
+        direction.y - arrowSize * Math.sin(angle - Math.PI / 6)
+    );
+    ctx.lineTo(
+        direction.x - arrowSize * Math.cos(angle + Math.PI / 6),
+        direction.y - arrowSize * Math.sin(angle + Math.PI / 6)
+    );
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+
+    // Draw spears
+    gameState.spears.forEach((spear) => renderRectangle(ctx, spear.vertices));
+
+    // Draw meteorites
+    ctx.strokeStyle = '#ff7b00';
+    ctx.fillStyle = '#ff7b00';
+    gameState.meteorites.forEach((meteorite) => {
+        // TODO: remove duplicate t logic
+        let t = 1 - (meteorite.lifetime / meteorite.duration); // Normalize to [0, 1] range where 1 = target
+        t = _Math.easeOutQuad(t);
+        const displayRadius = _Math.lerp(0.5, 1, t) * METEORITE_DISPLAY_RADIUS;
+        renderLine(ctx, meteorite.origin, meteorite.target);
+        renderPoint(ctx, meteorite.center, displayRadius, true);
+        renderPoint(ctx, meteorite.target, meteorite.radius, false);
+    });
+    ctx.strokeStyle = '#ffffff';
+    ctx.fillStyle = '#ffffff';
+
+    // Draw obsidians
+    ctx.strokeStyle = '#47ff5f';
+    const oJumping = gameState.obsidians.filter((o) => o.resourceState === RESOURCE_STATE.Jumping);
+    oJumping.forEach((o) => renderPoint(ctx, o.jump, o.displayRadius, false));
+    ctx.strokeStyle = '#bc75ff';
+    const oCollecting = gameState.obsidians.filter((o) => o.resourceState === RESOURCE_STATE.Collecting);
+    oCollecting.forEach((o) => renderPoint(ctx, o.center, o.displayRadius, false));
+    ctx.strokeStyle = '#ffffff';
+    const oUncollected = gameState.obsidians.filter((o) => o.resourceState !== RESOURCE_STATE.Collecting);
+    oUncollected.forEach((o) => renderPoint(ctx, o.center, o.displayRadius, false));
+    gameState.obsidians.forEach((o) => {
+        renderLine(ctx, o.center, o.center.clone().set(o.center.x + o.displayRadius, o.center.y))
+    });
+
+    // Draw thunderstorm
+    if (gameState.thunderstorm.active) {
+        const storm = gameState.thunderstorm;
+        ctx.strokeStyle = '#141313f8';
+        renderPoint(ctx, storm.center, storm.radius, false);
+        ctx.strokeStyle = '#ffffff44';
+        renderCircle(ctx, storm.center.x, storm.center.y + storm.offset, storm.radius, false);
+        ctx.strokeStyle = '#ffffff';
+    }
+
+    // Draw orbs
+    if (gameState.orb.active) {
+        ctx.strokeStyle = '#b3ff00';
+        const orb = gameState.orb;
+        renderPoint(ctx, pp, orb.offset, false);
+        for (const c of orb.centers) {
+            renderPoint(ctx, c, orb.radius, false);
+        }
+        ctx.strokeStyle = '#ffffff';
+    }
+
+    // Draw rupture / draw fissures
+    if (gameState.rupture.active) {
+        ctx.strokeStyle = '#705e35';
+        const rupture = gameState.rupture;
+        const fissures = rupture.fissures;
+        for (let i = 0; i < rupture.fissureCount; i++) {
+            const fissure = fissures[i]!;
+            for (let j = 0; j < rupture.stepIndex + 1; j++) {
+                const step = fissure.steps[j]!;
+                renderPoint(ctx, step.point, 3, false);
+                renderRectangle(ctx, step.vertices, false);
+            }
+        }
+        ctx.strokeStyle = '#ffffff';
+    }
+
+    // Draw agent / draw lion / draw constraints / draw orca
+    // TODO: remove duplicate constraints logic
+    const lionA = gameState.lions[2]!;
+    const pA = lionA.center, rA = lionA.radius, vA = lionA.velocity;
+    const constraints = gameState.agentWorker.processAgent({
+        id: lionA.id,
+        center: pA,
+        velocity: vA,
+        radius: lionA.radius,
+        radiusSq: lionA.radiusSq,
+        maxSpeed: lionA.maxSpeed,
+        prefVelocity: lionA.prefVelocity,
+        maxNeighbors: lionA.maxNeighbors,
+        neighborDistSq: lionA.neighborDistSq
+    }, deltaTime, 1 / deltaTime);
+    const L = 1000;
+    const opacityStep = Math.min(1 / constraints.length, 1 / 3).toFixed(1);
+    ctx.strokeStyle = '#ff0000';
+    ctx.lineWidth = 3;
+    ctx.fillStyle = `rgba(255, 0, 0, ${opacityStep})`;
+    for (const constraint of constraints) {
+        const direction = constraint.direction, v = constraint.point;
+        const P_pos = v.clone().scale(TIME_HORIZON).add(pA);
+        const D_pos = direction.clone().scale(TIME_HORIZON);
+        const N = new Vector2(-D_pos.y, D_pos.x).neg().norm();
+        const P1 = P_pos.clone().add(D_pos.clone().scale(L));
+        const P2 = P_pos.clone().sub(D_pos.clone().scale(L));
+        const NF1 = P1.clone().add(N.clone().scale(L));
+        const NF2 = P2.clone().add(N.clone().scale(L));
+        renderLine(ctx, P1, P2);
+        ctx.beginPath();
+        ctx.moveTo(P1.x, P1.y);
+        ctx.lineTo(NF1.x, NF1.y);
+        ctx.lineTo(NF2.x, NF2.y);
+        ctx.lineTo(P2.x, P2.y);
+        ctx.closePath();
+        ctx.fill();
+
+    }
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = '#ffffff';
+    ctx.fillStyle = '#ffffff';
+
+    // Draw obstacles
     ctx.strokeStyle = '#c8ff00';
     for (const obstacle of gameState.obstacles) {
         const startPoint = obstacle.point;
@@ -977,120 +903,80 @@ export async function updateGame(display: Display, gameState: Game, elapsedTime:
         let next = obstacle.next!;
         while (next.id !== startId) {
             ctx.lineTo(next.point.x, next.point.y);
-            ctx.stroke();
             next = next.next!;
         }
+        ctx.stroke();
         ctx.closePath();
     }
     ctx.strokeStyle = '#FFFFFF';
 
+    // Draw agents / draw lions
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 3;
+    ctx.fillStyle = '#5a5a5a'
     for (const lion of gameState.lions) {
-        if (Number.isNaN(lion.velocity.x) || Number.isNaN(lion.velocity.y)) {
-            console.error(lion);
-            console.error('velocity', lion.velocity, ' is NaN');
-            debugger;
-        }
-        lion.center.add(lion.velocity.clone().scale(deltaTime));
-        // Draw
-        ctx.beginPath();
-        ctx.fillStyle = '#ffffff';
-        ctx.moveTo(lion.center.x, lion.center.y);
-        ctx.arc(lion.center.x, lion.center.y, lion.radius, 0, _Math.TAU);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.fillStyle = '#ff0000';
-        ctx.lineTo(lion.velocity.x, lion.velocity.y);
-        ctx.stroke();
+        renderPoint(ctx, lion.center, lion.radius, true);
+        const velocity = lion.velocity.clone().scale(TIME_HORIZON);
+        renderLine(ctx, lion.center, lion.center.clone().add(velocity));
     }
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.fillStyle = '#FFFFFF';
 
-    // for (const thing of [...thingsToRender, gameState.player]) {
-    for (const thing of [gameState.player]) {
-        // TODO: obviously dont update velocity here, but rather in the game loop
-        // thing.center.add(thing.velocity.setLength(HUMAN_VELOCITY).clone().scale(deltaTime));
-        const direction = thing.center.clone().add(thing.velocity);
-
-        ctx.lineWidth = 2;
-
-        ctx.beginPath();
-        ctx.fillStyle = '#00ff00';
-        ctx.arc(thing.center.x, thing.center.y, 4, 0, _Math.TAU);
-        ctx.fill();
-
-        ctx.beginPath();
-        ctx.arc(thing.center.x, thing.center.y, thing.velocity.len(), 0, _Math.TAU);
-        ctx.strokeStyle = '#ffffff';
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.strokeStyle = '#ffffff';
-        ctx.moveTo(thing.center.x, thing.center.y);
-        ctx.lineTo(direction.x, direction.y);
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        const angle = Math.atan2(direction.y - thing.center.y, direction.x - thing.center.x);
-        const arrowSize = 8;
-        ctx.beginPath();
-        ctx.moveTo(direction.x, direction.y);
-        ctx.lineTo(
-            direction.x - arrowSize * Math.cos(angle - Math.PI / 6),
-            direction.y - arrowSize * Math.sin(angle - Math.PI / 6)
-        );
-        ctx.lineTo(
-            direction.x - arrowSize * Math.cos(angle + Math.PI / 6),
-            direction.y - arrowSize * Math.sin(angle + Math.PI / 6)
-        );
-        ctx.closePath();
-        ctx.fillStyle = 'white';
-        ctx.fill();
-
-        ctx.beginPath();
-        ctx.strokeStyle = '#ff0000';
-        if (thing instanceof Rect) {
-            ctx.strokeRect(thing.center.x - (thing.width / 2), thing.center.y - (thing.height / 2), thing.width, thing.height);
-        } else if (thing instanceof Circle) {
-            ctx.arc(thing.center.x, thing.center.y, thing.radius, 0, _Math.TAU);
-            ctx.stroke();
-        }
-
-        ctx.beginPath();
-        ctx.fillStyle = '#00a2ff';
-        ctx.arc(direction.x, direction.y, 4, 0, _Math.TAU);
-        ctx.fill();
-
-        ctx.strokeStyle = '#000000';
-        ctx.fillStyle = '#000000';
-
-        if (thing instanceof OrientedRect) {
-            // thing.setDimensions(thing.width + deltaTime * 3, thing.height + deltaTime * 1.5, thing.angle + deltaTime * 2);
-            // thing.updateVertices();
-            const vertices = thing.vertices;
-            const colorArray = ['#ff0000', '#00ff00', '#0000ff', '#ffff00'];
-
-            for (let i = 0; i < 4; i++) {
-                ctx.beginPath();
-                ctx.moveTo(vertices[i]!.x, vertices[i]!.y);
-                ctx.fillStyle = colorArray[i % 4]!;
-                ctx.arc(vertices[i]!.x, vertices[i]!.y, 4, 0, _Math.TAU);
-                ctx.fill();
-                ctx.lineTo(vertices[(i + 1) % 4]!.x, vertices[(i + 1) % 4]!.y);
-                ctx.stroke();
-            }
-            ctx.moveTo(thing.center.x, thing.center.y);
-            ctx.arc(thing.center.x, thing.center.y, 1, 0, _Math.TAU);
-            ctx.fill();
-        }
-    }
-    ctx.beginPath();
-
-    // Draw line from player to mouse position
-    ctx.moveTo(pp.x, pp.y);
-    ctx.lineTo(mp.x, mp.y);
-    ctx.stroke();
-    ctx.closePath();
-
+    // Finally restore the original matrix
     ctx.restore();
 }
+
+function renderPoint(ctx: CanvasRenderingContext2D, point: Vector2, radius: number, fill = false) {
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, radius, 0, _Math.TAU);
+    if (fill) {
+        ctx.fill();
+    } else {
+        ctx.stroke();
+    }
+}
+
+function renderCircle(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, fill = false) {
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, _Math.TAU);
+    if (fill) {
+        ctx.fill();
+    } else {
+        ctx.stroke();
+    }
+}
+
+function renderRectangle(ctx: CanvasRenderingContext2D, vertices: Rectangle, colored = true) {
+    // Intended order: top-left, top-right, bottom-right, bottom-left
+    // In colors: #ff0000 (red), #00ff00 (green), #0000ff (blue), #ffff00 (yellow)
+    // Using two loops instead of 1 for better rendering performance (fewer strokes)
+    ctx.beginPath();
+    for (let i = 0; i < 4; i++) {
+        const from = vertices[i]!;
+        ctx.moveTo(from.x, from.y);
+        const to = vertices[(i + 1) % 4]!;
+        ctx.lineTo(to.x, to.y);
+    }
+    ctx.stroke();
+    if (!colored) return;
+    const colorArray = ['#ff0000', '#00ff00', '#0000ff', '#ffff00'];
+    for (let i = 0; i < 4; i++) {
+        const point = vertices[i]!;
+        ctx.beginPath();
+        ctx.fillStyle = colorArray[i % 4]!;
+        ctx.arc(point.x, point.y, 3, 0, _Math.TAU);
+        ctx.fill();
+    }
+}
+
+function renderLine(ctx: CanvasRenderingContext2D, start: Vector2, end: Vector2) {
+    ctx.beginPath();
+    ctx.moveTo(start.x, start.y);
+    ctx.lineTo(end.x, end.y);
+    ctx.stroke();
+}
+
 
 /** Represents the player (main character) in the game. */
 class Player {
@@ -1101,7 +987,6 @@ class Player {
     radiusSq = this.radius * this.radius;
 
     playerDirection: Dir9 = DIR_9.Idle;
-    sprite: HTMLImageElement | null = null;
     displayWidth = 128;
     displayHeight = 128;
 
@@ -1119,17 +1004,6 @@ class Player {
     pressingLeft = false;
     pressingRight = false;
     idle = () => this.playerDirection === DIR_9.Idle;
-
-    constructor() {
-        // super(new Vector2(128, 128), new Vector2(0, 0), new Vector2(0, 0), 64, 128);
-        void this.loadSprite();
-    }
-
-    async loadSprite() {
-        // TODO: webp vs avif (vs png?)
-        this.sprite = await loadImage('grass.png');
-        // this.sprite = null;
-    }
 }
 
 // TODO: flip the bits on keyboard input instead?

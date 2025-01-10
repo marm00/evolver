@@ -5,10 +5,12 @@ import { Vector2 } from "./vector2";
 // Using classes over objects for better memory management (*n* method definitions vs prototype)
 // TODO: transform unsettable classes to objects?
 
+export type Rectangle = [Vector2, Vector2, Vector2, Vector2];
+
 
 export class Spear {
     center: Vector2;
-    vertices: [Vector2, Vector2, Vector2, Vector2];
+    vertices: Rectangle;
     axes: [Vector2, Vector2];
     // TODO: use axes and remove rotation matrix probably
     rotationMatrix: Matrix2;
@@ -69,7 +71,7 @@ export class Spear {
 
 export class Wall {
     center: Vector2;
-    vertices: [Vector2, Vector2, Vector2, Vector2];
+    vertices: Rectangle;
     axes: [Vector2, Vector2];
     halfExtents: Vector2;
     cos: number;
@@ -316,7 +318,7 @@ interface Line {
 /** Line segment (step) of fissure, storing an OBB. */
 interface FissureStep {
     point: Vector2;
-    vertices: [Vector2, Vector2, Vector2, Vector2];
+    vertices: Rectangle;
     axes: [Vector2, Vector2]; // Rotation matrix with [0] as direction
     angle: number;
 }

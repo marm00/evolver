@@ -146,7 +146,11 @@ export function Game() {
 
                 if (!pausedRef.current) {
                     game.updateGame(display, gameState, elapsedTime, deltaTime).then().catch(console.error);
+                    if (showDebug) {
+                        game.renderShapes(ctx, gameState, elapsedTime, deltaTime);
+                    }
                 }
+
                 setFrameCount(current => current + 1); // TODO: better way for manual render trigger?
                 window.requestAnimationFrame(frame);
             };
