@@ -114,12 +114,14 @@ export interface Game {
     obstacles: Obstacle[];
     kdTree: KdTree;
     simulationCycle: () => void;
-    assets: Asset[];
+    assets: Assets;
     sprites: Sprite[];
 }
 
+
 type Asset = ImageData;
 
+type Assets = Map<string, Asset>;
 interface Sprite {
     asset: Asset;
     position: Vector2;
@@ -143,6 +145,22 @@ export function createDisplay(ctx: CanvasRenderingContext2D, width: number, heig
         backCtx,
         backImageData
     };
+}
+
+export function resizeDisplay(display: Display, newWidth: number, newHeight: number) {
+    const newBackImageData = new ImageData(newWidth, newHeight);
+    // bg-blue-950 tailwind
+    for (let i = 0; i < newBackImageData.data.length; i += 4) {
+        newBackImageData.data[i + 0] = 23;
+        newBackImageData.data[i + 1] = 37;
+        newBackImageData.data[i + 2] = 85;
+        newBackImageData.data[i + 3] = 255;
+    }
+    display.backImageData = newBackImageData;
+    const offscreenCanvas = display.backCtx.canvas;
+    offscreenCanvas.width = newWidth;
+    offscreenCanvas.height = newHeight;
+    display.backCtx.imageSmoothingEnabled = false;
 }
 
 
@@ -301,14 +319,20 @@ export async function createGame(strategy: string): Promise<Game> {
         return;
     }
 
-    const [playerImageData] = await Promise.all([
-        loadImageData('grass.png')
+    const [playerSprites] = await Promise.all([
+        loadImageAtlas('Nomad_Atlas.webp', 'Nomad_Atlas_Webp.json'),
+        loadImageDataFrame('Nomad_Atlas.webp', {
+            w: 128,
+            h: 128,
+            x: 0,
+            y: 0
+        }),
+        loadImageData('grass.png'),
+        loadAtlas('Nomad_Atlas_Webp.json')
     ]);
 
-    const assets = [
-        playerImageData
-    ];
-
+    const assets = new Map<string, Asset>();
+    playerSprites.forEach((asset, name) => assets.set(name, asset));
     const sprites = [] as Sprite[];
 
     return {
@@ -438,7 +462,7 @@ export async function updateGame(display: Display, gameState: Game, elapsedTime:
             imageOffset = [0, 3];
         }
     }
-    
+
 
     // TODO: (legacy) iterate over all shapes in the world, use an Iterator for spatial partiioning or separate arrays, or just over partitions
     // const allShapes = gameState.world.all();
@@ -458,17 +482,19 @@ export async function updateGame(display: Display, gameState: Game, elapsedTime:
 
     // TODO: refactor
     if (true) {
+        const dir9 = gameState.player.playerDirection;
+        const assetName = dir9 === 0 ? 'Nomad_Idle_5_01' : `Nomad_StartRun_${dir9}_01`;
         const sprite = {
-            asset: gameState.assets[0],
+            asset: gameState.assets.get(assetName), 
             position: new Vector2(cx, cy)
         }
         const asset = sprite.asset!;
         const src = asset.data;
         const dest = display.backImageData.data;
-        const sx = 2*sprite.position.x;
-        const sy = sprite.position.y;
         const width = asset.width;
         const height = asset.height;
+        const sx = sprite.position.x * 2 - width / 2;
+        const sy = sprite.position.y - height / 2;
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
                 const srcPosition = (y * width + x) * 4;
@@ -529,7 +555,7 @@ export async function updateGame(display: Display, gameState: Game, elapsedTime:
             cy + pp.y  // Vertical translation to center player y
         );
     }
-    
+
 
 
     // Move all spears
@@ -1189,6 +1215,19 @@ class SpatialHashGrid implements PartitionStrategy {
 
 // TODO: load player/spritesheet sprites better
 
+interface Atlas {
+    frames: Record<string, AtlasFrame>;
+    width: number;
+    height: number;
+}
+
+interface AtlasFrame {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+}
+
 async function loadImage(src: string): Promise<HTMLImageElement> {
     const img = new Image();
     img.src = src;
@@ -1205,4 +1244,48 @@ async function loadImageData(url: string): Promise<ImageData> {
     if (ctx === null) throw new Error('2D context not found');
     ctx.drawImage(image, 0, 0);
     return ctx.getImageData(0, 0, image.width, image.height);
+}
+
+async function loadImageDataFrame(url: string, frame: AtlasFrame): Promise<ImageData> {
+    const atlas = await loadImage(url);
+    const { w, h, x: sx, y: sy } = frame;
+    const canvas = new OffscreenCanvas(w, h);
+    const ctx = canvas.getContext('2d');
+    if (ctx === null) throw new Error('2D context not found');
+    ctx.drawImage(atlas, sx, sy, w, h, 0, 0, w, h);
+    return ctx.getImageData(0, 0, w, h);
+}
+
+async function loadAtlas(jsonUrl: string): Promise<Atlas> {
+    // This function expects an atlas/spritesheet like http://free-tex-packer.com
+    const data = await fetch(jsonUrl);
+    const json = await data.json();
+    const { frames: jsonFrames, meta: jsonMeta } = json;
+    const frames = Object.fromEntries(
+        Object.entries(jsonFrames).map(
+            ([name, value]) => [name, (value as { frame: AtlasFrame }).frame]
+        )
+    ) as Record<string, AtlasFrame>;
+    return {
+        frames,
+        width: jsonMeta.size.w,
+        height: jsonMeta.size.h
+    }
+}
+
+async function loadImageAtlas(imageUrl: string, jsonUrl: string): Promise<Map<string, ImageData>> {
+    const fullImage = await loadImage(imageUrl);
+    const { frames, width, height } = await loadAtlas(jsonUrl);
+    const canvas = new OffscreenCanvas(width, height);
+    const ctx = canvas.getContext('2d');
+    if (ctx === null) throw new Error('2D context not found');
+    const data = new Map<string, ImageData>();
+    for (let [name, { x: sx, y: sy, w, h }] of Object.entries(frames)) {
+        canvas.width = w;
+        canvas.height = h;
+        ctx.clearRect(0, 0, w, h);
+        ctx.drawImage(fullImage, sx, sy, w, h, 0, 0, w, h);
+        data.set(name, ctx.getImageData(0, 0, w, h));
+    }
+    return data;
 }

@@ -52,19 +52,7 @@ export function Game() {
                 gameState.player.canvasCenterX = newWidth / 2;
                 gameState.player.canvasCenterY = newHeight / 2;
                 if (!canvas.getContext('2d')) throw new Error('2D context not found');
-                const newBackImageData = new ImageData(newWidth, newHeight);
-                // bg-blue-950 tailwind
-                for (let i = 0; i < newBackImageData.data.length; i += 4) {
-                    newBackImageData.data[i + 0] = 23;
-                    newBackImageData.data[i + 1] = 37;
-                    newBackImageData.data[i + 2] = 85;
-                    newBackImageData.data[i + 3] = 255;
-                }
-                display.backImageData = newBackImageData;
-                const offscreenCanvas = display.backCtx.canvas;
-                offscreenCanvas.width = newWidth;
-                offscreenCanvas.height = newHeight;
-                display.backCtx.imageSmoothingEnabled = false;
+                game.resizeDisplay(display, newWidth, newHeight);
             };
 
             /** Sets the mouse center offset for faster mouse projection every frame. */
@@ -190,7 +178,7 @@ export function Game() {
 
     return (
         <>
-            <canvas ref={gameCanvas} className="h-screen w-screen bg-blue-950"></canvas>
+            <canvas ref={gameCanvas} className="h-screen w-screen"></canvas>
             {showDebug && gameStatePointer ?
                 <DebugPanel
                     gameState={gameStatePointer}
