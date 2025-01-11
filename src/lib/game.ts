@@ -447,20 +447,29 @@ export async function updateGame(display: Display, gameState: Game, elapsedTime:
         const height = asset.height;
         const sx = sprite.position.x * 2 - width / 2;
         const sy = sprite.position.y - height;
-        for (let y = 0; y < height; y++) {
-            for (let x = 0; x < width; x++) {
-                const srcPosition = (y * width + x) * 4;
-                const bx = sx + x;
-                const by = sy + y;
-                const destPosition = (by * display.backImageData.width + bx) * 4;
-                const alpha = src[srcPosition + 3]! / 255;
-                dest[destPosition + 0] = dest[destPosition + 0]! * (1 - alpha) + src[srcPosition + 0]! * alpha;
-                dest[destPosition + 1] = dest[destPosition + 1]! * (1 - alpha) + src[srcPosition + 1]! * alpha;
-                dest[destPosition + 2] = dest[destPosition + 2]! * (1 - alpha) + src[srcPosition + 2]! * alpha;
-            }
-        }
+        
+        // Standard way to render image data on pixel basis, should be supported by other pixels for congruity
+        // for (let y = 0; y < height; y++) {
+        //     for (let x = 0; x < width; x++) {
+        //         const srcPosition = (y * width + x) * 4;
+        //         const bx = sx + x;
+        //         const by = sy + y;
+        //         const destPosition = (by * display.backImageData.width + bx) * 4;
+        //         const alpha = src[srcPosition + 3]! / 255;
+        //         dest[destPosition + 0] = dest[destPosition + 0]! * (1 - alpha) + src[srcPosition + 0]! * alpha;
+        //         dest[destPosition + 1] = dest[destPosition + 1]! * (1 - alpha) + src[srcPosition + 1]! * alpha;
+        //         dest[destPosition + 2] = dest[destPosition + 2]! * (1 - alpha) + src[srcPosition + 2]! * alpha;
+        //     }
+        // }
         display.backCtx.putImageData(display.backImageData, 0, 0);
         display.ctx.drawImage(display.backCtx.canvas, 0, 0, display.backCtx.canvas.width, display.backCtx.canvas.height);
+        
+        // Below is a way to render imagedata without manipulation
+        const offscreenCanvas = new OffscreenCanvas(asset.width, asset.height);
+        const ctx = offscreenCanvas.getContext('2d');
+        if (ctx === null) throw new Error('2D context is not found.');
+        ctx.putImageData(asset, 0, 0);
+        display.ctx.drawImage(offscreenCanvas, sprite.position.x * .91, sprite.position.y * .75);
     }
 
     // Move player
