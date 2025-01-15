@@ -130,6 +130,7 @@ export function Game() {
              */
             const deltas: number[] = [];
             let prevTimestamp = 0;
+            let timer = 0;
 
             /** The main game loop. Each frame, the game is updated and rendered to the canvas. */
             const frame = (timestamp: number) => {
@@ -145,9 +146,10 @@ export function Game() {
                 // console.log(deltaTime);
 
                 if (!pausedRef.current) {
-                    game.updateGame(display, gameState, elapsedTime, deltaTime).then().catch(console.error);
+                    timer += deltaTime;
+                    game.updateGame(display, gameState, elapsedTime, deltaTime, timer).then().catch(console.error);
                     if (showDebug) {
-                        game.renderShapes(ctx, gameState, elapsedTime, deltaTime);
+                        game.renderShapes(ctx, gameState, elapsedTime, deltaTime, timer);
                     }
                 }
 

@@ -410,7 +410,7 @@ export function spawnLion(target: Vector2, lionPool: Pool<Lion>, lions: Lion[]) 
     lions.push(lion);
 }
 
-export async function updateGame(display: Display, gameState: Game, elapsedTime: number, deltaTime: number) {
+export async function updateGame(display: Display, gameState: Game, elapsedTime: number, deltaTime: number, timer: number) {
     const cx = gameState.player.canvasCenterX, cy = gameState.player.canvasCenterY;
     const pp = gameState.player.center, pv = gameState.player.velocity;
     const pr = gameState.player.radius, prSq = gameState.player.radiusSq;
@@ -754,7 +754,7 @@ export async function updateGame(display: Display, gameState: Game, elapsedTime:
     }
 }
 
-export function renderShapes(ctx: CanvasRenderingContext2D, gameState: Game, elapsedTime: number, deltaTime: number) {
+export function renderShapes(ctx: CanvasRenderingContext2D, gameState: Game, elapsedTime: number, deltaTime: number, timer: number) {
     const player = gameState.player;
     const pp = player.center;
     // First we need to prepare the canvas for the cartesian system
@@ -934,6 +934,15 @@ export function renderShapes(ctx: CanvasRenderingContext2D, gameState: Game, ela
 
     // Finally restore the original matrix
     ctx.restore();
+
+    // Draw timer
+    ctx.font = '40px courier';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = '#FFFFFF';
+    const minutes = Math.floor(timer / 60).toString().padStart(2, '0');
+    const seconds = Math.floor(timer % 60).toString().padStart(2, '0');
+    ctx.fillText(`${minutes}:${seconds}`, ctx.canvas.width / 2, 10);
 }
 
 function renderPoint(ctx: CanvasRenderingContext2D, point: Vector2, radius: number, fill = false) {
