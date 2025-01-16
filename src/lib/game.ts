@@ -410,7 +410,8 @@ export function spawnLion(target: Vector2, lionPool: Pool<Lion>, lions: Lion[]) 
     lions.push(lion);
 }
 
-export async function updateGame(display: Display, gameState: Game, elapsedTime: number, deltaTime: number, timer: number) {
+export async function updateGame(display: Display, gameState: Game, elapsedTime: number, deltaTime: number, timer: number, uiCtx: CanvasRenderingContext2D) {
+    renderUi(uiCtx, timer);
     const cx = gameState.player.canvasCenterX, cy = gameState.player.canvasCenterY;
     const pp = gameState.player.center, pv = gameState.player.velocity;
     const pr = gameState.player.radius, prSq = gameState.player.radiusSq;
@@ -934,7 +935,11 @@ export function renderShapes(ctx: CanvasRenderingContext2D, gameState: Game, ela
 
     // Finally restore the original matrix
     ctx.restore();
+}
 
+function renderUi(ctx: CanvasRenderingContext2D, timer: number) {
+    // TODO: dont clear (and relatedly redraw) everything
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     // Draw timer
     ctx.font = '40px courier';
     ctx.textAlign = 'center';

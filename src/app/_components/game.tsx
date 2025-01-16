@@ -13,6 +13,7 @@ export function Game() {
     type KeyAction = () => void;
 
     const gameCanvas = useRef<HTMLCanvasElement>(null);
+    const uiCanvas = useRef<HTMLCanvasElement>(null);
     const [gameStatePointer, setGameStatePointer] = useState<game.Game>(null!);
     const [frameCount, setFrameCount] = useState(0);
     const [showDebug, setShowDebug] = useState(true);
@@ -40,6 +41,14 @@ export function Game() {
         ctx.imageSmoothingEnabled = false;
         const display = game.createDisplay(ctx, windowWidth, windowHeight);
 
+        if (!uiCanvas.current) throw new Error('Canvas not found');
+        uiCanvas.current.width = windowWidth;
+        uiCanvas.current.height = windowHeight * 0.15;
+        const uiCtx = uiCanvas.current.getContext('2d');
+        if (!uiCtx) throw new Error('UI 2D context not found');
+        uiCtx.imageSmoothingEnabled = false;
+
+
         game.createGame("singlecell").then((gameState) => {
             /** Update the canvas dimensions and store the center in game state. */
             const handleResize = (_?: Event) => {
@@ -53,6 +62,12 @@ export function Game() {
                 gameState.player.canvasCenterY = newHeight / 2;
                 if (!canvas.getContext('2d')) throw new Error('2D context not found');
                 game.resizeDisplay(display, newWidth, newHeight);
+
+                const canvasUi = uiCanvas.current;
+                if (!canvasUi) throw new Error('UI canvas not found');
+                canvasUi.width = newWidth;
+                canvasUi.height = newHeight * 0.15;
+                if (!canvasUi.getContext('2d')) throw new Error('UI 2D context not found');
             };
 
             /** Sets the mouse center offset for faster mouse projection every frame. */
@@ -147,7 +162,7 @@ export function Game() {
 
                 if (!pausedRef.current) {
                     timer += deltaTime;
-                    game.updateGame(display, gameState, elapsedTime, deltaTime, timer).then().catch(console.error);
+                    game.updateGame(display, gameState, elapsedTime, deltaTime, timer, uiCtx).then().catch(console.error);
                     if (showDebug) {
                         game.renderShapes(ctx, gameState, elapsedTime, deltaTime, timer);
                     }
@@ -184,7 +199,10 @@ export function Game() {
 
     return (
         <>
-            <canvas ref={gameCanvas} className="h-screen w-screen"></canvas>
+            <div className="h-screen w-screen">
+                <canvas ref={gameCanvas} className="h-screen w-screen absolute top-0 left-0"></canvas>
+                <canvas ref={uiCanvas} className="h-[15vh] w-screen absolute top-0 left-0 bg-stone-500/25 pointer-events-none"></canvas>
+            </div>
             {showDebug && gameStatePointer ?
                 <DebugPanel
                     gameState={gameStatePointer}
