@@ -147,6 +147,12 @@ export function Game() {
                 // navigator.sendBeacon('/log-closure', JSON.stringify({ status: 'closed' }));
             }
 
+            const handleVisiblity = (e: Event) => {
+                if (document.hidden) {
+                    setPaused(true);
+                }
+            }
+
             setGameStatePointer(gameState); // Capture state once as a reference
             handleResize(); // Resize once to set the projected bounds
             /** 
@@ -187,6 +193,7 @@ export function Game() {
                 window.requestAnimationFrame(frame);
             });
 
+            window.addEventListener('visibilitychange', handleVisiblity);
             window.addEventListener('beforeunload', handleBeforeUnload);
             window.addEventListener('resize', handleResize);
             window.addEventListener('keydown', handleKeyDown);
@@ -196,6 +203,7 @@ export function Game() {
             ctx.canvas.addEventListener('mouseup', handleMouseUp);
 
             return () => {
+                window.removeEventListener('visibilitychange', handleVisiblity);
                 window.removeEventListener('beforeunload', handleBeforeUnload);
                 window.removeEventListener('resize', handleResize);
                 window.removeEventListener('keydown', handleKeyDown);

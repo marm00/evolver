@@ -15,7 +15,7 @@ export function DebugPanel({ gameState, frameCount }: { gameState: game.Game, fr
     }
 
     return (
-        <div className="fixed top-5 right-5 p-5 select-none hover:select-text focus:select-text outline-none
+        <div className="fixed top-10 right-5 p-5 select-none hover:select-text focus:select-text outline-none
         focus:ring-2 focus:ring-slate-500 bg-slate-300/25 text-white font-mono flex flex-col text-right 
         overflow-auto max-h-screen max-w-full whitespace-pre-wrap" tabIndex={0}>
             <div className="grid grid-cols-[auto_auto] gap-x-2">
