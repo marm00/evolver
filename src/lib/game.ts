@@ -45,6 +45,7 @@ const OBSIDIAN_ACCELERATION = 1 + (6 / 100);
 /** Threshold for finishing a lerp to a target in pixels. */
 const OBSIDIAN_THRESHOLD = 4; // TODO: replace with epsilon?
 const OBSIDIAN_JUMP_DISTANCE = OBSIDIAN_RADIUS * 5;
+const OBSIDIAN_XP = 10;
 
 const THUNDERSTORM_RADIUS = 96;
 /** Y-axis offset for the center of the cloud above the shadow. */
@@ -148,19 +149,10 @@ export function createDisplay(ctx: CanvasRenderingContext2D, width: number, heig
 }
 
 export function resizeDisplay(display: Display, newWidth: number, newHeight: number) {
-    const newBackImageData = new ImageData(newWidth, newHeight);
-    // bg-blue-950 tailwind
-    for (let i = 0; i < newBackImageData.data.length; i += 4) {
-        newBackImageData.data[i + 0] = 23;
-        newBackImageData.data[i + 1] = 37;
-        newBackImageData.data[i + 2] = 85;
-        newBackImageData.data[i + 3] = 255;
-    }
-    display.backImageData = newBackImageData;
+    display.backImageData = new ImageData(newWidth, newHeight);
     const offscreenCanvas = display.backCtx.canvas;
     offscreenCanvas.width = newWidth;
     offscreenCanvas.height = newHeight;
-    display.backCtx.imageSmoothingEnabled = false;
 }
 
 
@@ -410,8 +402,8 @@ export function spawnLion(target: Vector2, lionPool: Pool<Lion>, lions: Lion[]) 
     lions.push(lion);
 }
 
-export async function updateGame(display: Display, gameState: Game, elapsedTime: number, deltaTime: number, timer: number, uiCtx: CanvasRenderingContext2D) {
-    renderUi(uiCtx, timer);
+export async function updateGame(display: Display, gameState: Game, elapsedTime: number, deltaTime: number, timer: number, uiDisplay: Display) {
+    renderUi(uiDisplay, timer, gameState.player);
     const cx = gameState.player.canvasCenterX, cy = gameState.player.canvasCenterY;
     const pp = gameState.player.center, pv = gameState.player.velocity;
     const pr = gameState.player.radius, prSq = gameState.player.radiusSq;
@@ -448,7 +440,7 @@ export async function updateGame(display: Display, gameState: Game, elapsedTime:
         const height = asset.height;
         const sx = sprite.position.x * 2 - width / 2;
         const sy = sprite.position.y - height;
-        
+
         // Standard way to render image data on pixel basis, should be supported by other pixels for congruity
         // for (let y = 0; y < height; y++) {
         //     for (let x = 0; x < width; x++) {
@@ -464,7 +456,7 @@ export async function updateGame(display: Display, gameState: Game, elapsedTime:
         // }
         display.backCtx.putImageData(display.backImageData, 0, 0);
         display.ctx.drawImage(display.backCtx.canvas, 0, 0, display.backCtx.canvas.width, display.backCtx.canvas.height);
-        
+
         // Below is a way to render imagedata without manipulation
         const offscreenCanvas = new OffscreenCanvas(asset.width, asset.height);
         const ctx = offscreenCanvas.getContext('2d');
@@ -520,7 +512,7 @@ export async function updateGame(display: Display, gameState: Game, elapsedTime:
         const displayRadius = _Math.lerp(0.5, 1, t) * METEORITE_DISPLAY_RADIUS;
     }
 
-    // Collect/move obsidians
+    // Collect obsidians / move obsidians
     // TODO: only jump if in view, and use partition system for uncollected obsidians
     for (const obsidian of gameState.obsidians) {
         const c = obsidian.center, jump = obsidian.jump;
@@ -546,7 +538,13 @@ export async function updateGame(display: Display, gameState: Game, elapsedTime:
                 if (c.distToSq(pp) < OBSIDIAN_THRESHOLD) {
                     gameState.obsidians.splice(gameState.obsidians.indexOf(obsidian), 1);
                     gameState.obsidianPool.free(obsidian);
-                    // TODO: add resource to player
+                    gameState.player.xp += OBSIDIAN_XP;
+                    if (gameState.player.xp >= gameState.player.xpRequiredTotal) {
+                        ++gameState.player.level;
+                        gameState.player.xp = gameState.player.xp - gameState.player.xpRequiredTotal;
+                        gameState.player.xpRequiredGrowth = 10 + Math.floor(gameState.player.level / 10);
+                        gameState.player.xpRequiredTotal = 5 + ((gameState.player.level - 1) * gameState.player.xpRequiredGrowth);
+                    }
                 }
                 break;
             }
@@ -937,17 +935,47 @@ export function renderShapes(ctx: CanvasRenderingContext2D, gameState: Game, ela
     ctx.restore();
 }
 
-function renderUi(ctx: CanvasRenderingContext2D, timer: number) {
-    // TODO: dont clear (and relatedly redraw) everything
-    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    // Draw timer
-    ctx.font = '40px courier';
+export function renderBackUi(display: Display) {
+    const backCtx = display.backCtx;
+    const ctx = display.ctx;
+    const cw = ctx.canvas.width;
+    const ch = ctx.canvas.height;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
+
+    // Draw xp bar outline
+    backCtx.strokeStyle = '#dddddd';
+    backCtx.strokeRect(0, 1, cw, ch * 0.15);
+}
+
+function renderUi(display: Display, timer: number, player: Player) {
+    const ctx = display.ctx;
+    const backCtx = display.backCtx;
+    const cw = ctx.canvas.width;
+    const ch = ctx.canvas.height;
+    // TODO: dont clear (and relatedly redraw) everything
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    ctx.drawImage(backCtx.canvas, 0, 0);
+    // Draw timer
+    ctx.font = '40px courier';
     ctx.fillStyle = '#FFFFFF';
     const minutes = Math.floor(timer / 60).toString().padStart(2, '0');
     const seconds = Math.floor(timer % 60).toString().padStart(2, '0');
-    ctx.fillText(`${minutes}:${seconds}`, ctx.canvas.width / 2, 10);
+    ctx.fillText(`${minutes}:${seconds}`, ctx.canvas.width / 2, 50);
+    // Draw xp bar
+    ctx.fillStyle = '#ea00ff';
+    ctx.fillRect(1, 2, Math.floor((player.xp / player.xpRequiredTotal) * cw), (ch * 0.15 - 2));
+    // Draw level
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = '20px courier';
+    const levelString = player.level.toString();
+    const levelStringWidth = ctx.measureText(levelString).width;
+    ctx.fillText(levelString, cw - levelStringWidth, 3);
+    // Draw xp
+    ctx.font = '15px courier';
+    const xpString = `${player.xp.toString().padStart(6, ' ')}/${player.xpRequiredTotal.toString().padEnd(10, ' ')}`;
+    const xpStringWidth = ctx.measureText(xpString).width;
+    ctx.fillText(xpString, cw - levelStringWidth - xpStringWidth, 3);
 }
 
 function renderPoint(ctx: CanvasRenderingContext2D, point: Vector2, radius: number, fill = false) {
@@ -1027,6 +1055,11 @@ class Player {
     pressingLeft = false;
     pressingRight = false;
     idle = () => this.playerDirection === DIR_9.Idle;
+
+    level = 1;
+    xp = 0;
+    xpRequiredGrowth = 10;
+    xpRequiredTotal = 5;
 }
 
 // TODO: flip the bits on keyboard input instead?

@@ -47,6 +47,7 @@ export function Game() {
         const uiCtx = uiCanvas.current.getContext('2d');
         if (!uiCtx) throw new Error('UI 2D context not found');
         uiCtx.imageSmoothingEnabled = false;
+        const uiDisplay = game.createDisplay(uiCtx, windowWidth, windowHeight * 0.15);
 
 
         game.createGame("singlecell").then((gameState) => {
@@ -62,12 +63,21 @@ export function Game() {
                 gameState.player.canvasCenterY = newHeight / 2;
                 if (!canvas.getContext('2d')) throw new Error('2D context not found');
                 game.resizeDisplay(display, newWidth, newHeight);
+                // bg-blue-950 tailwind
+                for (let i = 0; i < display.backImageData.data.length; i += 4) {
+                    display.backImageData.data[i + 0] = 23;
+                    display.backImageData.data[i + 1] = 37;
+                    display.backImageData.data[i + 2] = 85;
+                    display.backImageData.data[i + 3] = 255;
+                }
 
                 const canvasUi = uiCanvas.current;
                 if (!canvasUi) throw new Error('UI canvas not found');
                 canvasUi.width = newWidth;
                 canvasUi.height = newHeight * 0.15;
                 if (!canvasUi.getContext('2d')) throw new Error('UI 2D context not found');
+                game.resizeDisplay(uiDisplay, newWidth, newHeight * 0.15);
+                game.renderBackUi(uiDisplay);
             };
 
             /** Sets the mouse center offset for faster mouse projection every frame. */
@@ -162,7 +172,7 @@ export function Game() {
 
                 if (!pausedRef.current) {
                     timer += deltaTime;
-                    game.updateGame(display, gameState, elapsedTime, deltaTime, timer, uiCtx).then().catch(console.error);
+                    game.updateGame(display, gameState, elapsedTime, deltaTime, timer, uiDisplay).then().catch(console.error);
                     if (showDebug) {
                         game.renderShapes(ctx, gameState, elapsedTime, deltaTime, timer);
                     }
