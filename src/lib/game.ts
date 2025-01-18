@@ -5,6 +5,7 @@ import { _Math } from "./mathUtils";
 import { Matrix3 } from "./matrix3";
 import { defaultFissure, Lion, Meteorite, Obsidian, Orb, Rectangle, RESOURCE_STATE, Rupture, Spear, Thunderstorm, Wall } from "./spear";
 import { AgentWorker, Obstacle, addObstacle, KdTree, addCircle } from "./orca";
+import { ilike } from "drizzle-orm";
 
 const GAME_WIDTH = 6400;
 const GAME_HEIGHT = 6400;
@@ -973,9 +974,20 @@ function renderUi(display: Display, timer: number, player: Player) {
     ctx.fillText(levelString, cw - levelStringWidth, 3);
     // Draw xp
     ctx.font = '15px courier';
-    const xpString = `${player.xp.toString().padStart(6, ' ')}/${player.xpRequiredTotal.toString().padEnd(10, ' ')}`;
+    const xpString = `${player.xp.toString().padStart(6, ' ')}/${player.xpRequiredTotal.toString().padEnd(6, ' ')}`;
     const xpStringWidth = ctx.measureText(xpString).width;
-    ctx.fillText(xpString, cw - levelStringWidth - xpStringWidth, 3);
+    ctx.fillText(xpString, cw - levelStringWidth - xpStringWidth, 5);
+    // Draw xp breakpoints
+    const xpParts = 20;
+    const xpPart = cw / xpParts;
+    ctx.strokeStyle = '#FFFFFF';
+    for (let i = 1; i <= xpParts; i++) {
+        const x = Math.floor(xpPart * i);
+        ctx.beginPath();
+        ctx.moveTo(x, 2);
+        ctx.lineTo(x, Math.floor(ch * 0.15 + 1));
+        ctx.stroke();
+    }
 }
 
 function renderPoint(ctx: CanvasRenderingContext2D, point: Vector2, radius: number, fill = false) {
