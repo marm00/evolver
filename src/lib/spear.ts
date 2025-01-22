@@ -383,6 +383,41 @@ export class Rupture {
     }
 }
 
+interface Bolt {
+    point: Vector2;
+    direction: number;
+}
+
+function defaultBolt(): Bolt {
+    return {
+        point: new Vector2(),
+        direction: _Math.TAU
+    }
+}
+
+export class Volley {
+    // Lightning volley
+    bolts: Bolt[];
+    boltCount: number;
+    time: number;
+    cooldown: number;
+    active = true;
+    lastPlayerAngle = 0;
+    duration: number;
+    length: number;
+    width: number;
+
+    constructor(boltCount: number, cooldown: number, duration: number, length: number, width: number) {
+        this.boltCount = boltCount;
+        this.bolts = Array(boltCount).fill(null).map(() => defaultBolt());
+        this.cooldown = cooldown;
+        this.time = cooldown;
+        this.duration = duration;
+        this.length = length;
+        this.width = width;
+    }
+}
+
 interface Tree {
     center: Vector2;
     radius: number;

@@ -3,7 +3,7 @@ import { Shape, Circle, OrientedRect, Rect } from "./shape";
 import { Pool, Pool2 } from "./pool";
 import { _Math } from "./mathUtils";
 import { Matrix3 } from "./matrix3";
-import { defaultFissure, Lion, Meteorite, Obsidian, Orb, Rectangle, RESOURCE_STATE, Rupture, Spear, Thunderstorm, Wall } from "./spear";
+import { defaultFissure, Volley as Volley, Lion, Meteorite, Obsidian, Orb, Rectangle, RESOURCE_STATE, Rupture, Spear, Thunderstorm, Wall } from "./spear";
 import { AgentWorker, Obstacle, addObstacle, KdTree, addCircle } from "./orca";
 import { ilike } from "drizzle-orm";
 
@@ -89,6 +89,13 @@ const FISSURE_INTERVAL = 1 / 7; // sec
 /** Maximum (abs) difference between step angles in radians. */
 const FISSURE_MAX_DELTA = _Math.degToRad(30);
 
+const VOLLEY_INITIAL_BOLTS = 3;
+const VOLLEY_COOLDOWN = 2; // sec
+const VOLLEY_DURATION = .3; //sec
+const VOLLEY_BOLT_GAP = _Math.degToRad(15);
+const VOLLEY_WIDTH = 20;
+const VOLLEY_LENGTH = HUMAN_VELOCITY / 2;
+
 const SIMULATION_POSITIONS = [new Vector2(0, 0), new Vector2(300, 300)];
 let simulationIndex = 0;
 
@@ -118,6 +125,7 @@ export interface Game {
     simulationCycle: () => void;
     assets: Assets;
     sprites: Sprite[];
+    volley: Volley;
 }
 
 
@@ -328,6 +336,8 @@ export async function createGame(strategy: string): Promise<Game> {
     playerSprites.forEach((asset, name) => assets.set(name, asset));
     const sprites = [] as Sprite[];
 
+    const volley = new Volley(VOLLEY_INITIAL_BOLTS, VOLLEY_COOLDOWN, VOLLEY_DURATION, VOLLEY_LENGTH, VOLLEY_WIDTH);
+
     return {
         world, player, m3Pool, v2Pool, v2Pool2, oRectPool, spearPool, spears: [],
         meteoritePool, meteorites: [], obsidianPool, obsidians: [], thunderstorm, orb, rupture, walls,
@@ -339,7 +349,8 @@ export async function createGame(strategy: string): Promise<Game> {
         kdTree,
         simulationCycle,
         assets,
-        sprites
+        sprites,
+        volley
     };
 }
 
@@ -675,6 +686,23 @@ export async function updateGame(display: Display, gameState: Game, elapsedTime:
         }
     }
 
+    // Move lighting volley / move volley
+    if (gameState.volley.active) {
+        const volley = gameState.volley;
+        if ((volley.time += deltaTime) >= volley.cooldown) {
+            const playerDirection = gameState.player.velocity.dir();
+            const bolts = volley.bolts;
+            const offset = ((bolts.length - 1) * VOLLEY_BOLT_GAP) / 2;
+            let boltDirection = playerDirection - offset;
+            for (let bolt of bolts) {
+                bolt.point.copy(gameState.player.center);
+                bolt.direction = boltDirection;
+                boltDirection += VOLLEY_BOLT_GAP;
+            }
+            volley.time = 0;
+        }
+    }
+
     for (const lion of gameState.lions) {
         if (lion.center.distToSq(gameState.player.center) <= lion.radiusSq * 2) {
             lion.prefVelocity.set(0, 0);
@@ -931,6 +959,15 @@ export function renderShapes(ctx: CanvasRenderingContext2D, gameState: Game, ela
     ctx.lineWidth = 1;
     ctx.strokeStyle = '#FFFFFF';
     ctx.fillStyle = '#FFFFFF';
+
+    // Draw lightning volley / draw volley
+    if (gameState.volley.active && gameState.volley.time < gameState.volley.duration) {
+        for (const bolt of gameState.volley.bolts) {
+            const x = Math.cos(bolt.direction);
+            const y = Math.sin(bolt.direction);
+            renderLine(ctx, player.center, new Vector2(x, y).scale(gameState.volley.length).add(player.center))
+        }
+    }
 
     // Finally restore the original matrix
     ctx.restore();
