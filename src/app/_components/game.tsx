@@ -217,7 +217,7 @@ export function Game() {
 
     return (
         <>
-            <div className="h-screen w-screen">
+            <div className="h-screen w-screen bg-blue-950">
                 <canvas ref={gameCanvas} className="h-screen w-screen absolute top-0 left-0"></canvas>
                 <canvas ref={uiCanvas} className="h-[15vh] w-screen absolute top-0 left-0 bg-stone-500/25 pointer-events-none"></canvas>
             </div>

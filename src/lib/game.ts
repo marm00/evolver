@@ -320,20 +320,20 @@ export async function createGame(strategy: string): Promise<Game> {
         return;
     }
 
-    const [playerSprites] = await Promise.all([
-        loadImageAtlas('Nomad_Atlas.webp', 'Nomad_Atlas_Webp.json'),
-        loadImageDataFrame('Nomad_Atlas.webp', {
-            w: 128,
-            h: 128,
-            x: 0,
-            y: 0
-        }),
-        loadImageData('grass.png'),
-        loadAtlas('Nomad_Atlas_Webp.json')
-    ]);
+    // const [playerSprites] = await Promise.all([
+    //     loadImageAtlas('Nomad_Atlas.webp', 'Nomad_Atlas_Webp.json'),
+    //     loadImageDataFrame('Nomad_Atlas.webp', {
+    //         w: 128,
+    //         h: 128,
+    //         x: 0,
+    //         y: 0
+    //     }),
+    //     loadImageData('grass.png'),
+    //     loadAtlas('Nomad_Atlas_Webp.json')
+    // ]);
 
     const assets = new Map<string, Asset>();
-    playerSprites.forEach((asset, name) => assets.set(name, asset));
+    // playerSprites.forEach((asset, name) => assets.set(name, asset));
     const sprites = [] as Sprite[];
 
     const volley = new Volley(VOLLEY_INITIAL_BOLTS, VOLLEY_COOLDOWN, VOLLEY_DURATION, VOLLEY_LENGTH, VOLLEY_WIDTH);
@@ -438,7 +438,7 @@ export async function updateGame(display: Display, gameState: Game, elapsedTime:
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
     // TODO: refactor
-    if (true) {
+    if (false) {
         const dir9 = gameState.player.playerDirection;
         const assetName = dir9 === 0 ? 'Nomad_Idle_5_01' : `Nomad_StartRun_${dir9}_01`;
         const sprite = {
